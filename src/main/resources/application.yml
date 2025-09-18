@@ -1,0 +1,32 @@
+
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+  datasource:
+    url: jdbc:h2:file:./data/db
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: 507898158443-v30o4karkuovc0fb3qq43f482am22uid.apps.googleusercontent.com
+            client-secret: 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
+            scope: profile, email
+server:
+  port: 8081

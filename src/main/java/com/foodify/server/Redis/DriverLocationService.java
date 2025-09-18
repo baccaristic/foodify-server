@@ -1,0 +1,70 @@
+package com.foodify.server.Redis;
+
+import com.foodify.server.models.Driver;
+import com.foodify.server.repository.DriverRepository;
+import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.geo.*;
+import org.springframework.data.redis.connection.RedisGeoCommands;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class DriverLocationService {
+
+    private final StringRedisTemplate redisTemplate;
+    private static final String GEO_KEY = "drivers:geo";
+    private static final String STATUS_KEY_PREFIX = "driver:status:";
+    private final DriverRepository driverRepository;
+    // ✅ Find closest available drivers
+    public List<String> findClosestDrivers(double lat, double lon, double radiusKm, int limit) {
+        GeoResults<RedisGeoCommands.GeoLocation<String>> results =
+                redisTemplate.opsForGeo().radius(
+                        GEO_KEY,
+                        new Circle(new Point(lon, lat), new Distance(radiusKm, Metrics.KILOMETERS)),
+                        RedisGeoCommands.GeoRadiusCommandArgs.newGeoRadiusArgs().limit(limit).sortAscending()
+                );
+
+        if (results == null) return List.of();
+
+        return results.getContent().stream()
+                .map(r -> r.getContent().getName())
+                .filter(this::isAvailable) // ✅ only pick available drivers
+                .collect(Collectors.toList());
+    }
+
+    public boolean isAvailable(String driverId) {
+        String status = redisTemplate.opsForValue().get(STATUS_KEY_PREFIX + driverId);
+        return status == null || status.equals("AVAILABLE");
+    }
+
+    public void markPending(String driverId, Long orderId) {
+        redisTemplate.opsForValue().set(STATUS_KEY_PREFIX + driverId, "PENDING:" + orderId);
+    }
+
+    public void markAvailable(String driverId) {
+        redisTemplate.opsForValue().set(STATUS_KEY_PREFIX + driverId, "AVAILABLE");
+    }
+
+    public void markBusy(String driverId, Long orderId) {
+        redisTemplate.opsForValue().set(STATUS_KEY_PREFIX + driverId, "BUSY:" + orderId);
+    }
+    public void updateDriverLocation(Long driverId, double lat, double lng) {
+        Driver driver = this.driverRepository.findById(driverId).orElse(null);
+        if (driver == null) return;
+        if (driver.isAvailable()) {
+            this.markAvailable(String.valueOf(driverId));
+        }
+        redisTemplate.opsForGeo().add(GEO_KEY, new Point(lng, lat), driverId.toString());
+    }
+    public void removeDriver(Long driverId) {
+        redisTemplate.opsForGeo().remove(GEO_KEY, driverId.toString());
+    }
+
+}
+
+
