@@ -47,6 +47,9 @@ public class DriverLocationService {
     }
 
     public void markAvailable(String driverId) {
+        Driver driver = driverRepository.findById(Long.valueOf(driverId)).orElse(null);
+        driver.setAvailable(true);
+        driverRepository.save(driver);
         redisTemplate.opsForValue().set(STATUS_KEY_PREFIX + driverId, "AVAILABLE");
     }
 

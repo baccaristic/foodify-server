@@ -71,5 +71,12 @@ public class RestaurantController {
 
     }
 
+    @PostMapping("/order/ready/{id}")
+    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    public Order readyOrder(Authentication authentication, @PathVariable Long id) {
+        Long userId = Long.parseLong((String) authentication.getPrincipal());
+        return this.restaurantService.markOrderReady(id, userId);
+    }
+
 
 }

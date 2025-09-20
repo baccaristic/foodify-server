@@ -39,6 +39,7 @@ public class Order  {
     private LocalDateTime orderTime;
 
     @OneToOne(mappedBy = "order", cascade = CascadeType.ALL)
+    @JsonIgnore
     private Delivery delivery;
 
     @Enumerated(EnumType.STRING)
@@ -50,4 +51,6 @@ public class Order  {
     @JoinColumn(name = "pending_driver_id")
     @JsonIgnore
     private Driver pendingDriver;
+
+    private String pickupToken;
 }

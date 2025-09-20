@@ -1,14 +1,11 @@
 package com.foodify.server.controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.foodify.server.config.Auth;
 import com.foodify.server.dto.RestaurantDto;
 import com.foodify.server.models.Restaurant;
 import com.foodify.server.service.AdminService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;

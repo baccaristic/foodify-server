@@ -88,13 +88,14 @@ public class RestaurantService {
         String driverId = driverIds.get(0);
         driverLocationService.markPending(driverId, order.getId());
         order.setPendingDriver(driverService.findById(Long.valueOf(driverId)));
-        orderRepository.save(order);
+        order = orderRepository.save(order);
         List<UserDevice> userDevices = userDeviceService.findByUser(Long.valueOf(driverId));
+        final Order[] finalOrder = {order};
         userDevices.forEach(userDevice -> {
             try {
                 pushNotificationService.sendOrderNotification(
                         userDevice.getDeviceToken(),
-                        order.getId(),
+                        finalOrder[0].getId(),
                         "You have a new delivery request",
                         "You have recieved a new delivery request. You have 2 minutes to accept or decline.",
                         NotificationType.ORDER_DRIVER_NEW_ORDER
@@ -105,14 +106,17 @@ public class RestaurantService {
         });
 
         // ✅ Start 30s timer
+        final Order[] finalOrder1 = {order};
         Executors.newSingleThreadScheduledExecutor().schedule(() -> {
             // Check if still pending
             if (driverLocationService.isAvailable(driverId)) return; // already reset
             String status = redisTemplate.opsForValue().get("driver:status:" + driverId);
-            if (status != null && status.equals("PENDING:" + order.getId())) {
+            if (finalOrder1[0].getDelivery() == null) {
                 // Timeout: release driver + try next one
                 driverLocationService.markAvailable(driverId);
-                assignDriver(order);
+                finalOrder1[0].setPendingDriver(null);
+                finalOrder1[0] = orderRepository.save(finalOrder1[0]);
+                assignDriver(finalOrder1[0]);
             }
         }, 30, TimeUnit.SECONDS);
     }
@@ -154,5 +158,45 @@ public class RestaurantService {
         item.setExtras(extras);
 
         return menuItemRepository.save(item);
+    }
+
+    public Order markOrderReady(Long orderId, Long userId) {
+        return orderRepository.findById(orderId).map(order -> {
+            if (!order.getRestaurant().getAdmin().getId().equals(userId)) {
+                throw new RuntimeException("Unauthorized");
+            }
+            order.setStatus(OrderStatus.READY_FOR_PICK_UP);
+            Client client = order.getClient();
+            Driver driver = order.getDelivery().getDriver();
+            List<UserDevice> driverUserDevices = userDeviceService.findByUser(driver.getId());
+            driverUserDevices.forEach(userDevice ->  {
+                try {
+                    pushNotificationService.sendOrderNotification(
+                            userDevice.getDeviceToken(),
+                            orderId,
+                            "Order is ready for Pick Up",
+                            "Your Order is ready to be picked up",
+                            NotificationType.ORDER_DRIVER_ORDER_READY
+                    );
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            List<UserDevice> clientDevices = userDeviceService.findByUser(client.getId());
+            clientDevices.forEach(clientDevice -> {
+                try {
+                    pushNotificationService.sendOrderNotification(
+                            clientDevice.getDeviceToken(),
+                            orderId,
+                            "Your Order Is Ready",
+                            "Restaurant has finished preparing your order, we will notify you once the driver picked-up your order.",
+                            NotificationType.ORDER_CLIENT_ORDER_READY
+                    );
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            return orderRepository.save(order);
+        }).orElseThrow(() -> new RuntimeException("Order not found"));
     }
 }

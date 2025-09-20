@@ -1,5 +1,7 @@
 package com.foodify.server.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -11,5 +13,6 @@ public class Driver extends User {
     private boolean available;
 
     @OneToMany(mappedBy = "driver")
+    @JsonIgnore
     private List<Delivery> deliveries;
 }
