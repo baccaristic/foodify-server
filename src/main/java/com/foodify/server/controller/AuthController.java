@@ -156,4 +156,22 @@ public class AuthController {
                 .contentType(MediaType.IMAGE_JPEG)
                 .body(resource);
     }
+
+    @GetMapping("/heart-beat")
+    public ResponseEntity<?> checkSession(@RequestHeader("Authorization") String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("status", "expired", "message", "No token"));
+        }
+
+        String token = authHeader.substring(7);
+
+        if (jwtService.isTokenExpired(token)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("status", "expired", "message", "Token expired"));
+        }
+
+        return ResponseEntity.ok(Map.of("status", "active"));
+    }
+
 }
