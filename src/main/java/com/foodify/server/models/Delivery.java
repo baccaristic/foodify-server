@@ -20,6 +20,9 @@ public class Delivery {
     @ManyToOne
     private Driver driver;
 
+    private Long deliveryTime;
+    private Long timeToPickUp;
+
     private LocalDateTime pickupTime;
     private LocalDateTime deliveredTime;
 }

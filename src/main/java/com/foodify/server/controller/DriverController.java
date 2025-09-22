@@ -1,9 +1,7 @@
 package com.foodify.server.controller;
 
 import com.foodify.server.Redis.DriverLocationService;
-import com.foodify.server.dto.DriverLocationDto;
-import com.foodify.server.dto.PickUpOrderRequest;
-import com.foodify.server.dto.StatusUpdateRequest;
+import com.foodify.server.dto.*;
 import com.foodify.server.models.Order;
 import com.foodify.server.service.DriverService;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +34,7 @@ public class DriverController {
 
     @PostMapping("/accept-order/{id}")
     @PreAuthorize("hasAuthority('ROLE_DRIVER')")
-    public Order acceptOrder(Authentication authentication, @PathVariable Long id) {
+    public OrderDto acceptOrder(Authentication authentication, @PathVariable Long id) throws Exception {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         return this.driverService.acceptOrder(userId, id);
 
@@ -66,5 +64,26 @@ public class DriverController {
         }
         return ResponseEntity.badRequest().build();
 
+    }
+
+    @GetMapping("/ongoing-order")
+    @PreAuthorize("hasAuthority('ROLE_DRIVER')")
+    public OrderDto ongoingOrder(Authentication authentication) {
+        Long userId = Long.parseLong((String) authentication.getPrincipal());
+        return driverService.getOngoingOrder(userId);
+    }
+
+    @PostMapping("/deliver-order")
+    @PreAuthorize("hasAuthority('ROLE_DRIVER')")
+    public Boolean deliverOrder(Authentication authentication, @RequestBody DeliverOrderDto request) {
+        Long userId = Long.parseLong((String) authentication.getPrincipal());
+        return this.driverService.deliverOrder(userId, request);
+    }
+
+    @GetMapping("/history")
+    @PreAuthorize("hasAuthority('ROLE_DRIVER')")
+    public List<OrderDto> getHisotry(Authentication authentication) {
+        Long userId = Long.parseLong((String) authentication.getPrincipal());
+        return this.driverService.getOrderHistory(userId);
     }
 }

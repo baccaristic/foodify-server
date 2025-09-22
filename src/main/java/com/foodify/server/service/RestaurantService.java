@@ -39,6 +39,7 @@ public class RestaurantService {
     private final PushNotificationService pushNotificationService;
     private final UserDeviceService userDeviceService;
     private final DriverService driverService;
+    private final WebSocketService webSocketService;
 
 
     public List<Order> getAllOrders(Restaurant restaurant) {
@@ -169,7 +170,7 @@ public class RestaurantService {
             Client client = order.getClient();
             Driver driver = order.getDelivery().getDriver();
             List<UserDevice> driverUserDevices = userDeviceService.findByUser(driver.getId());
-            driverUserDevices.forEach(userDevice ->  {
+           /* driverUserDevices.forEach(userDevice ->  {
                 try {
                     pushNotificationService.sendOrderNotification(
                             userDevice.getDeviceToken(),
@@ -181,7 +182,8 @@ public class RestaurantService {
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
-            });
+            });*/
+            webSocketService.notifyDriver(driver.getId(), order);
             List<UserDevice> clientDevices = userDeviceService.findByUser(client.getId());
             clientDevices.forEach(clientDevice -> {
                 try {

@@ -53,6 +53,17 @@ public class DriverLocationService {
         redisTemplate.opsForValue().set(STATUS_KEY_PREFIX + driverId, "AVAILABLE");
     }
 
+    public Point getLastKnownPosition(Long driverId) {
+        List<Point> positions = redisTemplate.opsForGeo()
+                .position(GEO_KEY, driverId.toString());
+
+        if (positions == null || positions.isEmpty() || positions.get(0) == null) {
+            return null; // no known location
+        }
+
+        return positions.get(0); // Redis stores as (longitude, latitude)
+    }
+
     public void markBusy(String driverId, Long orderId) {
         redisTemplate.opsForValue().set(STATUS_KEY_PREFIX + driverId, "BUSY:" + orderId);
     }

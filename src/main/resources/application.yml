@@ -30,3 +30,7 @@ spring:
             scope: profile, email
 server:
   port: 8081
+google:
+  maps:
+    api:
+      key: AIzaSyDLnMZhFNGZvImKZCCMXv6Qz7sTzPyLvfY

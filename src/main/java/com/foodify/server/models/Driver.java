@@ -11,6 +11,7 @@ import java.util.List;
 @Entity
 public class Driver extends User {
     private boolean available;
+    private String phone;
 
     @OneToMany(mappedBy = "driver")
     @JsonIgnore

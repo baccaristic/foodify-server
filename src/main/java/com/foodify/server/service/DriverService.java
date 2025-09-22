@@ -1,9 +1,13 @@
 package com.foodify.server.service;
 
+import com.foodify.server.Redis.DriverLocationService;
+import com.foodify.server.dto.DeliverOrderDto;
+import com.foodify.server.dto.OrderDto;
 import com.foodify.server.dto.PickUpOrderRequest;
 import com.foodify.server.enums.NotificationType;
 import com.foodify.server.enums.OrderStatus;
 import com.foodify.server.firebase.PushNotificationService;
+import com.foodify.server.mappers.OrderMapper;
 import com.foodify.server.models.Delivery;
 import com.foodify.server.models.Driver;
 import com.foodify.server.models.Order;
@@ -11,13 +15,15 @@ import com.foodify.server.models.UserDevice;
 import com.foodify.server.repository.DeliveryRepository;
 import com.foodify.server.repository.DriverRepository;
 import com.foodify.server.repository.OrderRepository;
+import com.foodify.server.ws.WebSocketService;
+import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.data.geo.Point;
 
-import java.util.List;
-import java.util.Objects;
+import java.time.LocalDateTime;
+import java.util.*;
 
 @Service
 @AllArgsConstructor
@@ -29,9 +35,12 @@ public class DriverService {
     private final PushNotificationService pushNotificationService;
     private final QrCodeService qrCodeService;
     private final StringRedisTemplate redisTemplate;
+    private final GoogleMapsService googleMapsService;
+    private final DriverLocationService driverLocationService;
+    private final WebSocketService webSocketService;
 
 
-    public Order acceptOrder(Long driverId, Long orderId) {
+    public OrderDto acceptOrder(Long driverId, Long orderId) throws Exception {
         Driver driver = driverRepository.findById(driverId).orElse(null);
         Order order = orderRepository.findById(orderId).orElse(null);
 
@@ -54,6 +63,23 @@ public class DriverService {
         Delivery delivery = new Delivery();
         delivery.setOrder(order);
         delivery.setDriver(driver);
+        Point lastPosition = driverLocationService.getLastKnownPosition(driverId);
+        delivery.setTimeToPickUp(
+                googleMapsService.getDrivingRoute(
+                        lastPosition.getY(),
+                        lastPosition.getX(),
+                        order.getRestaurant().getLatitude(),
+                        order.getRestaurant().getLongitude()
+                )
+        );
+        delivery.setDeliveryTime(
+                googleMapsService.getDrivingRoute(
+                        order.getRestaurant().getLatitude(),
+                        order.getRestaurant().getLongitude(),
+                        order.getLat(),
+                        order.getLng()
+                )
+        );
 
         // Update relations
         order.setDelivery(delivery);
@@ -80,7 +106,9 @@ public class DriverService {
             }
         });
         order.setPendingDriver(null);
-        return orderRepository.save(order);
+        order = orderRepository.save(order);
+        webSocketService.notifyDriver(driverId, order);
+        return OrderMapper.toDto(order);
     }
 
     public Driver findById(Long driverId) {
@@ -110,7 +138,38 @@ public class DriverService {
             return false;
         }
         order.setStatus(OrderStatus.IN_DELIVERY);
-        orderRepository.save(order);
+        String deliveryToken = String.format("%03d", new Random().nextInt(900) + 100);
+        order.setDeliveryToken(deliveryToken);
+        order = orderRepository.save(order);
+        webSocketService.notifyDriver(userId, order);
         return true;
+    }
+    @Transactional
+    public OrderDto getOngoingOrder(Long userId) {
+        return OrderMapper.toDto(orderRepository.findByDriverIdAndStatusIn(userId, List.of(OrderStatus.ACCEPTED, OrderStatus.PREPARING,
+                OrderStatus.READY_FOR_PICK_UP, OrderStatus.IN_DELIVERY)).orElse(null));
+    }
+
+    public Boolean deliverOrder(Long driverId, DeliverOrderDto request) {
+        Order order = orderRepository.findById(request.getOrderId()).orElse(null);
+        if (order == null || !Objects.equals(order.getDelivery().getDriver().getId(), driverId)) {
+            return false;
+        }
+        if (!order.getDeliveryToken().equals(request.getToken())) {
+            return false;
+        }
+        order.setStatus(OrderStatus.DELIVERED);
+        order.getDelivery().setDeliveredTime(LocalDateTime.now());
+        webSocketService.notifyDriver(driverId, orderRepository.save(order));
+        return true;
+    }
+
+    public List<OrderDto> getOrderHistory(Long driverId) {
+        List<Order> orders = orderRepository.findAllByDriverIdAndStatus(driverId, OrderStatus.DELIVERED);
+        List<OrderDto> result = new ArrayList<>();
+        orders.forEach(order -> {
+            result.add(OrderMapper.toDto(order));
+        });
+        return result;
     }
 }
