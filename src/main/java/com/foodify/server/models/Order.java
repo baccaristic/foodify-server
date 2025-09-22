@@ -53,4 +53,6 @@ public class Order  {
     private Driver pendingDriver;
 
     private String pickupToken;
+
+    private String deliveryToken;
 }
