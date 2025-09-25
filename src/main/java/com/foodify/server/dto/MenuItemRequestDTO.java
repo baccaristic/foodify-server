@@ -14,7 +14,10 @@ public class MenuItemRequestDTO {
     private String category;
     private boolean popular;
     private Long restaurantId;
-    private List<ExtraDTO> extras;
 
-    // Getters and Setters
+    // Multiple images
+    private List<String> imageUrls;
+
+    // Groups like "Choose your toppings", "Choose your meat"
+    private List<OptionGroupDTO> optionGroups;
 }

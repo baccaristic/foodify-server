@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -36,13 +37,20 @@ public class RestaurantController {
     @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
     public MenuItem addMenuItem(
             Authentication authentication,
-                                @RequestPart("menu") String menuJson,
-                                @RequestPart("file") MultipartFile file) throws IOException {
+            @RequestPart("menu") String menuJson,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files) throws IOException {
 
-        RestaurantAdmin restaurantAdmin = this.restaurantAdminRepository.findById(Long.parseLong((String) authentication.getPrincipal())).orElse(null);
+        // 1. Get restaurant admin from authentication
+        RestaurantAdmin restaurantAdmin = restaurantAdminRepository.findById(
+                Long.parseLong((String) authentication.getPrincipal())
+        ).orElseThrow(() -> new RuntimeException("Restaurant admin not found"));
+
+        // 2. Parse DTO
         MenuItemRequestDTO menuDto = objectMapper.readValue(menuJson, MenuItemRequestDTO.class);
         menuDto.setRestaurantId(restaurantAdmin.getRestaurant().getId());
-        return this.restaurantService.addMenu(menuDto, file);
+
+        // 3. Call service (empty list if no files provided)
+        return restaurantService.addMenu(menuDto, files != null ? files : new ArrayList<>());
     }
 
     @GetMapping("/my-menu")

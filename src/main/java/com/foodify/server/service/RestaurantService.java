@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -127,39 +128,62 @@ public class RestaurantService {
         return this.orderRepository.findById(id).orElse(null);
     }
 
-    public MenuItem addMenu(MenuItemRequestDTO menuDto, MultipartFile file) throws IOException {
+    public MenuItem addMenu(MenuItemRequestDTO menuDto, List<MultipartFile> files) throws IOException {
 
-        String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
-        Path path = Paths.get("uploads").resolve(filename);
-        Files.createDirectories(path.getParent());
-        Files.copy(file.getInputStream(), path, StandardCopyOption.REPLACE_EXISTING);
+        // 1. Handle image uploads
+        List<String> imageFilenames = new ArrayList<>();
+        for (MultipartFile file : files) {
+            if (file != null && !file.isEmpty()) {
+                String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
+                Path path = Paths.get("uploads").resolve(filename);
+                Files.createDirectories(path.getParent());
+                Files.copy(file.getInputStream(), path, StandardCopyOption.REPLACE_EXISTING);
+                imageFilenames.add(filename);
+            }
+        }
 
-
+        // 2. Create MenuItem
         MenuItem item = new MenuItem();
         item.setName(menuDto.getName());
         item.setDescription(menuDto.getDescription());
         item.setPrice(menuDto.getPrice());
         item.setCategory(menuDto.getCategory());
         item.setPopular(menuDto.isPopular());
-        item.setImageUrl(filename);
+        item.setImageUrls(imageFilenames);
 
         Restaurant restaurant = restaurantRepository.findById(menuDto.getRestaurantId())
                 .orElseThrow(() -> new RuntimeException("Restaurant not found"));
         item.setRestaurant(restaurant);
 
-        // Map Extras
-        List<MenuItemExtra> extras = menuDto.getExtras().stream().map(dto -> {
-            MenuItemExtra extra = new MenuItemExtra();
-            extra.setName(dto.getName());
-            extra.setPrice(dto.getPrice());
-            extra.setRequired(dto.isRequired());
-            extra.setMenuItem(item); // bidirectional
-            return extra;
-        }).collect(Collectors.toList());
-        item.setExtras(extras);
+        // 3. Map option groups
+        List<MenuOptionGroup> optionGroups = menuDto.getOptionGroups().stream().map(groupDto -> {
+            MenuOptionGroup group = new MenuOptionGroup();
+            group.setName(groupDto.getName());
+            group.setMinSelect(groupDto.getMinSelect());
+            group.setMaxSelect(groupDto.getMaxSelect());
+            group.setRequired(groupDto.isRequired());
+            group.setMenuItem(item); // bidirectional
 
+            // 4. Map extras inside group
+            List<MenuItemExtra> extras = groupDto.getExtras().stream().map(extraDto -> {
+                MenuItemExtra extra = new MenuItemExtra();
+                extra.setName(extraDto.getName());
+                extra.setPrice(extraDto.getPrice());
+                extra.setDefault(extraDto.isDefault());
+                extra.setOptionGroup(group); // bidirectional
+                return extra;
+            }).collect(Collectors.toList());
+
+            group.setExtras(extras);
+            return group;
+        }).collect(Collectors.toList());
+
+        item.setOptionGroups(optionGroups);
+
+        // 5. Save and return
         return menuItemRepository.save(item);
     }
+
 
     public Order markOrderReady(Long orderId, Long userId) {
         return orderRepository.findById(orderId).map(order -> {

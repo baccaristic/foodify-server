@@ -13,12 +13,12 @@ public class MenuItemExtra {
     @GeneratedValue
     private Long id;
 
-    private String name;         // e.g. "Cheese"
-    private double price;        // 0 if free
-    private boolean required;    // if this extra must be selected
+    private String name;       // e.g. "Onion +", "Cordon bleu", "Cheddar ++"
+    private double price;      // 0 if included, >0 if extra cost
+    private boolean isDefault; // optional: pre-selected in frontend
 
     @ManyToOne
     @JsonIgnore
-    @JoinColumn(name = "menu_item_id")
-    private MenuItem menuItem;
+    @JoinColumn(name = "option_group_id")
+    private MenuOptionGroup optionGroup;
 }

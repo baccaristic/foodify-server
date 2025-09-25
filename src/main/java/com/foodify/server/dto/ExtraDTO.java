@@ -6,8 +6,8 @@ import lombok.Setter;
 @Getter
 @Setter
 public class ExtraDTO {
-    private Long id;
-    private String name;
-    private double price;
-    private boolean required;
+    private Long id;          // optional (for update scenarios)
+    private String name;      // e.g. "Cheddar ++"
+    private double price;     // extra price (0 if included)
+    private boolean isDefault;// optional: if preselected
 }
