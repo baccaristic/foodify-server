@@ -38,7 +38,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         Claims claims;
 
         try {
-            claims = jwtService.parseToken(token);
+            claims = jwtService.parseAccessToken(token);
         } catch (Exception e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;

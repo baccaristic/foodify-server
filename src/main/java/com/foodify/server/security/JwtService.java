@@ -13,23 +13,35 @@ import java.util.Date;
 @Service
 public class JwtService {
 
-    private final Key secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256); // Replace with your own key if needed
+    private final Key secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+    private final Key refreshSecretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256); // Separate key for refresh
 
-    public String generateToken(User user) {
+    // === Access Token ===
+    public String generateAccessToken(User user) {
         long expirationTimeMillis = 1000 * 60 * 60 * 24; // 24 hours
-
         return Jwts.builder()
                 .setSubject(user.getId().toString())
                 .claim("email", user.getEmail())
                 .claim("role", user.getRole())
-                .claim("user", user)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + expirationTimeMillis))
                 .signWith(secretKey)
                 .compact();
     }
 
-    public Claims parseToken(String token) {
+    // === Refresh Token ===
+    public String generateRefreshToken(User user) {
+        long expirationTimeMillis = 1000L * 60 * 60 * 24 * 7; // 7 days
+        return Jwts.builder()
+                .setSubject(user.getId().toString())
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + expirationTimeMillis))
+                .signWith(refreshSecretKey)
+                .compact();
+    }
+
+    // === Token Parsing ===
+    public Claims parseAccessToken(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(secretKey)
                 .build()
@@ -37,9 +49,20 @@ public class JwtService {
                 .getBody();
     }
 
-    public boolean isTokenExpired(String token){
-        Claims claims = parseToken(token);
-        return claims.getExpiration().before(new Date());
+    public Claims parseRefreshToken(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(refreshSecretKey)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    // === Expiry Check ===
+    public boolean isAccessTokenExpired(String token){
+        return parseAccessToken(token).getExpiration().before(new Date());
+    }
+
+    public boolean isRefreshTokenExpired(String token){
+        return parseRefreshToken(token).getExpiration().before(new Date());
     }
 }
-

@@ -8,6 +8,7 @@ import com.foodify.server.models.User;
 import com.foodify.server.repository.ClientRepository;
 import com.foodify.server.repository.UserRepository;
 import com.foodify.server.security.JwtService;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
@@ -63,7 +64,7 @@ public class AuthController {
         Optional<Client> existing = clientRepository.findByEmail(request.getEmail());
         if (existing.isPresent()) {
             Client user = existing.get();
-            String token = jwtService.generateToken(user);
+            String token = jwtService.generateAccessToken(user);
             return ResponseEntity.ok(Map.of("email", user.getEmail(), "name", user.getName(), "googleId", user.getGoogleId(), "token", token));
         }
 
@@ -79,7 +80,7 @@ public class AuthController {
 
         Client saved = clientRepository.save(client);
 
-        String token = jwtService.generateToken(saved);
+        String token = jwtService.generateAccessToken(saved);
 
         return ResponseEntity.ok(Map.of(
                 "email", saved.getEmail(),
@@ -92,17 +93,28 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
         if (!userRepository.existsByEmail(request.getEmail())) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("success", false, "message", "Invalid email or password"));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("success", false, "message", "Invalid email or password"));
         }
-        User user = userRepository.findByEmail(request.getEmail()).get();
-        if (passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            String token = jwtService.generateToken(user);
-            return ResponseEntity.ok(Map.of("success", true, "token", token));
-        }
-        else {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Invalid email or password"));
+
+        User user = userRepository.findByEmail(request.getEmail()).orElse(null);
+
+        if (user != null && passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            String accessToken = jwtService.generateAccessToken(user);
+            String refreshToken = jwtService.generateRefreshToken(user);
+
+            // Return AuthResponse style payload
+            return ResponseEntity.ok(Map.of(
+                    "accessToken", accessToken,
+                    "refreshToken", refreshToken,
+                    "user", user
+            ));
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("success", false, "message", "Invalid email or password"));
         }
     }
+
 
     @PostMapping("/register/complete")
     public ResponseEntity<?> completeRegistration(@RequestBody RegisterRequest request) {
@@ -125,7 +137,7 @@ public class AuthController {
         }
 
         Client saved = clientRepository.save(client);
-        String token = jwtService.generateToken(saved);
+        String token = jwtService.generateAccessToken(saved);
 
         return ResponseEntity.ok(Map.of(
                 "user", Map.of(
@@ -166,12 +178,47 @@ public class AuthController {
 
         String token = authHeader.substring(7);
 
-        if (jwtService.isTokenExpired(token)) {
+        if (jwtService.isAccessTokenExpired(token)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("status", "expired", "message", "Token expired"));
         }
 
         return ResponseEntity.ok(Map.of("status", "active"));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(@RequestBody Map<String, String> request) {
+        String refreshToken = request.get("refreshToken");
+
+        try {
+            // Parse and validate refresh token
+            Claims claims = jwtService.parseRefreshToken(refreshToken);
+
+            if (jwtService.isRefreshTokenExpired(refreshToken)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "Refresh token expired"));
+            }
+
+            // Extract user ID
+            Long userId = Long.valueOf(claims.getSubject());
+            User user = userRepository.findById(userId).orElse(null);
+
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User not found"));
+            }
+
+            // Generate new tokens
+            String newAccessToken = jwtService.generateAccessToken(user);
+
+            return ResponseEntity.ok(Map.of(
+                    "accessToken", newAccessToken
+            ));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("success", false, "message", "Invalid refresh token"));
+        }
     }
 
 }

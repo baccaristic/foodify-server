@@ -61,7 +61,7 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
             clientRepository.save(client);
         }
 
-        String token = jwtService.generateToken(client);
+        String token = jwtService.generateAccessToken(client);
         response.sendRedirect("http://localhost:8080/after-login?token=" + token);
     }
 }

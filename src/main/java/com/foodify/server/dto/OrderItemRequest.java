@@ -10,6 +10,8 @@ import java.util.List;
 public class OrderItemRequest {
     private Long menuItemId;
     private int quantity;
-    private List<ExtraDTO> extras;
     private String specialInstructions;
+
+    // Explicitly selected extras by the client
+    private List<Long> extraIds;
 }

@@ -39,7 +39,7 @@ public class WebSocketEventListener {
 
         if (authHeaders != null && !authHeaders.isEmpty()) {
             String token = authHeaders.get(0).replace("Bearer ", "");
-            Claims claims = jwtService.parseToken(token);
+            Claims claims = jwtService.parseAccessToken(token);
             String driverIdStr = claims.getSubject();
             Long driverId = Long.valueOf(driverIdStr);
         }

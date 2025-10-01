@@ -15,6 +15,8 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -36,20 +38,29 @@ public class OrderConsumer {
         order.setLng(request.getLocation().getLng());
         order.setPaymentMethod(request.getPaymentMethod());
 
-        // TODO: attach real authenticated client if available
         order.setClient(clientRepository.findById(request.getUserId()).orElse(null));
         order.setItems(new ArrayList<>());
+
         for (OrderItemRequest itemReq : request.getItems()) {
             OrderItem item = new OrderItem();
             item.setMenuItem(menuItemRepository.findById(itemReq.getMenuItemId()).orElse(null));
             item.setQuantity(itemReq.getQuantity());
             item.setSpecialInstructions(itemReq.getSpecialInstructions());
             item.setOrder(order);
-            item.setMenuItemExtras(itemReq.getExtras().stream()
-                    .map(e -> menuItemExtraRepository.findById(e.getId()).orElse(null)).toList());
+
+            // Load extras by IDs
+            if (itemReq.getExtraIds() != null && !itemReq.getExtraIds().isEmpty()) {
+                List<MenuItemExtra> extras = menuItemExtraRepository.findAllById(itemReq.getExtraIds());
+                item.setMenuItemExtras(extras);
+            } else {
+                item.setMenuItemExtras(Collections.emptyList());
+            }
+
             order.getItems().add(item);
         }
+
         order.setStatus(OrderStatus.PENDING);
+
         Restaurant restaurant = restaurantRepository.findById(request.getRestaurantId()).orElse(null);
         order.setRestaurant(restaurant);
         order.setDate(LocalDateTime.now());
@@ -57,9 +68,11 @@ public class OrderConsumer {
         order = orderRepository.save(order);
 
         messagingTemplate.convertAndSend(
-                "/topic/orders/" + restaurant.getAdmin().getId(), mapToNotificationDTO(order)
+                "/topic/orders/" + restaurant.getAdmin().getId(),
+                mapToNotificationDTO(order)
         );
     }
+
 
     public OrderNotificationDTO mapToNotificationDTO(Order order) {
         return new OrderNotificationDTO(
