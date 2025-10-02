@@ -1,11 +1,16 @@
 package com.foodify.server.modules.identity.domain;
 
-import com.foodify.server.modules.identity.domain.AuthProvider;
-import com.foodify.server.modules.identity.domain.Role;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.foodify.server.modules.addresses.domain.SavedAddress;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Data
@@ -28,4 +33,10 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     private Role role;
+
+    @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SavedAddress> savedAddresses = new ArrayList<>();
 }
