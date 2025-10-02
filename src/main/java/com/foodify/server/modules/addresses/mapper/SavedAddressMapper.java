@@ -7,6 +7,9 @@ import com.foodify.server.modules.addresses.dto.SaveAddressRequest;
 import com.foodify.server.modules.addresses.dto.SavedAddressResponse;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
 @Component
 public class SavedAddressMapper {
 
@@ -19,7 +22,11 @@ public class SavedAddressMapper {
         entity.setEntranceNotes(request.getEntranceNotes());
         entity.setDirections(request.getDirections());
         entity.setNotes(request.getNotes());
-        entity.setPrimary(Boolean.TRUE.equals(request.getIsPrimary()));
+        if (request.getIsPrimary() != null) {
+            entity.setPrimary(Boolean.TRUE.equals(request.getIsPrimary()));
+        } else if (entity.getPrimary() == null) {
+            entity.setPrimary(Boolean.FALSE);
+        }
         entity.setTypeDetails(request.getTypeDetails());
         entity.setMetadata(request.getMetadata());
 
@@ -29,8 +36,8 @@ public class SavedAddressMapper {
             if (coordinates == null) {
                 coordinates = new GeoCoordinates();
             }
-            coordinates.setLatitude(coordinatesDto.getLatitude());
-            coordinates.setLongitude(coordinatesDto.getLongitude());
+            coordinates.setLatitude(normalizeCoordinate(coordinatesDto.getLatitude()));
+            coordinates.setLongitude(normalizeCoordinate(coordinatesDto.getLongitude()));
             coordinates.setGeohash(coordinatesDto.getGeohash());
             entity.setCoordinates(coordinates);
         } else {
@@ -65,5 +72,9 @@ public class SavedAddressMapper {
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
+    }
+
+    private BigDecimal normalizeCoordinate(BigDecimal value) {
+        return value == null ? null : value.setScale(6, RoundingMode.HALF_UP);
     }
 }
