@@ -1,17 +1,21 @@
 package com.foodify.server.modules.customers.api;
 
-import com.foodify.server.modules.restaurants.dto.RestaurantItemDto;
-import com.foodify.server.modules.restaurants.mapper.RestaurantMapper;
-import com.foodify.server.modules.orders.domain.Order;
-import com.foodify.server.modules.restaurants.domain.Restaurant;
-import com.foodify.server.modules.identity.repository.ClientRepository;
-import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import com.foodify.server.modules.customers.application.ClientService;
+import com.foodify.server.modules.identity.repository.ClientRepository;
+import com.foodify.server.modules.orders.domain.Order;
+import com.foodify.server.modules.restaurants.application.RestaurantDetailsService;
+import com.foodify.server.modules.restaurants.dto.RestaurantDetailsResponse;
+import com.foodify.server.modules.restaurants.mapper.RestaurantMapper;
+import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -23,6 +27,7 @@ public class ClientController {
     private final ClientService clientService;
     private final ClientRepository clientRepository;
     private final RestaurantMapper restaurantMapper;
+    private final RestaurantDetailsService restaurantDetailsService;
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
     @GetMapping("/nearby")
@@ -57,22 +62,7 @@ public class ClientController {
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
     @GetMapping("/restaurant/{id}")
-    public RestaurantItemDto getRestaurant(@PathVariable Long id) {
-        RestaurantItemDto dto = new RestaurantItemDto();
-        Restaurant restaurant = this.restaurantRepository.findById(id).orElse(null);
-        dto.setId(restaurant.getId());
-        dto.setName(restaurant.getName());
-        dto.setAddress(restaurant.getAddress());
-        dto.setPhone(restaurant.getPhone());
-        dto.setDescription(restaurant.getDescription());
-        dto.setLatitude(restaurant.getLatitude());
-        dto.setLongitude(restaurant.getLongitude());
-        dto.setImageUrl(restaurant.getImageUrl());
-        dto.setMenu(restaurant.getMenu());
-        dto.setRating(restaurant.getRating());
-        dto.setType(restaurant.getType());
-        dto.setClosingHours(restaurant.getClosingHours());
-        dto.setOpeningHours(restaurant.getOpeningHours());
-        return dto;
+    public RestaurantDetailsResponse getRestaurant(@PathVariable Long id) {
+        return restaurantDetailsService.getRestaurantDetails(id);
     }
 }
