@@ -1,15 +1,15 @@
 package com.foodify.server.modules.auth.api;
 
+import com.foodify.server.modules.auth.application.PhoneNumberUtils;
 import com.foodify.server.modules.auth.dto.*;
 import com.foodify.server.modules.identity.domain.AuthProvider;
-import com.foodify.server.modules.identity.domain.Role;
 import com.foodify.server.modules.identity.domain.Client;
+import com.foodify.server.modules.identity.domain.Role;
 import com.foodify.server.modules.identity.domain.User;
 import com.foodify.server.modules.identity.repository.ClientRepository;
 import com.foodify.server.modules.identity.repository.UserRepository;
 import com.foodify.server.modules.auth.security.JwtService;
 import io.jsonwebtoken.Claims;
-import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -35,37 +36,36 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
-    @PostMapping("/cache-phone")
-    public ResponseEntity<?> cachePhone(@RequestBody PhoneRequest request, HttpSession session) {
-        if (request.getPhone() == null || request.getPhone().isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Phone is required"));
-        }
-        session.setAttribute("pendingPhone", request.getPhone());
-        return ResponseEntity.ok(Map.of("success", true, "message", "Phone cached successfully"));
-    }
-
-    @PostMapping(value = "/verify-phone",  consumes = {"application/json"})
-    public ResponseEntity<?> verifyPhone(@RequestBody PhoneRequest request) {
-        return ResponseEntity.ok(Map.of("success", true, "message", "Phone verified successfully"));
-    }
-
-    @PostMapping("/verify-email")
-    public ResponseEntity<?> verifyEmail(@RequestBody EmailVerificationRequest request) {
-        return ResponseEntity.ok(Map.of("success", true, "message", "Email verified successfully"));
-    }
-
     @PostMapping("/google")
-    public ResponseEntity<?> registerWithGoogle(@RequestBody GoogleRegisterRequest request, HttpSession session) {
-        String phone = (String) session.getAttribute("pendingPhone");
-        if (phone == null) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Phone number not cached"));
+    public ResponseEntity<?> registerWithGoogle(@RequestBody GoogleRegisterRequest request) {
+        if (!StringUtils.hasText(request.getEmail())) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Email is required"));
         }
+
+        String phone = PhoneNumberUtils.normalize(request.getPhone());
 
         Optional<Client> existing = clientRepository.findByEmail(request.getEmail());
         if (existing.isPresent()) {
             Client user = existing.get();
-            String token = jwtService.generateAccessToken(user);
-            return ResponseEntity.ok(Map.of("email", user.getEmail(), "name", user.getName(), "googleId", user.getGoogleId(), "token", token));
+            if (!StringUtils.hasText(user.getPhoneNumber())) {
+                user.setPhoneNumber(phone);
+                user.setPhoneVerified(true);
+                clientRepository.save(user);
+            }
+            String accessToken = jwtService.generateAccessToken(user);
+            String refreshToken = jwtService.generateRefreshToken(user);
+            return ResponseEntity.ok(Map.of(
+                    "email", user.getEmail(),
+                    "name", user.getName(),
+                    "googleId", user.getGoogleId(),
+                    "accessToken", accessToken,
+                    "refreshToken", refreshToken
+            ));
+        }
+
+        if (clientRepository.existsByPhoneNumber(phone)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("success", false, "message", "Phone number already registered"));
         }
 
         Client client = new Client();
@@ -80,13 +80,15 @@ public class AuthController {
 
         Client saved = clientRepository.save(client);
 
-        String token = jwtService.generateAccessToken(saved);
+        String accessToken = jwtService.generateAccessToken(saved);
+        String refreshToken = jwtService.generateRefreshToken(saved);
 
         return ResponseEntity.ok(Map.of(
                 "email", saved.getEmail(),
                 "name", saved.getName(),
                 "googleId", saved.getGoogleId(),
-                "token", token
+                "accessToken", accessToken,
+                "refreshToken", refreshToken
         ));
     }
 
