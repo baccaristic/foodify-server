@@ -23,4 +23,8 @@ public class PhoneSignupStateResponse {
     String email;
     String firstName;
     String lastName;
+    boolean loginAttempt;
+    String accessToken;
+    String refreshToken;
+    AuthenticatedClientResponse user;
 }

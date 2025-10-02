@@ -44,9 +44,7 @@ public class PhoneSignupService {
     public PhoneSignupStateResponse start(StartPhoneSignupRequest request) {
         String phoneNumber = PhoneNumberUtils.normalize(request.getPhoneNumber());
 
-        if (clientRepository.existsByPhoneNumber(phoneNumber)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Phone number already registered");
-        }
+        Client existingClient = clientRepository.findByPhoneNumber(phoneNumber).orElse(null);
 
         List<PhoneSignupSession> existingSessions = sessionRepository.findAllByPhoneNumberAndCompletedFalse(phoneNumber);
         if (!existingSessions.isEmpty()) {
@@ -59,6 +57,10 @@ public class PhoneSignupService {
         sessionRepository.save(session);
 
         smsSender.sendVerificationCode(phoneNumber, session.getVerificationCode());
+
+        if (existingClient != null) {
+            return mapToState(session, null, null, null, true);
+        }
 
         return mapToState(session);
     }
@@ -114,6 +116,15 @@ public class PhoneSignupService {
         session.setPhoneVerifiedAt(now);
         session.setFailedAttemptCount(0);
         sessionRepository.save(session);
+
+        Client existingClient = clientRepository.findByPhoneNumber(session.getPhoneNumber()).orElse(null);
+        if (existingClient != null) {
+            String accessToken = jwtService.generateAccessToken(existingClient);
+            String refreshToken = jwtService.generateRefreshToken(existingClient);
+            AuthenticatedClientResponse user = buildAuthenticatedClientResponse(existingClient);
+            return mapToState(session, user, accessToken, refreshToken, true);
+        }
+
         return mapToState(session);
     }
 
@@ -243,6 +254,14 @@ public class PhoneSignupService {
     }
 
     private PhoneSignupStateResponse mapToState(PhoneSignupSession session) {
+        return mapToState(session, null, null, null, isLoginAttempt(session));
+    }
+
+    private PhoneSignupStateResponse mapToState(PhoneSignupSession session,
+                                               AuthenticatedClientResponse user,
+                                               String accessToken,
+                                               String refreshToken,
+                                               boolean loginAttempt) {
         boolean completed = session.isCompleted();
         String nextStep = determineNextStep(session);
         Instant resendAvailableAt = session.getLastCodeSentAt() == null
@@ -268,7 +287,15 @@ public class PhoneSignupService {
                 .email(session.getEmail())
                 .firstName(session.getFirstName())
                 .lastName(session.getLastName())
+                .loginAttempt(loginAttempt)
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .user(user)
                 .build();
+    }
+
+    private boolean isLoginAttempt(PhoneSignupSession session) {
+        return !session.isCompleted() && clientRepository.existsByPhoneNumber(session.getPhoneNumber());
     }
 
     private CompletePhoneSignupResponse buildCompletionResponse(PhoneSignupSession session, Client client) {
@@ -276,15 +303,7 @@ public class PhoneSignupService {
         String refreshToken = jwtService.generateRefreshToken(client);
         PhoneSignupStateResponse state = mapToState(session);
 
-        AuthenticatedClientResponse user = AuthenticatedClientResponse.builder()
-                .id(client.getId())
-                .name(client.getName())
-                .email(client.getEmail())
-                .phone(client.getPhoneNumber())
-                .phoneVerified(client.getPhoneVerified())
-                .emailVerified(client.getEmailVerified())
-                .role(client.getRole())
-                .build();
+        AuthenticatedClientResponse user = buildAuthenticatedClientResponse(client);
 
         return CompletePhoneSignupResponse.builder()
                 .state(state)
@@ -320,5 +339,17 @@ public class PhoneSignupService {
 
     private String buildFullName(PhoneSignupSession session) {
         return (session.getFirstName() + " " + session.getLastName()).trim();
+    }
+
+    private AuthenticatedClientResponse buildAuthenticatedClientResponse(Client client) {
+        return AuthenticatedClientResponse.builder()
+                .id(client.getId())
+                .name(client.getName())
+                .email(client.getEmail())
+                .phone(client.getPhoneNumber())
+                .phoneVerified(client.getPhoneVerified())
+                .emailVerified(client.getEmailVerified())
+                .role(client.getRole())
+                .build();
     }
 }
