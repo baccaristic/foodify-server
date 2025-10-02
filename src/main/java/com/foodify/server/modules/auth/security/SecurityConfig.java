@@ -36,10 +36,20 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf().disable()
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/oauth2/**", "/api/client/**", "/ws/**","/api/**", "/api/driver/*"  ,       // 👈 very important for SockJS
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/oauth2/**",
+                                "/api/client/**",
+                                "/ws/**",
+                                "/api/**",
+                                "/api/driver/*",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/swagger-ui.html",
                                 "/topic/**",      // 👈 allow pub/sub topics
                                 "/app/**",        // 👈 app-bound messages
-                                "/ws"     ).permitAll()
+                                "/ws"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
