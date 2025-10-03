@@ -5,11 +5,16 @@
 This project now exposes interactive API documentation powered by [Swagger UI](https://swagger.io/tools/swagger-ui/) through Springdoc OpenAPI.
 
 ### How to run locally
-1. Install dependencies and start the application:
+1. Start the infrastructure services (PostgreSQL, Kafka, Redis) via Docker Compose:
+   ```bash
+   docker compose up -d
+   ```
+   The app expects a PostgreSQL database named `foodify` with the username and password `foodify`. These defaults can be overridden through the `DATABASE_URL`, `DATABASE_USERNAME`, and `DATABASE_PASSWORD` environment variables.
+2. Install dependencies and start the application:
    ```bash
    ./gradlew bootRun
    ```
-2. Once the server is running, open your browser at [http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html).
+3. Once the server is running, open your browser at [http://localhost:8081/swagger-ui/index.html](http://localhost:8081/swagger-ui/index.html).
 
 ### Authenticating requests in Swagger UI
 Many endpoints require a JWT access token. You can obtain a token by calling one of the authentication endpoints (for example `POST /api/auth/login`) with valid credentials. After retrieving the `accessToken` from the response:
