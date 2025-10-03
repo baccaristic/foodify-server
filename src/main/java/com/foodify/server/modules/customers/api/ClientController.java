@@ -3,6 +3,7 @@ package com.foodify.server.modules.customers.api;
 import com.foodify.server.modules.customers.application.ClientService;
 import com.foodify.server.modules.identity.repository.ClientRepository;
 import com.foodify.server.modules.orders.domain.Order;
+import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.restaurants.application.RestaurantDetailsService;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
 import com.foodify.server.modules.restaurants.dto.RestaurantDetailsResponse;
@@ -42,7 +43,7 @@ public class ClientController {
     }
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
     @GetMapping("/my-orders")
-    public List<Order> getMyOrders(Authentication authentication) {
+    public List<OrderDto> getMyOrders(Authentication authentication) {
         Long userId = Long.parseLong((String)authentication.getPrincipal());
         return this.clientService.getMyOrders(clientRepository.findById(userId).orElse(null));
     }
