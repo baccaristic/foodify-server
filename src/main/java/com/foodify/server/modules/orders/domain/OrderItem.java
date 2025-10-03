@@ -26,7 +26,7 @@ public class OrderItem {
     @JoinTable(
             name = "order_item_menu_item_extras",
             joinColumns = @JoinColumn(name = "order_item_id"),
-            inverseJoinColumns = @JoinColumn(name = "menu_item_extras_id")
+            inverseJoinColumns = @JoinColumn(name = "menu_item_extra_id")
     )
     private List<MenuItemExtra> menuItemExtras;
 

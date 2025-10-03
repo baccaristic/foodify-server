@@ -135,10 +135,10 @@ class OrderItemPersistenceTests {
                 .extracting(MenuItemExtra::getId)
                 .containsExactly(savedExtra.getId());
 
-        Assertions.assertThat(hasUniqueConstraintOnMenuItemExtrasColumn()).isFalse();
+        Assertions.assertThat(hasUniqueConstraintOnMenuItemExtraId()).isFalse();
     }
 
-    private boolean hasUniqueConstraintOnMenuItemExtrasColumn() {
+    private boolean hasUniqueConstraintOnMenuItemExtraId() {
         try (Connection connection = Objects.requireNonNull(jdbcTemplate.getDataSource()).getConnection();
              ResultSet resultSet = connection.getMetaData().getIndexInfo(null, "PUBLIC", "ORDER_ITEM_MENU_ITEM_EXTRAS", false, false)) {
             Map<String, Set<String>> columnsByIndex = new HashMap<>();
@@ -158,12 +158,10 @@ class OrderItemPersistenceTests {
                 isUniqueIndex.put(indexName, !nonUnique);
             }
 
-            Set<String> targetColumns = Set.of("MENU_ITEM_EXTRAS_ID", "MENU_ITEM_EXTRA_ID");
-
             return columnsByIndex.entrySet().stream()
                     .anyMatch(entry -> Boolean.TRUE.equals(isUniqueIndex.get(entry.getKey()))
                             && entry.getValue().size() == 1
-                            && entry.getValue().stream().anyMatch(targetColumns::contains));
+                            && entry.getValue().contains("MENU_ITEM_EXTRA_ID"));
         } catch (SQLException exception) {
             throw new IllegalStateException("Failed to inspect database metadata", exception);
         }
