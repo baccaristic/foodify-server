@@ -2,15 +2,15 @@ package com.foodify.server.modules.restaurants.application;
 
 import com.foodify.server.modules.delivery.application.DriverService;
 import com.foodify.server.modules.delivery.location.DriverLocationService;
-import com.foodify.server.modules.identity.domain.Client;
-import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.notifications.application.PushNotificationService;
 import com.foodify.server.modules.notifications.application.UserDeviceService;
 import com.foodify.server.modules.notifications.domain.NotificationType;
 import com.foodify.server.modules.notifications.domain.UserDevice;
-import com.foodify.server.modules.notifications.websocket.WebSocketService;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderStatus;
+import com.foodify.server.modules.orders.dto.OrderDto;
+import com.foodify.server.modules.orders.mapper.OrderMapper;
+import com.foodify.server.modules.orders.application.OrderLifecycleService;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
@@ -20,8 +20,10 @@ import com.foodify.server.modules.restaurants.dto.MenuItemRequestDTO;
 import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import lombok.RequiredArgsConstructor;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -48,38 +50,29 @@ public class RestaurantService {
     private final PushNotificationService pushNotificationService;
     private final UserDeviceService userDeviceService;
     private final DriverService driverService;
-    private final WebSocketService webSocketService;
+    private final OrderLifecycleService orderLifecycleService;
 
 
-    public List<Order> getAllOrders(Restaurant restaurant) {
-        return this.orderRepository.findAllByRestaurantOrderByDateDesc(restaurant);
+    @Transactional(readOnly = true)
+    public List<OrderDto> getAllOrders(Restaurant restaurant) {
+        return this.orderRepository.findAllByRestaurantOrderByDateDesc(restaurant)
+                .stream()
+                .map(OrderMapper::toDto)
+                .toList();
     }
 
-    public Order acceptOrder(Long id, Long userId) {
+    @Transactional
+    public OrderDto acceptOrder(Long id, Long userId) {
         return orderRepository.findById(id).map(order -> {
             if (!order.getRestaurant().getAdmin().getId().equals(userId)) {
                 throw new RuntimeException("Unauthorized");
             }
 
-            order.setStatus(OrderStatus.ACCEPTED);
-            Order savedOrder = orderRepository.save(order);
-            List<UserDevice> userDevices = userDeviceService.findByUser(savedOrder.getClient().getId());
-            userDevices.forEach(userDevice -> {
-                try {
-                    this.pushNotificationService.sendOrderNotification(
-                            userDevice.getDeviceToken(), savedOrder.getId(),
-                            "Your order have been accepted",
-                            "Order is accepted by restaurant, tap to track it",
-                            NotificationType.ORDER_CLIENT_ORDER_ACCEPTED
-                    );
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-
+            var savedOrder = orderLifecycleService.transition(order, OrderStatus.ACCEPTED,
+                    "restaurant:" + userId,
+                    "Restaurant accepted order");
             assignDriver(savedOrder);
-
-            return savedOrder;
+            return loadOrderDto(savedOrder.getId());
         }).orElseThrow(() -> new RuntimeException("Order not found"));
     }
 
@@ -132,8 +125,12 @@ public class RestaurantService {
     }
 
 
-    public Order getOrderById(Long id) {
-        return this.orderRepository.findById(id).orElse(null);
+    @Transactional(readOnly = true)
+    public OrderDto getOrderForRestaurant(Long orderId, Long restaurantId) {
+        return orderRepository.findDetailedById(orderId)
+                .filter(order -> order.getRestaurant() != null && order.getRestaurant().getId().equals(restaurantId))
+                .map(OrderMapper::toDto)
+                .orElse(null);
     }
 
     public MenuItem addMenu(MenuItemRequestDTO menuDto, List<MultipartFile> files) throws IOException {
@@ -193,44 +190,22 @@ public class RestaurantService {
     }
 
 
-    public Order markOrderReady(Long orderId, Long userId) {
+    @Transactional
+    public OrderDto markOrderReady(Long orderId, Long userId) {
         return orderRepository.findById(orderId).map(order -> {
             if (!order.getRestaurant().getAdmin().getId().equals(userId)) {
                 throw new RuntimeException("Unauthorized");
             }
-            order.setStatus(OrderStatus.READY_FOR_PICK_UP);
-            Client client = order.getClient();
-            Driver driver = order.getDelivery().getDriver();
-            List<UserDevice> driverUserDevices = userDeviceService.findByUser(driver.getId());
-           /* driverUserDevices.forEach(userDevice ->  {
-                try {
-                    pushNotificationService.sendOrderNotification(
-                            userDevice.getDeviceToken(),
-                            orderId,
-                            "Order is ready for Pick Up",
-                            "Your Order is ready to be picked up",
-                            NotificationType.ORDER_DRIVER_ORDER_READY
-                    );
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });*/
-            webSocketService.notifyDriver(driver.getId(), order);
-            List<UserDevice> clientDevices = userDeviceService.findByUser(client.getId());
-            clientDevices.forEach(clientDevice -> {
-                try {
-                    pushNotificationService.sendOrderNotification(
-                            clientDevice.getDeviceToken(),
-                            orderId,
-                            "Your Order Is Ready",
-                            "Restaurant has finished preparing your order, we will notify you once the driver picked-up your order.",
-                            NotificationType.ORDER_CLIENT_ORDER_READY
-                    );
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-            return orderRepository.save(order);
+            var updated = orderLifecycleService.transition(order, OrderStatus.READY_FOR_PICK_UP,
+                    "restaurant:" + userId,
+                    "Order ready for pickup");
+            return loadOrderDto(updated.getId());
         }).orElseThrow(() -> new RuntimeException("Order not found"));
+    }
+
+    private OrderDto loadOrderDto(Long orderId) {
+        return orderRepository.findDetailedById(orderId)
+                .map(OrderMapper::toDto)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found"));
     }
 }
