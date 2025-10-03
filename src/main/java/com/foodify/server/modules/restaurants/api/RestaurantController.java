@@ -3,8 +3,6 @@ package com.foodify.server.modules.restaurants.api;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foodify.server.modules.restaurants.dto.MenuItemRequestDTO;
-import com.foodify.server.modules.orders.domain.Order;
-import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.identity.domain.RestaurantAdmin;
@@ -32,7 +30,9 @@ public class RestaurantController {
     @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
     public List<OrderDto> getMyOrders(Authentication authentication) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
-        return this.restaurantService.getAllOrders(this.restaurantAdminRepository.findById(userId).orElse(null).getRestaurant());
+        RestaurantAdmin admin = restaurantAdminRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Restaurant admin not found"));
+        return this.restaurantService.getAllOrders(admin.getRestaurant());
 
     }
 
@@ -59,24 +59,25 @@ public class RestaurantController {
     @GetMapping("/my-menu")
     @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
     public List<MenuItem> getMyMenu(Authentication authentication) {
-        RestaurantAdmin restaurantAdmin = this.restaurantAdminRepository.findById(Long.parseLong((String) authentication.getPrincipal())).orElse(null);
+        RestaurantAdmin restaurantAdmin = this.restaurantAdminRepository.findById(Long.parseLong((String) authentication.getPrincipal()))
+                .orElseThrow(() -> new RuntimeException("Restaurant admin not found"));
         return restaurantAdmin.getRestaurant().getMenu();
     }
 
     @GetMapping("/order/{id}")
     @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
-    public Order getOrder(@PathVariable Long id, Authentication authentication) {
+    public OrderDto getOrder(@PathVariable Long id, Authentication authentication) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
-        Order order = this.restaurantService.getOrderById(id);
-        if (order == null || order.getRestaurant().getId() != this.restaurantAdminRepository.findById(userId).orElse(null).getRestaurant().getId()) {
-            return null;
-        }
-        return  order;
+        Long restaurantId = restaurantAdminRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Restaurant admin not found"))
+                .getRestaurant()
+                .getId();
+        return this.restaurantService.getOrderForRestaurant(id, restaurantId);
     }
 
     @PostMapping("/accept-order/{id}")
     @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
-    public Order acceptOrder(Authentication authentication, @PathVariable Long id) {
+    public OrderDto acceptOrder(Authentication authentication, @PathVariable Long id) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         return this.restaurantService.acceptOrder(id, userId);
 
@@ -84,7 +85,7 @@ public class RestaurantController {
 
     @PostMapping("/order/ready/{id}")
     @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
-    public Order readyOrder(Authentication authentication, @PathVariable Long id) {
+    public OrderDto readyOrder(Authentication authentication, @PathVariable Long id) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         return this.restaurantService.markOrderReady(id, userId);
     }

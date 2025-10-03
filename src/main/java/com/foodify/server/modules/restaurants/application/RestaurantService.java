@@ -6,7 +6,6 @@ import com.foodify.server.modules.notifications.application.PushNotificationServ
 import com.foodify.server.modules.notifications.application.UserDeviceService;
 import com.foodify.server.modules.notifications.domain.NotificationType;
 import com.foodify.server.modules.notifications.domain.UserDevice;
-import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.orders.mapper.OrderMapper;
@@ -20,6 +19,7 @@ import com.foodify.server.modules.restaurants.dto.MenuItemRequestDTO;
 import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import lombok.RequiredArgsConstructor;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,17 +60,18 @@ public class RestaurantService {
                 .toList();
     }
 
-    public Order acceptOrder(Long id, Long userId) {
+    @Transactional
+    public OrderDto acceptOrder(Long id, Long userId) {
         return orderRepository.findById(id).map(order -> {
             if (!order.getRestaurant().getAdmin().getId().equals(userId)) {
                 throw new RuntimeException("Unauthorized");
             }
 
-            Order savedOrder = orderLifecycleService.transition(order, OrderStatus.ACCEPTED,
+            var savedOrder = orderLifecycleService.transition(order, OrderStatus.ACCEPTED,
                     "restaurant:" + userId,
                     "Restaurant accepted order");
             assignDriver(savedOrder);
-            return savedOrder;
+            return loadOrderDto(savedOrder.getId());
         }).orElseThrow(() -> new RuntimeException("Order not found"));
     }
 
@@ -123,8 +124,12 @@ public class RestaurantService {
     }
 
 
-    public Order getOrderById(Long id) {
-        return this.orderRepository.findById(id).orElse(null);
+    @Transactional(readOnly = true)
+    public OrderDto getOrderForRestaurant(Long orderId, Long restaurantId) {
+        return orderRepository.findDetailedById(orderId)
+                .filter(order -> order.getRestaurant() != null && order.getRestaurant().getId().equals(restaurantId))
+                .map(OrderMapper::toDto)
+                .orElse(null);
     }
 
     public MenuItem addMenu(MenuItemRequestDTO menuDto, List<MultipartFile> files) throws IOException {
@@ -184,14 +189,22 @@ public class RestaurantService {
     }
 
 
-    public Order markOrderReady(Long orderId, Long userId) {
+    @Transactional
+    public OrderDto markOrderReady(Long orderId, Long userId) {
         return orderRepository.findById(orderId).map(order -> {
             if (!order.getRestaurant().getAdmin().getId().equals(userId)) {
                 throw new RuntimeException("Unauthorized");
             }
-            return orderLifecycleService.transition(order, OrderStatus.READY_FOR_PICK_UP,
+            var updated = orderLifecycleService.transition(order, OrderStatus.READY_FOR_PICK_UP,
                     "restaurant:" + userId,
                     "Order ready for pickup");
+            return loadOrderDto(updated.getId());
         }).orElseThrow(() -> new RuntimeException("Order not found"));
+    }
+
+    private OrderDto loadOrderDto(Long orderId) {
+        return orderRepository.findDetailedById(orderId)
+                .map(OrderMapper::toDto)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found"));
     }
 }
