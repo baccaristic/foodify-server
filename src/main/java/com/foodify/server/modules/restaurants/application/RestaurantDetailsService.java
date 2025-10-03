@@ -26,7 +26,7 @@ public class RestaurantDetailsService {
 
     private final RestaurantRepository restaurantRepository;
 
-    @Transactional(readOnly = true)
+    @Transactional()
     public RestaurantDetailsResponse getRestaurantDetails(Long restaurantId) {
         Restaurant restaurant = restaurantRepository.findById(restaurantId)
                 .orElseThrow(() -> new EntityNotFoundException("Restaurant not found"));

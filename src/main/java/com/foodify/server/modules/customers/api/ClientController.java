@@ -4,6 +4,7 @@ import com.foodify.server.modules.customers.application.ClientService;
 import com.foodify.server.modules.identity.repository.ClientRepository;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.restaurants.application.RestaurantDetailsService;
+import com.foodify.server.modules.restaurants.domain.Restaurant;
 import com.foodify.server.modules.restaurants.dto.RestaurantDetailsResponse;
 import com.foodify.server.modules.restaurants.mapper.RestaurantMapper;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
