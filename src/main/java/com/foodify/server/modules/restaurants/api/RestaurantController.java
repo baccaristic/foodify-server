@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foodify.server.modules.restaurants.dto.MenuItemRequestDTO;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderStatus;
+import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.identity.domain.RestaurantAdmin;
 import com.foodify.server.modules.identity.repository.RestaurantAdminRepository;
@@ -29,7 +30,7 @@ public class RestaurantController {
     private final ObjectMapper objectMapper;
     @GetMapping("/my-orders")
     @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
-    public List<Order> getMyOrders(Authentication authentication) {
+    public List<OrderDto> getMyOrders(Authentication authentication) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         return this.restaurantService.getAllOrders(this.restaurantAdminRepository.findById(userId).orElse(null).getRestaurant());
 

@@ -8,6 +8,8 @@ import com.foodify.server.modules.notifications.domain.NotificationType;
 import com.foodify.server.modules.notifications.domain.UserDevice;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderStatus;
+import com.foodify.server.modules.orders.dto.OrderDto;
+import com.foodify.server.modules.orders.mapper.OrderMapper;
 import com.foodify.server.modules.orders.application.OrderLifecycleService;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
@@ -20,6 +22,7 @@ import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -49,8 +52,12 @@ public class RestaurantService {
     private final OrderLifecycleService orderLifecycleService;
 
 
-    public List<Order> getAllOrders(Restaurant restaurant) {
-        return this.orderRepository.findAllByRestaurantOrderByDateDesc(restaurant);
+    @Transactional(readOnly = true)
+    public List<OrderDto> getAllOrders(Restaurant restaurant) {
+        return this.orderRepository.findAllByRestaurantOrderByDateDesc(restaurant)
+                .stream()
+                .map(OrderMapper::toDto)
+                .toList();
     }
 
     public Order acceptOrder(Long id, Long userId) {
