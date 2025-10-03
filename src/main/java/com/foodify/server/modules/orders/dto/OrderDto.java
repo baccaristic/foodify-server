@@ -21,6 +21,7 @@ public class OrderDto {
     private String clientPhone;
     private String clientAddress;
     private LocationDto clientLocation;
+    private SavedAddressSummaryDto savedAddress;
 
     private Long total;
     private OrderStatus status;

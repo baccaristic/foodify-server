@@ -23,6 +23,7 @@ public class OrderNotificationMapper {
                         item.getMenuItemExtras().stream().map(MenuItemExtra::getName).toList(),
                         item.getSpecialInstructions()
                 )).toList(),
+                SavedAddressSummaryMapper.from(order.getSavedAddress()),
                 new ClientSummaryDTO(
                         order.getClient().getId(),
                         order.getClient().getName()

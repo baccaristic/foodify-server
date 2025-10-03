@@ -2,6 +2,7 @@ package com.foodify.server.modules.orders.dto.response;
 
 import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.orders.dto.LocationDto;
+import com.foodify.server.modules.orders.dto.SavedAddressSummaryDto;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -17,7 +18,7 @@ public record CreateOrderResponse(
 ) {
     public record RestaurantSummary(Long id, String name, String imageUrl) {}
 
-    public record DeliverySummary(String address, LocationDto location) {}
+    public record DeliverySummary(String address, LocationDto location, SavedAddressSummaryDto savedAddress) {}
 
     public record PaymentSummary(String method, BigDecimal subtotal, BigDecimal extrasTotal, BigDecimal total) {}
 

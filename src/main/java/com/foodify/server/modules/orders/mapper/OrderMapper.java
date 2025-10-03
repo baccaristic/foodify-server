@@ -39,6 +39,8 @@ public class OrderMapper {
             dto.setClientLocation(new LocationDto(order.getLat(), order.getLng()));
         }
 
+        dto.setSavedAddress(SavedAddressSummaryMapper.from(order.getSavedAddress()));
+
         // Order Items
         if (order.getItems() != null) {
             dto.setItems(order.getItems().stream()

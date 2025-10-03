@@ -9,5 +9,6 @@ public record OrderNotificationDTO(
         String paymentMethod,
         LocalDateTime date,
         List<OrderItemDTO> items,
+        SavedAddressSummaryDto savedAddress,
         ClientSummaryDTO client
 ) {}

@@ -1,5 +1,7 @@
 package com.foodify.server.modules.orders.application;
 
+import com.foodify.server.modules.addresses.domain.SavedAddress;
+import com.foodify.server.modules.addresses.repository.SavedAddressRepository;
 import com.foodify.server.modules.identity.domain.Client;
 import com.foodify.server.modules.identity.repository.ClientRepository;
 import com.foodify.server.modules.orders.domain.Order;
@@ -9,8 +11,10 @@ import com.foodify.server.modules.orders.dto.LocationDto;
 import com.foodify.server.modules.orders.dto.OrderItemRequest;
 import com.foodify.server.modules.orders.dto.OrderRequest;
 import com.foodify.server.modules.orders.dto.OrderWorkflowStepDto;
+import com.foodify.server.modules.orders.dto.SavedAddressSummaryDto;
 import com.foodify.server.modules.orders.dto.response.CreateOrderResponse;
 import com.foodify.server.modules.orders.mapper.OrderNotificationMapper;
+import com.foodify.server.modules.orders.mapper.SavedAddressSummaryMapper;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
@@ -34,6 +38,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -79,6 +84,7 @@ public class CustomerOrderService {
     private final MenuItemExtraRepository menuItemExtraRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final OrderNotificationMapper orderNotificationMapper;
+    private final SavedAddressRepository savedAddressRepository;
 
     @Transactional
     public CreateOrderResponse placeOrder(Long clientId, OrderRequest request) {
@@ -109,14 +115,25 @@ public class CustomerOrderService {
         Restaurant restaurant = restaurantRepository.findById(restaurantId)
                 .orElseThrow(() -> new EntityNotFoundException("Restaurant not found"));
 
+        SavedAddress savedAddress = resolveSavedAddress(clientId, request.getSavedAddressId());
+
         Order order = new Order();
         order.setClient(client);
         order.setRestaurant(restaurant);
-        order.setDeliveryAddress(request.getDeliveryAddress());
         order.setPaymentMethod(request.getPaymentMethod());
         if (request.getLocation() != null) {
             order.setLat(request.getLocation().getLat());
             order.setLng(request.getLocation().getLng());
+        }
+        order.setDeliveryAddress(request.getDeliveryAddress());
+        if (savedAddress != null) {
+            order.setSavedAddress(savedAddress);
+            order.setDeliveryAddress(savedAddress.getFormattedAddress());
+            LocationDto savedLocation = SavedAddressSummaryMapper.toLocation(savedAddress);
+            if (savedLocation != null) {
+                order.setLat(savedLocation.getLat());
+                order.setLng(savedLocation.getLng());
+            }
         }
         order.setStatus(OrderStatus.PENDING);
         order.setOrderTime(LocalDateTime.now());
@@ -231,9 +248,11 @@ public class CustomerOrderService {
                 order.getRestaurant().getImageUrl()
         );
 
+        SavedAddressSummaryDto savedAddress = SavedAddressSummaryMapper.from(order.getSavedAddress());
         CreateOrderResponse.DeliverySummary deliverySummary = new CreateOrderResponse.DeliverySummary(
                 order.getDeliveryAddress(),
-                new LocationDto(order.getLat(), order.getLng())
+                new LocationDto(order.getLat(), order.getLng()),
+                savedAddress
         );
 
         CreateOrderResponse.PaymentSummary paymentSummary = new CreateOrderResponse.PaymentSummary(
@@ -252,6 +271,15 @@ public class CustomerOrderService {
                 orderedItems,
                 buildWorkflow(order.getStatus())
         );
+    }
+
+    private SavedAddress resolveSavedAddress(Long clientId, UUID savedAddressId) {
+        if (savedAddressId == null) {
+            return null;
+        }
+
+        return savedAddressRepository.findByIdAndUserId(savedAddressId, clientId)
+                .orElseThrow(() -> new EntityNotFoundException("Saved address not found for client"));
     }
 
     private List<OrderWorkflowStepDto> buildWorkflow(OrderStatus currentStatus) {
