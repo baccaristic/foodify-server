@@ -11,9 +11,8 @@ import com.foodify.server.modules.restaurants.domain.Restaurant;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import org.springframework.data.domain.Auditable;
-
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -56,6 +55,9 @@ public class Order  {
 
     private LocalDateTime date;
 
+    @Column(name = "archived_at")
+    private LocalDateTime archivedAt;
+
     @ManyToOne
     @JoinColumn(name = "pending_driver_id")
     @JsonIgnore
@@ -64,4 +66,8 @@ public class Order  {
     private String pickupToken;
 
     private String deliveryToken;
+
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<OrderStatusHistory> statusHistory = new ArrayList<>();
 }

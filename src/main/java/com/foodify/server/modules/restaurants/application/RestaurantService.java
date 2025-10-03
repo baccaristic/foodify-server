@@ -2,15 +2,13 @@ package com.foodify.server.modules.restaurants.application;
 
 import com.foodify.server.modules.delivery.application.DriverService;
 import com.foodify.server.modules.delivery.location.DriverLocationService;
-import com.foodify.server.modules.identity.domain.Client;
-import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.notifications.application.PushNotificationService;
 import com.foodify.server.modules.notifications.application.UserDeviceService;
 import com.foodify.server.modules.notifications.domain.NotificationType;
 import com.foodify.server.modules.notifications.domain.UserDevice;
-import com.foodify.server.modules.notifications.websocket.WebSocketService;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderStatus;
+import com.foodify.server.modules.orders.application.OrderLifecycleService;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
@@ -48,7 +46,7 @@ public class RestaurantService {
     private final PushNotificationService pushNotificationService;
     private final UserDeviceService userDeviceService;
     private final DriverService driverService;
-    private final WebSocketService webSocketService;
+    private final OrderLifecycleService orderLifecycleService;
 
 
     public List<Order> getAllOrders(Restaurant restaurant) {
@@ -61,24 +59,10 @@ public class RestaurantService {
                 throw new RuntimeException("Unauthorized");
             }
 
-            order.setStatus(OrderStatus.ACCEPTED);
-            Order savedOrder = orderRepository.save(order);
-            List<UserDevice> userDevices = userDeviceService.findByUser(savedOrder.getClient().getId());
-            userDevices.forEach(userDevice -> {
-                try {
-                    this.pushNotificationService.sendOrderNotification(
-                            userDevice.getDeviceToken(), savedOrder.getId(),
-                            "Your order have been accepted",
-                            "Order is accepted by restaurant, tap to track it",
-                            NotificationType.ORDER_CLIENT_ORDER_ACCEPTED
-                    );
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-
+            Order savedOrder = orderLifecycleService.transition(order, OrderStatus.ACCEPTED,
+                    "restaurant:" + userId,
+                    "Restaurant accepted order");
             assignDriver(savedOrder);
-
             return savedOrder;
         }).orElseThrow(() -> new RuntimeException("Order not found"));
     }
@@ -198,39 +182,9 @@ public class RestaurantService {
             if (!order.getRestaurant().getAdmin().getId().equals(userId)) {
                 throw new RuntimeException("Unauthorized");
             }
-            order.setStatus(OrderStatus.READY_FOR_PICK_UP);
-            Client client = order.getClient();
-            Driver driver = order.getDelivery().getDriver();
-            List<UserDevice> driverUserDevices = userDeviceService.findByUser(driver.getId());
-           /* driverUserDevices.forEach(userDevice ->  {
-                try {
-                    pushNotificationService.sendOrderNotification(
-                            userDevice.getDeviceToken(),
-                            orderId,
-                            "Order is ready for Pick Up",
-                            "Your Order is ready to be picked up",
-                            NotificationType.ORDER_DRIVER_ORDER_READY
-                    );
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });*/
-            webSocketService.notifyDriver(driver.getId(), order);
-            List<UserDevice> clientDevices = userDeviceService.findByUser(client.getId());
-            clientDevices.forEach(clientDevice -> {
-                try {
-                    pushNotificationService.sendOrderNotification(
-                            clientDevice.getDeviceToken(),
-                            orderId,
-                            "Your Order Is Ready",
-                            "Restaurant has finished preparing your order, we will notify you once the driver picked-up your order.",
-                            NotificationType.ORDER_CLIENT_ORDER_READY
-                    );
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-            return orderRepository.save(order);
+            return orderLifecycleService.transition(order, OrderStatus.READY_FOR_PICK_UP,
+                    "restaurant:" + userId,
+                    "Order ready for pickup");
         }).orElseThrow(() -> new RuntimeException("Order not found"));
     }
 }

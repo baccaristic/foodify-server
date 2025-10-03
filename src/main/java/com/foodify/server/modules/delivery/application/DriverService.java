@@ -9,15 +9,11 @@ import com.foodify.server.modules.delivery.location.DriverLocationService;
 import com.foodify.server.modules.delivery.repository.DeliveryRepository;
 import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.identity.repository.DriverRepository;
-import com.foodify.server.modules.notifications.application.PushNotificationService;
-import com.foodify.server.modules.notifications.application.UserDeviceService;
-import com.foodify.server.modules.notifications.domain.NotificationType;
-import com.foodify.server.modules.notifications.domain.UserDevice;
-import com.foodify.server.modules.notifications.websocket.WebSocketService;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.orders.mapper.OrderMapper;
+import com.foodify.server.modules.orders.application.OrderLifecycleService;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
@@ -34,13 +30,11 @@ public class DriverService {
     private final DriverRepository driverRepository;
     private final OrderRepository orderRepository;
     private final DeliveryRepository deliveryRepository;
-    private final UserDeviceService userDeviceService;
-    private final PushNotificationService pushNotificationService;
     private final QrCodeService qrCodeService;
     private final StringRedisTemplate redisTemplate;
     private final GoogleMapsService googleMapsService;
     private final DriverLocationService driverLocationService;
-    private final WebSocketService webSocketService;
+    private final OrderLifecycleService orderLifecycleService;
 
 
     public OrderDto acceptOrder(Long driverId, Long orderId) throws Exception {
@@ -86,7 +80,6 @@ public class DriverService {
 
         // Update relations
         order.setDelivery(delivery);
-        order.setStatus(OrderStatus.PREPARING);
         String token = qrCodeService.generatePickupToken();
         order.setPickupToken(token);
         driver.setAvailable(false);
@@ -94,24 +87,11 @@ public class DriverService {
         // Persist changes
         deliveryRepository.save(delivery);
         driverRepository.save(driver);
-        List<UserDevice> userDevices = userDeviceService.findByUser(order.getClient().getId());
-        userDevices.forEach(userDevice -> {
-            try {
-                pushNotificationService.sendOrderNotification(
-                        userDevice.getDeviceToken(),
-                        orderId,
-                        "Your order has been updated",
-                        "A driver has been assigned to your order",
-                        NotificationType.ORDER_DRIVER_ASSIGNED
-                );
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
         order.setPendingDriver(null);
-        order = orderRepository.save(order);
-        webSocketService.notifyDriver(driverId, order);
-        return OrderMapper.toDto(order);
+        Order updatedOrder = orderLifecycleService.transition(order, OrderStatus.PREPARING,
+                "driver:" + driverId,
+                "Driver accepted order");
+        return OrderMapper.toDto(updatedOrder);
     }
 
     public Driver findById(Long driverId) {
@@ -140,11 +120,11 @@ public class DriverService {
         if (!Objects.equals(order.getPickupToken(), request.getToken())) {
             return false;
         }
-        order.setStatus(OrderStatus.IN_DELIVERY);
         String deliveryToken = String.format("%03d", new Random().nextInt(900) + 100);
         order.setDeliveryToken(deliveryToken);
-        order = orderRepository.save(order);
-        webSocketService.notifyDriver(userId, order);
+        orderLifecycleService.transition(order, OrderStatus.IN_DELIVERY,
+                "driver:" + userId,
+                "Order picked up by driver");
         return true;
     }
     @Transactional
@@ -161,9 +141,12 @@ public class DriverService {
         if (!order.getDeliveryToken().equals(request.getToken())) {
             return false;
         }
-        order.setStatus(OrderStatus.DELIVERED);
         order.getDelivery().setDeliveredTime(LocalDateTime.now());
-        webSocketService.notifyDriver(driverId, orderRepository.save(order));
+        deliveryRepository.save(order.getDelivery());
+        orderRepository.save(order);
+        orderLifecycleService.transition(order, OrderStatus.DELIVERED,
+                "driver:" + driverId,
+                "Order delivered to client");
         return true;
     }
 

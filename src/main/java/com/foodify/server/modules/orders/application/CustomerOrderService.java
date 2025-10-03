@@ -13,7 +13,6 @@ import com.foodify.server.modules.orders.dto.OrderRequest;
 import com.foodify.server.modules.orders.dto.OrderWorkflowStepDto;
 import com.foodify.server.modules.orders.dto.SavedAddressSummaryDto;
 import com.foodify.server.modules.orders.dto.response.CreateOrderResponse;
-import com.foodify.server.modules.orders.mapper.OrderNotificationMapper;
 import com.foodify.server.modules.orders.mapper.SavedAddressSummaryMapper;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
@@ -25,7 +24,6 @@ import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -82,8 +80,7 @@ public class CustomerOrderService {
     private final RestaurantRepository restaurantRepository;
     private final MenuItemRepository menuItemRepository;
     private final MenuItemExtraRepository menuItemExtraRepository;
-    private final SimpMessagingTemplate messagingTemplate;
-    private final OrderNotificationMapper orderNotificationMapper;
+    private final OrderLifecycleService orderLifecycleService;
     private final SavedAddressRepository savedAddressRepository;
 
     @Transactional
@@ -181,11 +178,7 @@ public class CustomerOrderService {
         order.setItems(orderItems);
         Order savedOrder = orderRepository.save(order);
 
-        messagingTemplate.convertAndSend(
-                "/topic/orders/" + restaurant.getAdmin().getId(),
-                orderNotificationMapper.toDto(savedOrder)
-        );
-
+        orderLifecycleService.registerCreation(savedOrder, "client:" + clientId);
         return savedOrder;
     }
 
