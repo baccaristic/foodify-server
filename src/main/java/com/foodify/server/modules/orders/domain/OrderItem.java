@@ -22,7 +22,12 @@ public class OrderItem {
     private MenuItem menuItem;
 
 
-    @OneToMany
+    @ManyToMany
+    @JoinTable(
+            name = "order_item_menu_item_extras",
+            joinColumns = @JoinColumn(name = "order_item_id"),
+            inverseJoinColumns = @JoinColumn(name = "menu_item_extras_id")
+    )
     private List<MenuItemExtra> menuItemExtras;
 
     private int quantity;
