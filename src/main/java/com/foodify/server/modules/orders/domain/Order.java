@@ -6,7 +6,6 @@ import com.foodify.server.modules.addresses.domain.SavedAddress;
 import com.foodify.server.modules.delivery.domain.Delivery;
 import com.foodify.server.modules.identity.domain.Client;
 import com.foodify.server.modules.identity.domain.Driver;
-import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
 import jakarta.persistence.*;
 import lombok.Getter;

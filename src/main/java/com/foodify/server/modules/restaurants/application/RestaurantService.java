@@ -6,6 +6,7 @@ import com.foodify.server.modules.notifications.application.PushNotificationServ
 import com.foodify.server.modules.notifications.application.UserDeviceService;
 import com.foodify.server.modules.notifications.domain.NotificationType;
 import com.foodify.server.modules.notifications.domain.UserDevice;
+import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.orders.mapper.OrderMapper;
