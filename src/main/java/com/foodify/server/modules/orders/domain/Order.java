@@ -2,6 +2,7 @@ package com.foodify.server.modules.orders.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.foodify.server.modules.addresses.domain.SavedAddress;
 import com.foodify.server.modules.delivery.domain.Delivery;
 import com.foodify.server.modules.identity.domain.Client;
 import com.foodify.server.modules.identity.domain.Driver;
@@ -36,6 +37,10 @@ public class Order  {
 
     private double lng;
     private double lat;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "saved_address_id")
+    private SavedAddress savedAddress;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     private List<OrderItem> items;
