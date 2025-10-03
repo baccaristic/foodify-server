@@ -3,6 +3,8 @@ package com.foodify.server.modules.notifications.domain;
 import com.foodify.server.modules.identity.domain.User;
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -23,12 +25,21 @@ public class UserDevice {
     private String deviceId;
     private String appVersion;
 
-    @Column(columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+    @Column(name = "last_seen", nullable = false)
     private LocalDateTime lastSeen;
 
-    @Column(columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
+    @UpdateTimestamp
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @PrePersist
+    void onPersist() {
+        if (lastSeen == null) {
+            lastSeen = LocalDateTime.now();
+        }
+    }
 }

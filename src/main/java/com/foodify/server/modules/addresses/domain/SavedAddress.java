@@ -21,8 +21,8 @@ import java.util.UUID;
 public class SavedAddress {
 
     @Id
-    @GeneratedValue
-    @Column(columnDefinition = "BINARY(16)")
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
