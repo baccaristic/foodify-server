@@ -24,7 +24,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             "delivery.driver",
             "items",
             "items.menuItem",
-            "items.menuItemExtras",
             "pendingDriver",
             "savedAddress"
     })
