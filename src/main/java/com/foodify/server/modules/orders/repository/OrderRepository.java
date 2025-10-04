@@ -25,8 +25,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             "items",
             "items.menuItem",
             "pendingDriver",
-            "savedAddress",
-            "statusHistory"
+            "savedAddress"
     })
     Optional<Order> findDetailedById(Long id);
     @Query("""

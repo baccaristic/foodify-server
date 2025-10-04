@@ -3,11 +3,12 @@ package com.foodify.server.modules.orders.mapper;
 import com.foodify.server.modules.delivery.domain.Delivery;
 import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.orders.domain.Order;
-import com.foodify.server.modules.orders.domain.OrderStatusHistory;
 import com.foodify.server.modules.orders.dto.ClientSummaryDTO;
 import com.foodify.server.modules.orders.dto.LocationDto;
 import com.foodify.server.modules.orders.dto.OrderItemDTO;
 import com.foodify.server.modules.orders.dto.OrderNotificationDTO;
+import com.foodify.server.modules.orders.domain.OrderStatusHistory;
+import com.foodify.server.modules.orders.repository.OrderStatusHistoryRepository;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
 import org.springframework.stereotype.Component;
@@ -18,6 +19,12 @@ import java.util.Objects;
 
 @Component
 public class OrderNotificationMapper {
+
+    private final OrderStatusHistoryRepository statusHistoryRepository;
+
+    public OrderNotificationMapper(OrderStatusHistoryRepository statusHistoryRepository) {
+        this.statusHistoryRepository = statusHistoryRepository;
+    }
 
     public OrderNotificationDTO toDto(Order order) {
         LocationDto deliveryLocation = resolveDeliveryLocation(order);
@@ -111,11 +118,16 @@ public class OrderNotificationMapper {
     }
 
     private List<OrderNotificationDTO.OrderStatusHistoryDTO> buildStatusHistory(Order order) {
-        if (order.getStatusHistory() == null) {
+        if (order == null || order.getId() == null) {
             return List.of();
         }
 
-        return order.getStatusHistory().stream()
+        List<OrderStatusHistory> historyEntries = statusHistoryRepository.findAllByOrderIdOrderByChangedAtAsc(order.getId());
+        if (historyEntries.isEmpty()) {
+            return List.of();
+        }
+
+        return historyEntries.stream()
                 .filter(Objects::nonNull)
                 .sorted(Comparator.comparing(OrderStatusHistory::getChangedAt, Comparator.nullsLast(Comparator.naturalOrder())))
                 .map(history -> new OrderNotificationDTO.OrderStatusHistoryDTO(
