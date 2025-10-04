@@ -68,8 +68,14 @@ public class OrderLifecycleEventListener {
     }
 
     private void notifyClient(Order order, OrderLifecycleEvent event) {
+        if (order.getClient() == null) {
+            return;
+        }
+
+        webSocketService.notifyClient(order.getClient().getId(), order);
+
         NotificationTemplate template = CLIENT_NOTIFICATION_TEMPLATES.get(event.getNewStatus());
-        if (template == null || order.getClient() == null) {
+        if (template == null) {
             return;
         }
 
