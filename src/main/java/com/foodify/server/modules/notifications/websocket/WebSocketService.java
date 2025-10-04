@@ -2,6 +2,7 @@ package com.foodify.server.modules.notifications.websocket;
 
 import com.foodify.server.modules.orders.mapper.OrderMapper;
 import com.foodify.server.modules.orders.domain.Order;
+import com.foodify.server.modules.orders.mapper.OrderNotificationMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class WebSocketService {
+    private final OrderNotificationMapper orderNotificationMapper;
     private final SimpMessagingTemplate messagingTemplate;
 
     public void notifyDriver(Long driverId, Order order) {
@@ -23,7 +25,7 @@ public class WebSocketService {
         messagingTemplate.convertAndSendToUser(
                 clientId.toString(),
                 "/queue/orders",
-                OrderMapper.toDto(order)
+                orderNotificationMapper.toDto(order)
         );
     }
 }
