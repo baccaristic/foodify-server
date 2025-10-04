@@ -1,6 +1,7 @@
 package com.foodify.server.modules.orders.mapper;
 
 import com.foodify.server.modules.delivery.domain.Delivery;
+import com.foodify.server.modules.delivery.location.DriverLocationService;
 import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.dto.ClientSummaryDTO;
@@ -21,9 +22,12 @@ import java.util.Objects;
 public class OrderNotificationMapper {
 
     private final OrderStatusHistoryRepository statusHistoryRepository;
+    private final DriverLocationService driverLocationService;
 
-    public OrderNotificationMapper(OrderStatusHistoryRepository statusHistoryRepository) {
+    public OrderNotificationMapper(OrderStatusHistoryRepository statusHistoryRepository,
+                                   DriverLocationService driverLocationService) {
         this.statusHistoryRepository = statusHistoryRepository;
+        this.driverLocationService = driverLocationService;
     }
 
     public OrderNotificationDTO toDto(Order order) {
@@ -99,12 +103,18 @@ public class OrderNotificationMapper {
 
         Driver driver = delivery.getDriver();
         OrderNotificationDTO.DriverSummary driverSummary = null;
+        LocationDto driverLocation = null;
         if (driver != null) {
             driverSummary = new OrderNotificationDTO.DriverSummary(
                     driver.getId(),
                     driver.getName(),
                     driver.getPhone()
             );
+
+            var position = driverLocationService.getLastKnownPosition(driver.getId());
+            if (position != null) {
+                driverLocation = new LocationDto(position.getY(), position.getX());
+            }
         }
 
         return new OrderNotificationDTO.DeliverySummary(
@@ -113,7 +123,8 @@ public class OrderNotificationMapper {
                 delivery.getTimeToPickUp(),
                 delivery.getDeliveryTime(),
                 delivery.getPickupTime(),
-                delivery.getDeliveredTime()
+                delivery.getDeliveredTime(),
+                driverLocation
         );
     }
 

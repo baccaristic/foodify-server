@@ -36,7 +36,8 @@ public record OrderNotificationDTO(
             Long estimatedPickupTime,
             Long estimatedDeliveryTime,
             LocalDateTime pickupTime,
-            LocalDateTime deliveredTime
+            LocalDateTime deliveredTime,
+            LocationDto driverLocation
     ) {}
 
     public record DriverSummary(
