@@ -62,7 +62,7 @@ public class RestaurantDetailsService {
     private List<RestaurantDetailsResponse.RestaurantBadge> buildHighlights(Restaurant restaurant) {
         List<RestaurantDetailsResponse.RestaurantBadge> highlights = new ArrayList<>();
         if (restaurant.getRating() != null) {
-            highlights.add(new RestaurantDetailsResponse.RestaurantBadge("Rating", restaurant.getRating()));
+            highlights.add(new RestaurantDetailsResponse.RestaurantBadge("Rating", formatRating(restaurant.getRating())));
         }
         if (restaurant.getType() != null) {
             highlights.add(new RestaurantDetailsResponse.RestaurantBadge("Category", restaurant.getType()));
@@ -75,6 +75,10 @@ public class RestaurantDetailsService {
             highlights.add(new RestaurantDetailsResponse.RestaurantBadge("Address", restaurant.getAddress()));
         }
         return highlights;
+    }
+
+    private String formatRating(Double rating) {
+        return rating == null ? null : String.format(Locale.ROOT, "%.1f", rating);
     }
 
     private Map<String, List<MenuItem>> groupByCategory(List<MenuItem> menuItems) {

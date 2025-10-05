@@ -20,7 +20,7 @@ public class Restaurant {
     private String address;
     private String phone;
     private String type;
-    private String rating;
+    private Double rating;
     private String openingHours;
     private String closingHours;
     private String description;
@@ -29,6 +29,18 @@ public class Restaurant {
     private double latitude;
     private double longitude;
     private String imageUrl;
+    @Column(name = "top_choice")
+    private boolean topChoice;
+    @Column(name = "free_delivery")
+    private boolean freeDelivery;
+    @Column(name = "top_eat")
+    private boolean topEat;
+    @Column(name = "promotion_label")
+    private String promotionLabel;
+    @Column(name = "delivery_fee")
+    private Double deliveryFee;
+    @Column(name = "delivery_time_range")
+    private String deliveryTimeRange;
 
     @OneToOne
     @JoinColumn(name = "admin_id")

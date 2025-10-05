@@ -10,7 +10,7 @@ public record RestaurantDetailsResponse(
         String address,
         String phone,
         String type,
-        String rating,
+        Double rating,
         String openingHours,
         String closingHours,
         double latitude,
