@@ -93,8 +93,15 @@ public class RestaurantSearchService {
                 menuItem.getName(),
                 menuItem.getPrice(),
                 menuItem.getPromotionPrice(),
-                menuItem.getPromotionLabel()
+                menuItem.getPromotionLabel(),
+                firstImage(menuItem)
         );
+    }
+
+    private String firstImage(MenuItem item) {
+        return (item.getImageUrls() != null && !item.getImageUrls().isEmpty())
+                ? item.getImageUrls().get(0)
+                : null;
     }
 
     private Sort toSort(RestaurantSearchSort sort) {
