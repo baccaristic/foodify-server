@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/client/restaurants")
+@RequestMapping("/api/client/restaurants")
 public class ClientRestaurantController {
 
     private final RestaurantSearchService restaurantSearchService;
