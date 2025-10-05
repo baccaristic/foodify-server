@@ -198,7 +198,7 @@ public class CustomerOrderService {
         BigDecimal extrasTotal = BigDecimal.ZERO;
 
         for (OrderItem item : Optional.ofNullable(order.getItems()).orElse(Collections.emptyList())) {
-            BigDecimal unitPrice = BigDecimal.valueOf(item.getMenuItem().getPrice());
+            BigDecimal unitPrice = resolveUnitPrice(item);
             BigDecimal extrasPerUnit = Optional.ofNullable(item.getMenuItemExtras()).orElse(Collections.emptyList())
                     .stream()
                     .map(extra -> BigDecimal.valueOf(extra.getPrice()))
@@ -264,6 +264,19 @@ public class CustomerOrderService {
                 orderedItems,
                 buildWorkflow(order.getStatus())
         );
+    }
+
+    private BigDecimal resolveUnitPrice(OrderItem orderItem) {
+        if (orderItem == null || orderItem.getMenuItem() == null) {
+            return BigDecimal.ZERO;
+        }
+
+        if (Boolean.TRUE.equals(orderItem.getMenuItem().getPromotionActive())
+                && orderItem.getMenuItem().getPromotionPrice() != null) {
+            return BigDecimal.valueOf(orderItem.getMenuItem().getPromotionPrice());
+        }
+
+        return BigDecimal.valueOf(orderItem.getMenuItem().getPrice());
     }
 
     private SavedAddress resolveSavedAddress(Long clientId, UUID savedAddressId) {
