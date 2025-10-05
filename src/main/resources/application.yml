@@ -45,3 +45,12 @@ google:
   maps:
     api:
       key: AIzaSyDLnMZhFNGZvImKZCCMXv6Qz7sTzPyLvfY
+
+logging:
+  level:
+    root: info
+    org:
+      apache:
+        kafka: ERROR
+      springframework:
+        kafka: ERROR

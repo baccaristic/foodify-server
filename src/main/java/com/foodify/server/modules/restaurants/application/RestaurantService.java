@@ -155,6 +155,9 @@ public class RestaurantService {
         item.setCategory(menuDto.getCategory());
         item.setPopular(menuDto.isPopular());
         item.setImageUrls(imageFilenames);
+        item.setPromotionLabel(menuDto.getPromotionLabel());
+        item.setPromotionPrice(menuDto.getPromotionPrice());
+        item.setPromotionActive(menuDto.isPromotionActive());
 
         Restaurant restaurant = restaurantRepository.findById(menuDto.getRestaurantId())
                 .orElseThrow(() -> new RuntimeException("Restaurant not found"));

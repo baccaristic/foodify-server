@@ -15,6 +15,10 @@ public class MenuItemRequestDTO {
     private boolean popular;
     private Long restaurantId;
 
+    private String promotionLabel;
+    private Double promotionPrice;
+    private boolean promotionActive;
+
     // Multiple images
     private List<String> imageUrls;
 

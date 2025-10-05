@@ -10,7 +10,7 @@ public class RestaurantDisplayDto {
     private Long id;
     private  String name;
     private String description;
-    private String rating;
+    private Double rating;
     private String type;
     private String address;
     private String phone;

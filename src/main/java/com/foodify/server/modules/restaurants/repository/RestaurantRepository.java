@@ -4,12 +4,13 @@ import com.foodify.server.modules.identity.domain.Admin;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
 import com.foodify.server.modules.identity.domain.RestaurantAdmin;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
-public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
+public interface RestaurantRepository extends JpaRepository<Restaurant, Long>, JpaSpecificationExecutor<Restaurant> {
     @Query(value = """
 
             SELECT * FROM (

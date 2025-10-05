@@ -22,6 +22,15 @@ public class MenuItem {
     private boolean isPopular;
     private double price;
 
+    @Column(name = "promotion_label")
+    private String promotionLabel;
+
+    @Column(name = "promotion_price")
+    private Double promotionPrice;
+
+    @Column(name = "promotion_active")
+    private Boolean promotionActive = Boolean.FALSE;
+
     // Multiple images instead of just one
     @ElementCollection
     @CollectionTable(name = "menu_item_images", joinColumns = @JoinColumn(name = "menu_item_id"))

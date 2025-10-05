@@ -62,7 +62,7 @@ public class RestaurantDetailsService {
     private List<RestaurantDetailsResponse.RestaurantBadge> buildHighlights(Restaurant restaurant) {
         List<RestaurantDetailsResponse.RestaurantBadge> highlights = new ArrayList<>();
         if (restaurant.getRating() != null) {
-            highlights.add(new RestaurantDetailsResponse.RestaurantBadge("Rating", restaurant.getRating()));
+            highlights.add(new RestaurantDetailsResponse.RestaurantBadge("Rating", formatRating(restaurant.getRating())));
         }
         if (restaurant.getType() != null) {
             highlights.add(new RestaurantDetailsResponse.RestaurantBadge("Category", restaurant.getType()));
@@ -75,6 +75,10 @@ public class RestaurantDetailsService {
             highlights.add(new RestaurantDetailsResponse.RestaurantBadge("Address", restaurant.getAddress()));
         }
         return highlights;
+    }
+
+    private String formatRating(Double rating) {
+        return rating == null ? null : String.format(Locale.ROOT, "%.1f", rating);
     }
 
     private Map<String, List<MenuItem>> groupByCategory(List<MenuItem> menuItems) {
@@ -105,6 +109,7 @@ public class RestaurantDetailsService {
     }
 
     private RestaurantDetailsResponse.MenuItemSummary toSummary(MenuItem item) {
+        boolean promotionActive = Boolean.TRUE.equals(item.getPromotionActive());
         return new RestaurantDetailsResponse.MenuItemSummary(
                 item.getId(),
                 item.getName(),
@@ -112,7 +117,10 @@ public class RestaurantDetailsService {
                 item.getPrice(),
                 firstImage(item),
                 item.isPopular(),
-                buildTags(item)
+                buildTags(item, promotionActive),
+                item.getPromotionPrice(),
+                item.getPromotionLabel(),
+                promotionActive
         );
     }
 
@@ -128,6 +136,7 @@ public class RestaurantDetailsService {
     }
 
     private RestaurantDetailsResponse.MenuItemDetails toDetails(MenuItem item) {
+        boolean promotionActive = Boolean.TRUE.equals(item.getPromotionActive());
         return new RestaurantDetailsResponse.MenuItemDetails(
                 item.getId(),
                 item.getName(),
@@ -135,7 +144,10 @@ public class RestaurantDetailsService {
                 item.getPrice(),
                 firstImage(item),
                 item.isPopular(),
-                buildTags(item),
+                buildTags(item, promotionActive),
+                item.getPromotionPrice(),
+                item.getPromotionLabel(),
+                promotionActive,
                 item.getOptionGroups() == null ? List.of() : item.getOptionGroups().stream()
                         .map(this::toOptionGroup)
                         .toList()
@@ -164,13 +176,16 @@ public class RestaurantDetailsService {
         );
     }
 
-    private List<String> buildTags(MenuItem item) {
+    private List<String> buildTags(MenuItem item, boolean promotionActive) {
         Set<String> tags = new java.util.LinkedHashSet<>();
         if (item.getCategory() != null) {
             tags.add(item.getCategory());
         }
         if (item.isPopular()) {
             tags.add("Top Sales");
+        }
+        if (promotionActive) {
+            tags.add("Promo");
         }
         tags.add(item.getRestaurant().getName());
         return new ArrayList<>(tags);
