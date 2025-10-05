@@ -28,6 +28,19 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             "savedAddress"
     })
     Optional<Order> findDetailedById(Long id);
+    boolean existsByClient_IdAndStatusInAndArchivedAtIsNull(Long clientId, List<OrderStatus> statuses);
+    @EntityGraph(attributePaths = {
+            "client",
+            "restaurant",
+            "restaurant.admin",
+            "delivery",
+            "delivery.driver",
+            "items",
+            "items.menuItem",
+            "pendingDriver",
+            "savedAddress"
+    })
+    Optional<Order> findFirstByClient_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(Long clientId, List<OrderStatus> statuses);
     @Query("""
     SELECT o
     FROM Order o

@@ -10,9 +10,11 @@ import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.orders.dto.LocationDto;
 import com.foodify.server.modules.orders.dto.OrderItemRequest;
 import com.foodify.server.modules.orders.dto.OrderRequest;
+import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.orders.dto.OrderWorkflowStepDto;
 import com.foodify.server.modules.orders.dto.SavedAddressSummaryDto;
 import com.foodify.server.modules.orders.dto.response.CreateOrderResponse;
+import com.foodify.server.modules.orders.mapper.OrderMapper;
 import com.foodify.server.modules.orders.mapper.SavedAddressSummaryMapper;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
@@ -24,7 +26,9 @@ import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -54,6 +58,13 @@ public class CustomerOrderService {
 
     private static final Map<OrderStatus, String> WORKFLOW_TITLES = new EnumMap<>(OrderStatus.class);
     private static final Map<OrderStatus, String> WORKFLOW_DESCRIPTIONS = new EnumMap<>(OrderStatus.class);
+    private static final List<OrderStatus> ONGOING_STATUSES = List.of(
+            OrderStatus.PENDING,
+            OrderStatus.ACCEPTED,
+            OrderStatus.PREPARING,
+            OrderStatus.READY_FOR_PICK_UP,
+            OrderStatus.IN_DELIVERY
+    );
 
     static {
         WORKFLOW_TITLES.put(OrderStatus.PENDING, "Order placed");
@@ -105,6 +116,10 @@ public class CustomerOrderService {
 
         Client client = clientRepository.findById(clientId)
                 .orElseThrow(() -> new EntityNotFoundException("Client not found"));
+
+        if (orderRepository.existsByClient_IdAndStatusInAndArchivedAtIsNull(clientId, ONGOING_STATUSES)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Client already has an ongoing order");
+        }
 
         Long restaurantId = Optional.ofNullable(request.getRestaurantId())
                 .orElseThrow(() -> new IllegalArgumentException("Restaurant id is required"));
@@ -180,6 +195,18 @@ public class CustomerOrderService {
 
         orderLifecycleService.registerCreation(savedOrder, "client:" + clientId);
         return savedOrder;
+    }
+
+    @Transactional
+    public OrderDto getOngoingOrder(Long clientId) {
+        if (clientId == null) {
+            throw new IllegalArgumentException("Client id is required");
+        }
+
+        return orderRepository
+                .findFirstByClient_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(clientId, ONGOING_STATUSES)
+                .map(OrderMapper::toDto)
+                .orElse(null);
     }
 
     private void validateExtras(MenuItem menuItem, List<MenuItemExtra> extras) {
