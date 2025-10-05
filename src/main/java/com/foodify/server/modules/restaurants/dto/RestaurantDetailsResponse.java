@@ -29,7 +29,10 @@ public record RestaurantDetailsResponse(
             double price,
             String imageUrl,
             boolean popular,
-            List<String> tags
+            List<String> tags,
+            Double promotionPrice,
+            String promotionLabel,
+            boolean promotionActive
     ) {}
 
     public record MenuCategory(String name, List<MenuItemDetails> items) {}
@@ -42,6 +45,9 @@ public record RestaurantDetailsResponse(
             String imageUrl,
             boolean popular,
             List<String> tags,
+            Double promotionPrice,
+            String promotionLabel,
+            boolean promotionActive,
             List<MenuOptionGroupDto> optionGroups
     ) {}
 

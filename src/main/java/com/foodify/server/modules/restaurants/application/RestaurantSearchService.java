@@ -1,10 +1,13 @@
 package com.foodify.server.modules.restaurants.application;
 
+import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
 import com.foodify.server.modules.restaurants.dto.PageResponse;
+import com.foodify.server.modules.restaurants.dto.MenuItemPromotionDto;
 import com.foodify.server.modules.restaurants.dto.RestaurantSearchItemDto;
 import com.foodify.server.modules.restaurants.dto.RestaurantSearchQuery;
 import com.foodify.server.modules.restaurants.dto.RestaurantSearchSort;
+import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -14,14 +17,20 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import jakarta.persistence.criteria.JoinType;
+
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class RestaurantSearchService {
 
     private final RestaurantRepository restaurantRepository;
+    private final MenuItemRepository menuItemRepository;
 
     public PageResponse<RestaurantSearchItemDto> search(RestaurantSearchQuery query) {
         Specification<Restaurant> specification = buildSpecification(query);
@@ -31,14 +40,40 @@ public class RestaurantSearchService {
         Pageable pageable = PageRequest.of(Math.max(page - 1, 0), pageSize, sort);
 
         Page<Restaurant> restaurants = restaurantRepository.findAll(specification, pageable);
-        List<RestaurantSearchItemDto> items = restaurants.getContent().stream()
-                .map(this::toDto)
+        List<Restaurant> restaurantContent = restaurants.getContent();
+        Map<Long, List<MenuItem>> promotionsByRestaurant = groupPromotedItems(restaurantContent);
+        List<RestaurantSearchItemDto> items = restaurantContent.stream()
+                .map(restaurant -> toDto(restaurant, promotionsByRestaurant.getOrDefault(restaurant.getId(), List.of())))
                 .toList();
 
         return new PageResponse<>(items, page, pageSize, restaurants.getTotalElements());
     }
 
-    private RestaurantSearchItemDto toDto(Restaurant restaurant) {
+    private Map<Long, List<MenuItem>> groupPromotedItems(List<Restaurant> restaurants) {
+        if (restaurants == null || restaurants.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> restaurantIds = restaurants.stream()
+                .map(Restaurant::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (restaurantIds.isEmpty()) {
+            return Map.of();
+        }
+        return menuItemRepository.findByRestaurant_IdInAndPromotionActiveTrue(restaurantIds).stream()
+                .filter(item -> Boolean.TRUE.equals(item.getPromotionActive()))
+                .filter(item -> item.getRestaurant() != null && item.getRestaurant().getId() != null)
+                .collect(Collectors.groupingBy(item -> item.getRestaurant().getId()));
+    }
+
+    private RestaurantSearchItemDto toDto(Restaurant restaurant, List<MenuItem> promotedItems) {
+        List<MenuItemPromotionDto> promotedMenuItems = promotedItems == null ? List.of() : promotedItems.stream()
+                .map(this::toPromotionDto)
+                .toList();
+        String promotionLabel = restaurant.getPromotionLabel();
+        if ((promotionLabel == null || promotionLabel.isBlank()) && !promotedMenuItems.isEmpty()) {
+            promotionLabel = promotedMenuItems.get(0).promotionLabel();
+        }
         return new RestaurantSearchItemDto(
                 restaurant.getId(),
                 restaurant.getName(),
@@ -46,8 +81,19 @@ public class RestaurantSearchService {
                 restaurant.getRating(),
                 Boolean.TRUE.equals(restaurant.getTopChoice()),
                 Boolean.TRUE.equals(restaurant.getFreeDelivery()),
-                restaurant.getPromotionLabel(),
-                restaurant.getImageUrl()
+                promotionLabel,
+                restaurant.getImageUrl(),
+                promotedMenuItems
+        );
+    }
+
+    private MenuItemPromotionDto toPromotionDto(MenuItem menuItem) {
+        return new MenuItemPromotionDto(
+                menuItem.getId(),
+                menuItem.getName(),
+                menuItem.getPrice(),
+                menuItem.getPromotionPrice(),
+                menuItem.getPromotionLabel()
         );
     }
 
@@ -75,10 +121,10 @@ public class RestaurantSearchService {
         }
 
         if (Boolean.TRUE.equals(query.hasPromotion())) {
-            specification = specification.and((root, cq, cb) -> cb.and(
-                    cb.isNotNull(root.get("promotionLabel")),
-                    cb.notEqual(cb.lower(root.get("promotionLabel")), "")
-            ));
+            specification = specification.and((root, cq, cb) -> {
+                cq.distinct(true);
+                return cb.equal(root.join("menu", JoinType.INNER).get("promotionActive"), Boolean.TRUE);
+            });
         }
 
         if (Boolean.TRUE.equals(query.isTopChoice())) {

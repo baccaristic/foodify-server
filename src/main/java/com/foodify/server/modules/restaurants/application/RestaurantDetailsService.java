@@ -109,6 +109,7 @@ public class RestaurantDetailsService {
     }
 
     private RestaurantDetailsResponse.MenuItemSummary toSummary(MenuItem item) {
+        boolean promotionActive = Boolean.TRUE.equals(item.getPromotionActive());
         return new RestaurantDetailsResponse.MenuItemSummary(
                 item.getId(),
                 item.getName(),
@@ -116,7 +117,10 @@ public class RestaurantDetailsService {
                 item.getPrice(),
                 firstImage(item),
                 item.isPopular(),
-                buildTags(item)
+                buildTags(item, promotionActive),
+                item.getPromotionPrice(),
+                item.getPromotionLabel(),
+                promotionActive
         );
     }
 
@@ -132,6 +136,7 @@ public class RestaurantDetailsService {
     }
 
     private RestaurantDetailsResponse.MenuItemDetails toDetails(MenuItem item) {
+        boolean promotionActive = Boolean.TRUE.equals(item.getPromotionActive());
         return new RestaurantDetailsResponse.MenuItemDetails(
                 item.getId(),
                 item.getName(),
@@ -139,7 +144,10 @@ public class RestaurantDetailsService {
                 item.getPrice(),
                 firstImage(item),
                 item.isPopular(),
-                buildTags(item),
+                buildTags(item, promotionActive),
+                item.getPromotionPrice(),
+                item.getPromotionLabel(),
+                promotionActive,
                 item.getOptionGroups() == null ? List.of() : item.getOptionGroups().stream()
                         .map(this::toOptionGroup)
                         .toList()
@@ -168,13 +176,16 @@ public class RestaurantDetailsService {
         );
     }
 
-    private List<String> buildTags(MenuItem item) {
+    private List<String> buildTags(MenuItem item, boolean promotionActive) {
         Set<String> tags = new java.util.LinkedHashSet<>();
         if (item.getCategory() != null) {
             tags.add(item.getCategory());
         }
         if (item.isPopular()) {
             tags.add("Top Sales");
+        }
+        if (promotionActive) {
+            tags.add("Promo");
         }
         tags.add(item.getRestaurant().getName());
         return new ArrayList<>(tags);

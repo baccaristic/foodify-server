@@ -1,5 +1,7 @@
 package com.foodify.server.modules.restaurants.dto;
 
+import java.util.List;
+
 public record RestaurantSearchItemDto(
         Long id,
         String name,
@@ -8,6 +10,7 @@ public record RestaurantSearchItemDto(
         boolean isTopChoice,
         boolean hasFreeDelivery,
         String promotionLabel,
-        String imageUrl
+        String imageUrl,
+        List<MenuItemPromotionDto> promotedMenuItems
 ) {
 }
