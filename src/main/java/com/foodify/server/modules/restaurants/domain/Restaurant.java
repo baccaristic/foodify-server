@@ -30,11 +30,11 @@ public class Restaurant {
     private double longitude;
     private String imageUrl;
     @Column(name = "top_choice")
-    private boolean topChoice;
+    private Boolean topChoice = Boolean.FALSE;
     @Column(name = "free_delivery")
-    private boolean freeDelivery;
+    private Boolean freeDelivery = Boolean.FALSE;
     @Column(name = "top_eat")
-    private boolean topEat;
+    private Boolean topEat = Boolean.FALSE;
     @Column(name = "promotion_label")
     private String promotionLabel;
     @Column(name = "delivery_fee")

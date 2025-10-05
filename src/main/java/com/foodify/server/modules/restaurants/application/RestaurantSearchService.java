@@ -44,8 +44,8 @@ public class RestaurantSearchService {
                 restaurant.getName(),
                 restaurant.getDeliveryTimeRange(),
                 restaurant.getRating(),
-                restaurant.isTopChoice(),
-                restaurant.isFreeDelivery(),
+                Boolean.TRUE.equals(restaurant.getTopChoice()),
+                Boolean.TRUE.equals(restaurant.getFreeDelivery()),
                 restaurant.getPromotionLabel(),
                 restaurant.getImageUrl()
         );
