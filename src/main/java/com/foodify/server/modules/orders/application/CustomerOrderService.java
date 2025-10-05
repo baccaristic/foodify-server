@@ -10,11 +10,11 @@ import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.orders.dto.LocationDto;
 import com.foodify.server.modules.orders.dto.OrderItemRequest;
 import com.foodify.server.modules.orders.dto.OrderRequest;
-import com.foodify.server.modules.orders.dto.OrderDto;
+import com.foodify.server.modules.orders.dto.OrderNotificationDTO;
 import com.foodify.server.modules.orders.dto.OrderWorkflowStepDto;
 import com.foodify.server.modules.orders.dto.SavedAddressSummaryDto;
 import com.foodify.server.modules.orders.dto.response.CreateOrderResponse;
-import com.foodify.server.modules.orders.mapper.OrderMapper;
+import com.foodify.server.modules.orders.mapper.OrderNotificationMapper;
 import com.foodify.server.modules.orders.mapper.SavedAddressSummaryMapper;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
@@ -93,6 +93,7 @@ public class CustomerOrderService {
     private final MenuItemExtraRepository menuItemExtraRepository;
     private final OrderLifecycleService orderLifecycleService;
     private final SavedAddressRepository savedAddressRepository;
+    private final OrderNotificationMapper orderNotificationMapper;
 
     @Transactional
     public CreateOrderResponse placeOrder(Long clientId, OrderRequest request) {
@@ -198,14 +199,14 @@ public class CustomerOrderService {
     }
 
     @Transactional
-    public OrderDto getOngoingOrder(Long clientId) {
+    public OrderNotificationDTO getOngoingOrder(Long clientId) {
         if (clientId == null) {
             throw new IllegalArgumentException("Client id is required");
         }
 
         return orderRepository
                 .findFirstByClient_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(clientId, ONGOING_STATUSES)
-                .map(OrderMapper::toDto)
+                .map(orderNotificationMapper::toDto)
                 .orElse(null);
     }
 
