@@ -6,6 +6,7 @@ import com.foodify.server.modules.orders.dto.OrderItemDTO;
 import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.orders.domain.Order;
+import com.foodify.server.modules.orders.domain.OrderItem;
 
 public class OrderMapper {
 
@@ -83,12 +84,28 @@ public class OrderMapper {
 
         double total = 0;
         for (var item : order.getItems()) {
-            double price = item.getMenuItem().getPrice();
+            double price = resolveUnitPrice(item);
             total += price * item.getQuantity();
             if (item.getMenuItemExtras() != null) {
-                total += item.getMenuItemExtras().stream().mapToDouble(MenuItemExtra::getPrice).sum();
+                double extrasTotal = item.getMenuItemExtras().stream()
+                        .mapToDouble(MenuItemExtra::getPrice)
+                        .sum();
+                total += extrasTotal * item.getQuantity();
             }
         }
         return (long) total;
+    }
+
+    private static double resolveUnitPrice(OrderItem orderItem) {
+        if (orderItem == null || orderItem.getMenuItem() == null) {
+            return 0;
+        }
+
+        if (Boolean.TRUE.equals(orderItem.getMenuItem().getPromotionActive())
+                && orderItem.getMenuItem().getPromotionPrice() != null) {
+            return orderItem.getMenuItem().getPromotionPrice();
+        }
+
+        return orderItem.getMenuItem().getPrice();
     }
 }
