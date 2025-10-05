@@ -9,7 +9,6 @@ public record RestaurantSearchItemDto(
         Double rating,
         boolean isTopChoice,
         boolean hasFreeDelivery,
-        String promotionLabel,
         String imageUrl,
         List<MenuItemPromotionDto> promotedMenuItems
 ) {

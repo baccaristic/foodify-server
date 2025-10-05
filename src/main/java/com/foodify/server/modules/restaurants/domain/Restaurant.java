@@ -35,8 +35,6 @@ public class Restaurant {
     private Boolean freeDelivery = Boolean.FALSE;
     @Column(name = "top_eat")
     private Boolean topEat = Boolean.FALSE;
-    @Column(name = "promotion_label")
-    private String promotionLabel;
     @Column(name = "delivery_fee")
     private Double deliveryFee;
     @Column(name = "delivery_time_range")

@@ -70,10 +70,6 @@ public class RestaurantSearchService {
         List<MenuItemPromotionDto> promotedMenuItems = promotedItems == null ? List.of() : promotedItems.stream()
                 .map(this::toPromotionDto)
                 .toList();
-        String promotionLabel = restaurant.getPromotionLabel();
-        if ((promotionLabel == null || promotionLabel.isBlank()) && !promotedMenuItems.isEmpty()) {
-            promotionLabel = promotedMenuItems.get(0).promotionLabel();
-        }
         return new RestaurantSearchItemDto(
                 restaurant.getId(),
                 restaurant.getName(),
@@ -81,7 +77,6 @@ public class RestaurantSearchService {
                 restaurant.getRating(),
                 Boolean.TRUE.equals(restaurant.getTopChoice()),
                 Boolean.TRUE.equals(restaurant.getFreeDelivery()),
-                promotionLabel,
                 restaurant.getImageUrl(),
                 promotedMenuItems
         );
