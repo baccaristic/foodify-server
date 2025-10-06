@@ -94,14 +94,16 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
-        if (!userRepository.existsByEmail(request.getEmail())) {
+        Optional<User> optionalUser = userRepository.findByEmail(request.getEmail());
+
+        if (optionalUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("success", false, "message", "Invalid email or password"));
         }
 
-        User user = userRepository.findByEmail(request.getEmail()).orElse(null);
+        User user = optionalUser.get();
 
-        if (user != null && passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        if (passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             String accessToken = jwtService.generateAccessToken(user);
             String refreshToken = jwtService.generateRefreshToken(user);
 
@@ -111,10 +113,41 @@ public class AuthController {
                     "refreshToken", refreshToken,
                     "user", user
             ));
-        } else {
+        }
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(Map.of("success", false, "message", "Invalid email or password"));
+    }
+
+    @PostMapping("/driver/login")
+    public ResponseEntity<?> driverLogin(@RequestBody LoginRequest request) {
+        Optional<User> optionalUser = userRepository.findByEmail(request.getEmail());
+
+        if (optionalUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("success", false, "message", "Invalid email or password"));
         }
+
+        User user = optionalUser.get();
+
+        if (user.getRole() != Role.DRIVER) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("success", false, "message", "Driver role required"));
+        }
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("success", false, "message", "Invalid email or password"));
+        }
+
+        String accessToken = jwtService.generateAccessToken(user);
+        String refreshToken = jwtService.generateRefreshToken(user);
+
+        return ResponseEntity.ok(Map.of(
+                "accessToken", accessToken,
+                "refreshToken", refreshToken,
+                "user", user
+        ));
     }
 
 
