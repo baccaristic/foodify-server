@@ -1,5 +1,6 @@
 package com.foodify.server.modules.orders.application;
 
+import com.foodify.server.modules.delivery.location.DriverLocationService;
 import com.foodify.server.modules.notifications.application.PushNotificationService;
 import com.foodify.server.modules.notifications.application.UserDeviceService;
 import com.foodify.server.modules.notifications.domain.NotificationType;
@@ -11,6 +12,7 @@ import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.identity.domain.Client;
 import com.foodify.server.modules.orders.mapper.OrderNotificationMapper;
 import com.foodify.server.modules.orders.repository.OrderRepository;
+import com.foodify.server.modules.orders.repository.OrderStatusHistoryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,13 +45,19 @@ class OrderLifecycleEventListenerTest {
     @Mock
     private PushNotificationService pushNotificationService;
 
+    @Mock
+    private OrderStatusHistoryRepository statusHistoryRepository;
+
+    @Mock
+    private DriverLocationService driverLocationService;
+
     private OrderLifecycleEventListener listener;
 
     @BeforeEach
     void setUp() {
         listener = new OrderLifecycleEventListener(
                 orderRepository,
-                new OrderNotificationMapper(),
+                new OrderNotificationMapper(statusHistoryRepository, driverLocationService),
                 messagingTemplate,
                 webSocketService,
                 userDeviceService,

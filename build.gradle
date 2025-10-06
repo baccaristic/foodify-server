@@ -8,9 +8,9 @@ group = 'com.foodify'
 version = '0.0.1-SNAPSHOT'
 
 java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(17)
-	}
+        toolchain {
+                languageVersion = JavaLanguageVersion.of(21)
+        }
 }
 
 configurations {
@@ -47,9 +47,10 @@ dependencies {
         runtimeOnly 'org.postgresql:postgresql'
         annotationProcessor 'org.projectlombok:lombok'
         annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testImplementation 'org.springframework.security:spring-security-test'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testImplementation 'org.springframework.security:spring-security-test'
+        testImplementation 'com.h2database:h2'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
