@@ -1,6 +1,6 @@
 spring:
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     consumer:
@@ -29,8 +29,8 @@ spring:
       client:
         registration:
           google:
-            client-id: 507898158443-v30o4karkuovc0fb3qq43f482am22uid.apps.googleusercontent.com
-            client-secret: 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
+            client-id: ${OAUTH_GOOGLE_CLIENT_ID:}
+            client-secret: ${OAUTH_GOOGLE_CLIENT_SECRET:}
             scope: profile, email
 
 server:
@@ -44,7 +44,12 @@ orders:
 google:
   maps:
     api:
-      key: AIzaSyDLnMZhFNGZvImKZCCMXv6Qz7sTzPyLvfY
+      key: ${GOOGLE_MAPS_API_KEY:}
+
+firebase:
+  credentials:
+    base64: ${FIREBASE_CREDENTIALS_BASE64:}
+    path: ${FIREBASE_CREDENTIALS_PATH:}
 
 logging:
   level:
