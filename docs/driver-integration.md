@@ -5,7 +5,7 @@ This document describes every REST endpoint and realtime channel a driver-facing
 ## 1. Authentication and Session Management
 
 ### 1.1 Login
-- **Endpoint**: `POST /api/auth/login`
+- **Endpoint**: `POST /api/auth/driver/login`
 - **Body** (`application/json`):
   ```json
   {
@@ -13,8 +13,10 @@ This document describes every REST endpoint and realtime channel a driver-facing
     "password": "plaintext-password"
   }
   ```
+- **Behavior**: Accepts driver credentials and validates both the password and that the persisted account has the `DRIVER` role. Requests from non-driver accounts receive `403 Forbidden`.
 - **Success (200)**: Returns `accessToken`, `refreshToken`, and the persisted `user` object. The access token embeds the user identifier as the JWT subject and a `role` claim such as `DRIVER`.
 - **Failure (401)**: `{"success": false, "message": "Invalid email or password"}` when the credentials are incorrect.
+- **Failure (403)**: `{"success": false, "message": "Driver role required"}` when the email belongs to a non-driver account.
 
 ### 1.2 Authorized Requests
 - Attach the access token to every HTTP call and STOMP connection using `Authorization: Bearer <accessToken>`.
