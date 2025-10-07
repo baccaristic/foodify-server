@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 
@@ -20,24 +20,28 @@ import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 public class OrderTrackingConfiguration {
 
     @Bean
-    public GenericJackson2JsonRedisSerializer orderTrackingRedisSerializer(Jackson2ObjectMapperBuilder objectMapperBuilder) {
+    public Jackson2JsonRedisSerializer<OrderTrackingView> orderTrackingRedisSerializer(Jackson2ObjectMapperBuilder objectMapperBuilder) {
         ObjectMapper objectMapper = objectMapperBuilder
                 .createXmlMapper(false)
                 .build();
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        return new GenericJackson2JsonRedisSerializer(objectMapper);
+        Jackson2JsonRedisSerializer<OrderTrackingView> serializer = new Jackson2JsonRedisSerializer<>(OrderTrackingView.class);
+        serializer.setObjectMapper(objectMapper);
+        return serializer;
     }
 
     @Bean
     public RedisTemplate<String, OrderTrackingView> orderTrackingRedisTemplate(RedisConnectionFactory connectionFactory,
-                                                                              GenericJackson2JsonRedisSerializer orderTrackingRedisSerializer) {
+                                                                              Jackson2JsonRedisSerializer<OrderTrackingView> orderTrackingRedisSerializer) {
         RedisTemplate<String, OrderTrackingView> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
         template.setKeySerializer(new StringRedisSerializer());
         template.setValueSerializer(orderTrackingRedisSerializer);
         template.setHashKeySerializer(new StringRedisSerializer());
         template.setHashValueSerializer(orderTrackingRedisSerializer);
+        template.setDefaultSerializer(orderTrackingRedisSerializer);
+        template.setEnableDefaultSerializer(true);
         template.afterPropertiesSet();
         return template;
     }
