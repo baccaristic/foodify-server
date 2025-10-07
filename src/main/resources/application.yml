@@ -14,9 +14,6 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     consumer:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: com.foodify.server.modules.orders.messaging.lifecycle
-        spring.json.value.default.type: com.foodify.server.modules.orders.messaging.lifecycle.OrderLifecycleMessage
 
 app:
   messaging:
