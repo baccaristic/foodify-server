@@ -32,7 +32,7 @@ public class OrderLifecycleOutbox {
     private Long orderId;
 
     @Column(name = "event_type", nullable = false)
-    private String eventType;
+    private String messageType;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

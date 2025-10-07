@@ -30,7 +30,7 @@ public class OrderLifecycleOutboxService {
             OrderLifecycleOutbox entry = new OrderLifecycleOutbox();
             entry.setEventId(message.eventId());
             entry.setOrderId(message.orderId());
-            entry.setEventType(message.eventType());
+            entry.setMessageType(message.type());
             entry.setPayload(objectMapper.writeValueAsString(message));
             entry.setStatus(OrderLifecycleOutboxStatus.PENDING);
             repository.save(entry);
