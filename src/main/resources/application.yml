@@ -24,6 +24,11 @@ app:
         poll-interval: 5000
         retry-delay: 60000
         batch-size: 50
+  orders:
+    tracking:
+      enabled: true
+      key-prefix: orders:tracking:
+      ttl: PT24H
   servlet:
     multipart:
       max-file-size: 5MB
