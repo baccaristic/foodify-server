@@ -44,7 +44,10 @@ export EUREKA_REGISTER_WITH_EUREKA=true
 ```
 
 Run `./gradlew bootRun` after exporting the variables. The application logs will indicate
-which optional components were activated.
+which optional components were activated. The order tracking endpoint will still appear in
+Swagger UI even when the projection is disabled; in that scenario it responds with
+`501 Not Implemented` to indicate that the feature toggle must be enabled before cached
+tracking snapshots are available.
 
 ### Testing the order lifecycle workflow
 

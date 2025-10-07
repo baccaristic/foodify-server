@@ -4,7 +4,8 @@ import com.foodify.server.modules.orders.readmodel.OrderTrackingQueryService;
 import com.foodify.server.modules.orders.readmodel.OrderTrackingView;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -16,17 +17,20 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/orders")
 @RequiredArgsConstructor
-@ConditionalOnBean(OrderTrackingQueryService.class)
 public class OrderTrackingController {
 
-    private final OrderTrackingQueryService orderTrackingQueryService;
+    private final ObjectProvider<OrderTrackingQueryService> orderTrackingQueryService;
 
     @GetMapping("/{orderId}/tracking")
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
     public ResponseEntity<OrderTrackingView> getOrderTracking(@PathVariable Long orderId,
                                                               Authentication authentication) {
+        OrderTrackingQueryService queryService = orderTrackingQueryService.getIfAvailable();
+        if (queryService == null) {
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        }
         Long userId = Long.parseLong(authentication.getPrincipal().toString());
-        Optional<OrderTrackingView> view = orderTrackingQueryService.find(orderId)
+        Optional<OrderTrackingView> view = queryService.find(orderId)
                 .filter(trackingView -> trackingView.clientId() != null
                         && trackingView.clientId().equals(userId));
         return view.map(ResponseEntity::ok)
