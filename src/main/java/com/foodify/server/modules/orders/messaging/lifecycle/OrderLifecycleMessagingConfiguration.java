@@ -14,17 +14,23 @@ public class OrderLifecycleMessagingConfiguration {
 
     @Bean
     @ConditionalOnBean(name = "orderLifecycleKafkaTemplate")
-    public OrderLifecycleMessagePublisher kafkaOrderLifecycleMessagePublisher(
+    public OrderLifecycleMessageSender kafkaOrderLifecycleMessageSender(
             @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
             @Qualifier("orderLifecycleKafkaTemplate")
             KafkaTemplate<String, OrderLifecycleMessage> orderLifecycleKafkaTemplate,
             OrderMessagingProperties properties) {
-        return new KafkaOrderLifecycleMessagePublisher(orderLifecycleKafkaTemplate, properties);
+        return new KafkaOrderLifecycleMessageSender(orderLifecycleKafkaTemplate, properties);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(OrderLifecycleMessageSender.class)
+    public OrderLifecycleMessageSender noOpOrderLifecycleMessageSender() {
+        return new NoOpOrderLifecycleMessageSender();
     }
 
     @Bean
     @ConditionalOnMissingBean(OrderLifecycleMessagePublisher.class)
-    public OrderLifecycleMessagePublisher noOpOrderLifecycleMessagePublisher() {
-        return new NoOpOrderLifecycleMessagePublisher();
+    public OrderLifecycleMessagePublisher defaultOrderLifecycleMessagePublisher(OrderLifecycleMessageSender sender) {
+        return new DefaultOrderLifecycleMessagePublisher(sender);
     }
 }

@@ -19,6 +19,11 @@ app:
   messaging:
     orders:
       lifecycle-topic: orders.lifecycle
+      outbox:
+        enabled: true
+        poll-interval: 5000
+        retry-delay: 60000
+        batch-size: 50
   servlet:
     multipart:
       max-file-size: 5MB
