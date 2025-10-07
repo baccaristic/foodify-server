@@ -58,11 +58,18 @@ which optional components were activated.
    historical orders were enqueued and whether the run was a dry run.
 3. Create a new order through the existing REST API (for example via Swagger UI). The
    order will be written to the outbox, published to Kafka, and projected into Redis.
-4. Inspect Redis to verify the cached projection:
+4. Verify the projection through the new tracking endpoint (requires `ROLE_CLIENT` authentication):
+   ```bash
+   curl -H "Authorization: Bearer <jwt>" http://localhost:8081/api/orders/<orderId>/tracking
+   ```
+   The response should include the cached logistics, amounts, and status history that were populated by
+   the projection pipeline. A `404` indicates that the projection has not yet materialised or belongs to a
+   different client account.
+5. Inspect Redis to verify the cached projection:
    ```bash
    docker exec -it redis redis-cli --raw get "orders:tracking:<orderId>"
    ```
-5. Once the backfill has been verified, re-enable the dispatcher by exporting
+6. Once the backfill has been verified, re-enable the dispatcher by exporting
    `APP_ORDERS_OUTBOX_DISPATCHER_ENABLED=true` and restarting the application so the
    outbox processor delivers messages continuously.
 
