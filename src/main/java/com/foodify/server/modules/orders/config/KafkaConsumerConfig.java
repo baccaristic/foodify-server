@@ -1,5 +1,8 @@
 package com.foodify.server.modules.orders.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.foodify.server.modules.orders.dto.OrderRequest;
 import com.foodify.server.modules.orders.messaging.lifecycle.OrderLifecycleMessage;
@@ -22,9 +25,14 @@ public class KafkaConsumerConfig {
         Map<String, Object> config = new HashMap<>(kafkaProperties.buildConsumerProperties(null));
         config.put("spring.json.value.default.type", OrderLifecycleMessage.class.getName());
         config.put("spring.json.trusted.packages", "com.foodify.server.modules.orders.messaging.lifecycle,com.foodify.server.modules.orders.messaging.lifecycle.outbox");
-        JsonDeserializer<OrderLifecycleMessage> deserializer = new JsonDeserializer<>(OrderLifecycleMessage.class);
-        deserializer.addTrustedPackages("com.foodify.server.modules.orders.messaging.lifecycle", "com.foodify.server.modules.orders.messaging.lifecycle.outbox");
-        deserializer.getObjectMapper().registerModule(new JavaTimeModule());
+        ObjectMapper mapper = JsonMapper.builder()
+                .addModule(new JavaTimeModule())
+                .build()
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        JsonDeserializer<OrderLifecycleMessage> deserializer = new JsonDeserializer<>(OrderLifecycleMessage.class, mapper, false);
+        deserializer.addTrustedPackages(
+                "com.foodify.server.modules.orders.messaging.lifecycle",
+                "com.foodify.server.modules.orders.messaging.lifecycle.outbox");
         return new DefaultKafkaConsumerFactory<>(config, new StringDeserializer(), deserializer);
     }
 
