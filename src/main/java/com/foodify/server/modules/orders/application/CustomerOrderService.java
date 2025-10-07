@@ -1,9 +1,9 @@
 package com.foodify.server.modules.orders.application;
 
 import com.foodify.server.modules.addresses.domain.SavedAddress;
-import com.foodify.server.modules.addresses.repository.SavedAddressRepository;
+import com.foodify.server.modules.addresses.application.SavedAddressDirectoryService;
 import com.foodify.server.modules.identity.domain.Client;
-import com.foodify.server.modules.identity.repository.ClientRepository;
+import com.foodify.server.modules.identity.application.ClientDirectoryService;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderItem;
 import com.foodify.server.modules.orders.domain.OrderStatus;
@@ -20,9 +20,7 @@ import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
-import com.foodify.server.modules.restaurants.repository.MenuItemExtraRepository;
-import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
-import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
+import com.foodify.server.modules.restaurants.application.RestaurantCatalogService;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -87,12 +85,10 @@ public class CustomerOrderService {
     }
 
     private final OrderRepository orderRepository;
-    private final ClientRepository clientRepository;
-    private final RestaurantRepository restaurantRepository;
-    private final MenuItemRepository menuItemRepository;
-    private final MenuItemExtraRepository menuItemExtraRepository;
+    private final ClientDirectoryService clientDirectoryService;
+    private final RestaurantCatalogService restaurantCatalogService;
     private final OrderLifecycleService orderLifecycleService;
-    private final SavedAddressRepository savedAddressRepository;
+    private final SavedAddressDirectoryService savedAddressDirectoryService;
     private final OrderNotificationMapper orderNotificationMapper;
 
     @Transactional
@@ -115,8 +111,7 @@ public class CustomerOrderService {
             throw new IllegalArgumentException("Client id is required");
         }
 
-        Client client = clientRepository.findById(clientId)
-                .orElseThrow(() -> new EntityNotFoundException("Client not found"));
+        Client client = clientDirectoryService.getClientOrThrow(clientId);
 
         if (orderRepository.existsByClient_IdAndStatusInAndArchivedAtIsNull(clientId, ONGOING_STATUSES)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Client already has an ongoing order");
@@ -125,8 +120,7 @@ public class CustomerOrderService {
         Long restaurantId = Optional.ofNullable(request.getRestaurantId())
                 .orElseThrow(() -> new IllegalArgumentException("Restaurant id is required"));
 
-        Restaurant restaurant = restaurantRepository.findById(restaurantId)
-                .orElseThrow(() -> new EntityNotFoundException("Restaurant not found"));
+        Restaurant restaurant = restaurantCatalogService.getRestaurantOrThrow(restaurantId);
 
         SavedAddress savedAddress = resolveSavedAddress(clientId, request.getSavedAddressId());
 
@@ -161,8 +155,7 @@ public class CustomerOrderService {
                 throw new IllegalArgumentException("Quantity must be greater than zero");
             }
 
-            MenuItem menuItem = menuItemRepository.findById(itemRequest.getMenuItemId())
-                    .orElseThrow(() -> new EntityNotFoundException("Menu item not found"));
+            MenuItem menuItem = restaurantCatalogService.getMenuItemOrThrow(itemRequest.getMenuItemId());
 
             if (!Objects.equals(menuItem.getRestaurant().getId(), restaurant.getId())) {
                 throw new IllegalArgumentException("Menu item does not belong to the selected restaurant");
@@ -177,7 +170,7 @@ public class CustomerOrderService {
             List<Long> extraIds = Optional.ofNullable(itemRequest.getExtraIds()).orElse(Collections.emptyList());
             List<MenuItemExtra> extras = extraIds.isEmpty()
                     ? Collections.emptyList()
-                    : menuItemExtraRepository.findAllById(extraIds);
+                    : restaurantCatalogService.getMenuItemExtras(extraIds);
 
             if (!extras.isEmpty()) {
                 validateExtras(menuItem, extras);
@@ -312,7 +305,7 @@ public class CustomerOrderService {
             return null;
         }
 
-        return savedAddressRepository.findByIdAndUserId(savedAddressId, clientId)
+        return savedAddressDirectoryService.findByIdAndClient(savedAddressId, clientId)
                 .orElseThrow(() -> new EntityNotFoundException("Saved address not found for client"));
     }
 
