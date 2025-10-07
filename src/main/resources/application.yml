@@ -7,7 +7,7 @@ spring:
     config:
       fail-fast: false
     discovery:
-      enabled: true
+      enabled: ${SPRING_CLOUD_DISCOVERY_ENABLED:false}
   kafka:
     bootstrap-servers: localhost:9092
     producer:
@@ -23,17 +23,17 @@ app:
     orders:
       lifecycle-topic: orders.lifecycle
       outbox:
-        enabled: true
+        enabled: ${APP_ORDERS_OUTBOX_ENABLED:false}
         poll-interval: 5000
         retry-delay: 60000
         batch-size: 50
   orders:
     tracking:
-      enabled: true
+      enabled: ${APP_ORDERS_TRACKING_ENABLED:false}
       key-prefix: orders:tracking:
       ttl: PT24H
       kafka:
-        enabled: false
+        enabled: ${APP_ORDERS_TRACKING_KAFKA_ENABLED:false}
         group-id: order-tracking-projection
         concurrency: 1
   servlet:
@@ -66,11 +66,11 @@ app:
 
 eureka:
   client:
-    enabled: true
+    enabled: ${EUREKA_CLIENT_ENABLED:false}
     service-url:
       defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka}
-    register-with-eureka: true
-    fetch-registry: true
+    register-with-eureka: ${EUREKA_REGISTER_WITH_EUREKA:false}
+    fetch-registry: ${EUREKA_FETCH_REGISTRY:false}
   instance:
     prefer-ip-address: true
 
@@ -102,7 +102,7 @@ management:
       exposure:
         include: health,info,prometheus
   tracing:
-    enabled: true
+    enabled: ${MANAGEMENT_TRACING_ENABLED:false}
     sampling:
       probability: 1.0
   otlp:
