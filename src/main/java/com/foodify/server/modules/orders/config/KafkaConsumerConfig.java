@@ -23,8 +23,6 @@ public class KafkaConsumerConfig {
     @Bean
     public ConsumerFactory<String, OrderLifecycleMessage> orderLifecycleConsumerFactory(KafkaProperties kafkaProperties) {
         Map<String, Object> config = new HashMap<>(kafkaProperties.buildConsumerProperties(null));
-        config.put("spring.json.value.default.type", OrderLifecycleMessage.class.getName());
-        config.put("spring.json.trusted.packages", "com.foodify.server.modules.orders.messaging.lifecycle,com.foodify.server.modules.orders.messaging.lifecycle.outbox");
         ObjectMapper mapper = JsonMapper.builder()
                 .addModule(new JavaTimeModule())
                 .build()
@@ -47,8 +45,6 @@ public class KafkaConsumerConfig {
     @Bean
     public ConsumerFactory<String, OrderRequest> orderRequestConsumerFactory(KafkaProperties kafkaProperties) {
         Map<String, Object> config = new HashMap<>(kafkaProperties.buildConsumerProperties(null));
-        config.put("spring.json.value.default.type", OrderRequest.class.getName());
-        config.put("spring.json.trusted.packages", "com.foodify.server.modules.orders.dto");
         JsonDeserializer<OrderRequest> deserializer = new JsonDeserializer<>(OrderRequest.class);
         deserializer.addTrustedPackages("com.foodify.server.modules.orders.dto");
         return new DefaultKafkaConsumerFactory<>(config, new StringDeserializer(), deserializer);
