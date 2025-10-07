@@ -13,7 +13,7 @@ public class OrderConsumer {
 
     private final CustomerOrderService customerOrderService;
 
-    @KafkaListener(topics = "orders", groupId = "order_group")
+    @KafkaListener(topics = "orders", groupId = "order_group", containerFactory = "orderRequestKafkaListenerContainerFactory")
     @Transactional
     public void handleOrder(OrderRequest request) {
         customerOrderService.placeOrder(request);

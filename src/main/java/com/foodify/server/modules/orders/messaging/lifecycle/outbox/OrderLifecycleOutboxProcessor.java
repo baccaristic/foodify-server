@@ -46,6 +46,7 @@ public class OrderLifecycleOutboxProcessor {
                 .contextualName("orders.outbox.dispatch")
                 .lowCardinalityKeyValue("orders.outbox.message.type", message.type());
 
+        observation.start();
         try (Observation.Scope scope = observation.openScope()) {
             sender.send(message);
             outboxService.markDispatched(entry.getId());
