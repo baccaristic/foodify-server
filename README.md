@@ -20,7 +20,51 @@ This project now exposes interactive API documentation powered by [Swagger UI](h
    ```bash
    ./gradlew bootRun
    ```
-3. Once the server is running, open your browser at [http://localhost:8081/swagger-ui/index.html](http://localhost:8081/swagger-ui/index.html).
+   The Gradle wrapper downloads the Java toolchain automatically. If you prefer to run
+   the packaged jar instead, build it with `./gradlew bootJar` and then execute
+   `java -jar build/libs/foodify-server-*.jar`.
+3. Once the server is running, open your browser at
+   [http://localhost:8081/swagger-ui/index.html](http://localhost:8081/swagger-ui/index.html).
+
+### Migration feature toggle quickstart
+
+The new messaging, outbox, and projection components are disabled by default so the
+monolith can still run without auxiliary services. Use the following environment variables
+to opt in as you work through the migration roadmap:
+
+```bash
+export APP_ORDERS_OUTBOX_ENABLED=true
+export APP_ORDERS_OUTBOX_DISPATCHER_ENABLED=false   # keep the dispatcher off during backfill
+export APP_ORDERS_OUTBOX_BACKFILL_ENABLED=true      # seed historical orders into the outbox
+export APP_ORDERS_TRACKING_ENABLED=true             # project lifecycle events into Redis
+export APP_ORDERS_TRACKING_KAFKA_ENABLED=true       # consume lifecycle events from Kafka
+export SPRING_CLOUD_DISCOVERY_ENABLED=true          # register with Eureka (requires compose profile)
+export EUREKA_CLIENT_ENABLED=true
+export EUREKA_REGISTER_WITH_EUREKA=true
+```
+
+Run `./gradlew bootRun` after exporting the variables. The application logs will indicate
+which optional components were activated.
+
+### Testing the order lifecycle workflow
+
+1. Launch the infrastructure stack with the `platform` profile:
+   ```bash
+   docker compose --profile platform up -d
+   ```
+2. Enable the environment variables listed above and start the application. The
+   `OrderLifecycleOutboxBackfillRunner` executes at startup when
+   `APP_ORDERS_OUTBOX_BACKFILL_ENABLED=true`. Review the log statement to confirm how many
+   historical orders were enqueued and whether the run was a dry run.
+3. Create a new order through the existing REST API (for example via Swagger UI). The
+   order will be written to the outbox, published to Kafka, and projected into Redis.
+4. Inspect Redis to verify the cached projection:
+   ```bash
+   docker exec -it redis redis-cli --raw get "orders:tracking:<orderId>"
+   ```
+5. Once the backfill has been verified, re-enable the dispatcher by exporting
+   `APP_ORDERS_OUTBOX_DISPATCHER_ENABLED=true` and restarting the application so the
+   outbox processor delivers messages continuously.
 
 ### Authenticating requests in Swagger UI
 Many endpoints require a JWT access token. You can obtain a token by calling one of the authentication endpoints (for example `POST /api/auth/login`) with valid credentials. After retrieving the `accessToken` from the response:

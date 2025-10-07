@@ -28,7 +28,7 @@ public class OrderLifecycleOutboxProcessor {
 
     @Scheduled(fixedDelayString = "${app.messaging.orders.outbox.poll-interval:15000}")
     public void publishPendingMessages() {
-        if (!properties.outbox().enabled()) {
+        if (!properties.outbox().enabled() || !properties.outbox().dispatcherEnabled()) {
             incrementCounter(METRIC_SKIPPED, "reason", "disabled");
             return;
         }

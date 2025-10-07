@@ -14,4 +14,6 @@ public interface OrderLifecycleOutboxRepository extends JpaRepository<OrderLifec
     List<OrderLifecycleOutbox> findReady(@Param("status") OrderLifecycleOutboxStatus status,
                                          @Param("now") Instant now,
                                          Pageable pageable);
+
+    boolean existsByOrderIdAndMessageType(Long orderId, String messageType);
 }

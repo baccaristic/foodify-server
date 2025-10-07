@@ -24,9 +24,15 @@ app:
       lifecycle-topic: orders.lifecycle
       outbox:
         enabled: ${APP_ORDERS_OUTBOX_ENABLED:false}
+        dispatcher-enabled: ${APP_ORDERS_OUTBOX_DISPATCHER_ENABLED:true}
         poll-interval: 5000
         retry-delay: 60000
         batch-size: 50
+        backfill:
+          enabled: ${APP_ORDERS_OUTBOX_BACKFILL_ENABLED:false}
+          chunk-size: ${APP_ORDERS_OUTBOX_BACKFILL_CHUNK_SIZE:200}
+          dry-run: ${APP_ORDERS_OUTBOX_BACKFILL_DRY_RUN:false}
+          actor: ${APP_ORDERS_OUTBOX_BACKFILL_ACTOR:orders-outbox-backfill}
   orders:
     tracking:
       enabled: ${APP_ORDERS_TRACKING_ENABLED:false}
