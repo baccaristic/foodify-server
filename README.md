@@ -5,11 +5,17 @@
 This project now exposes interactive API documentation powered by [Swagger UI](https://swagger.io/tools/swagger-ui/) through Springdoc OpenAPI.
 
 ### How to run locally
-1. Start the infrastructure services (PostgreSQL, Kafka, Redis) via Docker Compose:
+1. Start the required infrastructure services (PostgreSQL) via Docker Compose:
    ```bash
-   docker compose up -d
+   docker compose up -d postgres
    ```
    The app expects a PostgreSQL database named `foodify` with the username and password `foodify`. These defaults can be overridden through the `DATABASE_URL`, `DATABASE_USERNAME`, and `DATABASE_PASSWORD` environment variables.
+
+   To enable the optional platform integrations (Kafka, Redis, Eureka, and the OTLP collector), launch the compose profile that provisions them:
+   ```bash
+   docker compose --profile platform up -d
+   ```
+   This mirrors the environment variables exposed in `application.yml`, allowing you to opt in to discovery, messaging, caching, and tracing locally when needed.
 2. Install dependencies and start the application:
    ```bash
    ./gradlew bootRun

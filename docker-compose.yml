@@ -19,6 +19,7 @@ services:
     restart: unless-stopped
 
   zookeeper:
+    profiles: [platform]
     image: confluentinc/cp-zookeeper:7.4.3
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
@@ -26,6 +27,7 @@ services:
       - "2181:2181"
 
   kafka:
+    profiles: [platform]
     image: confluentinc/cp-kafka:7.4.3
     depends_on:
        zookeeper:
@@ -40,6 +42,7 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
   redis:
+    profiles: [platform]
     image: redis:7
     container_name: redis
     ports:
@@ -47,6 +50,34 @@ services:
     command: ["redis-server", "--appendonly", "yes"] # enables persistence
     volumes:
       - redis_data:/data
+
+  eureka:
+    profiles: [platform]
+    image: bitnami/eureka:3.0.5
+    ports:
+      - "8761:8761"
+    environment:
+      EUREKA_SERVER_HOSTNAME: eureka
+      EUREKA_INSTANCE_HOSTNAME: eureka
+      EUREKA_CLIENT_REGISTERWITHEUREKA: "false"
+      EUREKA_CLIENT_FETCHREGISTRY: "false"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  otel-collector:
+    profiles: [platform]
+    image: otel/opentelemetry-collector:0.99.0
+    command:
+      - "--config=/etc/otel/collector-config.yaml"
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./docker/otel-collector-config.yaml:/etc/otel/collector-config.yaml:ro
 
 volumes:
   postgres_data:
