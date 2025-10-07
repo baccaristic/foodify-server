@@ -14,6 +14,9 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     consumer:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.foodify.server.modules.orders.messaging.lifecycle
+        spring.json.value.default.type: com.foodify.server.modules.orders.messaging.lifecycle.OrderLifecycleMessage
 
 app:
   messaging:
@@ -29,6 +32,10 @@ app:
       enabled: true
       key-prefix: orders:tracking:
       ttl: PT24H
+      kafka:
+        enabled: false
+        group-id: order-tracking-projection
+        concurrency: 1
   servlet:
     multipart:
       max-file-size: 5MB

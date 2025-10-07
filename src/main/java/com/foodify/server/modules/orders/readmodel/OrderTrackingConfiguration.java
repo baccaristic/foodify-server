@@ -41,4 +41,10 @@ public class OrderTrackingConfiguration {
     public OrderTrackingQueryService orderTrackingQueryService(OrderTrackingViewRepository orderTrackingViewRepository) {
         return new OrderTrackingQueryService(orderTrackingViewRepository);
     }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "app.orders.tracking.kafka", name = "enabled", havingValue = "true")
+    public OrderTrackingMessageListener orderTrackingMessageListener(OrderTrackingProjection projection) {
+        return new OrderTrackingMessageListener(projection);
+    }
 }

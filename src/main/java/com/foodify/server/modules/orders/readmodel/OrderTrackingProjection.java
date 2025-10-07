@@ -32,10 +32,19 @@ public class OrderTrackingProjection {
         }
         Order order = orderOptional.get();
         OrderLifecycleMessage message = buildMessage(order, event);
-        OrderTrackingView current = viewRepository.find(order.getId()).orElse(null);
-        OrderTrackingView projected = OrderTrackingViewFactory.project(order, message, current);
+        project(message);
+    }
+
+    public void project(OrderLifecycleMessage message) {
+        if (message == null) {
+            log.debug("Skipping tracking projection, message was null");
+            return;
+        }
+        OrderTrackingView current = viewRepository.find(message.orderId()).orElse(null);
+        OrderTrackingView projected = OrderTrackingViewFactory.project(message, current);
         viewRepository.save(projected);
-        log.debug("Updated order tracking view for {} with status {}", order.getId(), message.currentStatus());
+        String status = message.currentStatus() != null ? message.currentStatus() : message.previousStatus();
+        log.debug("Updated order tracking view for {} with status {}", message.orderId(), status);
     }
 
     private OrderLifecycleMessage buildMessage(Order order, OrderLifecycleEvent event) {

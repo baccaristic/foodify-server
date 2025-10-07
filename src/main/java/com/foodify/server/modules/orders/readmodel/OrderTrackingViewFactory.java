@@ -1,6 +1,5 @@
 package com.foodify.server.modules.orders.readmodel;
 
-import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.messaging.lifecycle.OrderLifecycleMessage;
 
 import java.time.Instant;
@@ -13,19 +12,17 @@ public final class OrderTrackingViewFactory {
     private OrderTrackingViewFactory() {
     }
 
-    public static OrderTrackingView project(Order order,
-                                            OrderLifecycleMessage message,
+    public static OrderTrackingView project(OrderLifecycleMessage message,
                                             OrderTrackingView current) {
-        Objects.requireNonNull(order, "order must not be null");
         Objects.requireNonNull(message, "message must not be null");
         if (current == null) {
-            return create(order, message);
+            return create(message);
         }
         return update(current, message);
     }
 
-    private static OrderTrackingView create(Order order, OrderLifecycleMessage message) {
-        String status = resolveStatus(order, message);
+    private static OrderTrackingView create(OrderLifecycleMessage message) {
+        String status = Objects.requireNonNullElse(message.currentStatus(), message.previousStatus());
         if (status == null) {
             throw new IllegalStateException("Unable to resolve order status for tracking view");
         }
@@ -37,12 +34,12 @@ public final class OrderTrackingViewFactory {
                 message.reason()
         ));
         return new OrderTrackingView(
-                order.getId(),
+                message.orderId(),
                 message.clientId(),
-                order.getClient() != null ? order.getClient().getName() : null,
-                order.getClient() != null ? order.getClient().getPhoneNumber() : null,
+                message.clientName(),
+                message.clientPhone(),
                 message.restaurantId(),
-                order.getRestaurant() != null ? order.getRestaurant().getName() : null,
+                message.restaurantName(),
                 status,
                 defaultOccurredAt(message.occurredAt()),
                 mapDelivery(message),
@@ -124,13 +121,4 @@ public final class OrderTrackingViewFactory {
         return occurredAt != null ? occurredAt : Instant.now();
     }
 
-    private static String resolveStatus(Order order, OrderLifecycleMessage message) {
-        if (message.currentStatus() != null) {
-            return message.currentStatus();
-        }
-        if (order.getStatus() != null) {
-            return order.getStatus().name();
-        }
-        return null;
-    }
 }
