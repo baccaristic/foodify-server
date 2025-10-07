@@ -54,6 +54,7 @@ public final class OrderLifecycleMessageFactory {
         List<OrderLifecycleMessage.OrderLineItem> lineItems = mapLineItems(order.getItems());
         OrderLifecycleMessage.OrderAmounts amounts = calculateAmounts(lineItems);
         OrderLifecycleMessage.OrderDelivery delivery = mapDelivery(order);
+        OrderLifecycleMessage.OrderLogistics logistics = mapLogistics(order);
 
         return new OrderLifecycleMessage(
                 UUID.randomUUID(),
@@ -71,6 +72,7 @@ public final class OrderLifecycleMessageFactory {
                 resolveOccurredAt(order.getDate(), order.getOrderTime()),
                 delivery,
                 amounts,
+                logistics,
                 lineItems
         );
     }
@@ -92,6 +94,29 @@ public final class OrderLifecycleMessageFactory {
                 .map(OrderLifecycleMessage.OrderLineItem::extrasTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return new OrderLifecycleMessage.OrderAmounts(itemTotal, extrasTotal, itemTotal);
+    }
+
+    private static OrderLifecycleMessage.OrderLogistics mapLogistics(Order order) {
+        if (order == null) {
+            return null;
+        }
+        com.foodify.server.modules.delivery.domain.Delivery delivery = order.getDelivery();
+        com.foodify.server.modules.identity.domain.Driver assignedDriver = delivery != null ? delivery.getDriver() : null;
+        com.foodify.server.modules.identity.domain.Driver pendingDriver = order.getPendingDriver();
+        return new OrderLifecycleMessage.OrderLogistics(
+                assignedDriver != null ? assignedDriver.getId() : null,
+                assignedDriver != null ? assignedDriver.getName() : null,
+                assignedDriver != null ? assignedDriver.getPhone() : null,
+                pendingDriver != null ? pendingDriver.getId() : null,
+                pendingDriver != null ? pendingDriver.getName() : null,
+                pendingDriver != null ? pendingDriver.getPhone() : null,
+                resolveInstant(delivery != null ? delivery.getPickupTime() : null),
+                resolveInstant(delivery != null ? delivery.getDeliveredTime() : null),
+                delivery != null ? delivery.getDeliveryTime() : null,
+                delivery != null ? delivery.getTimeToPickUp() : null,
+                order.getPickupToken(),
+                order.getDeliveryToken()
+        );
     }
 
     private static List<OrderLifecycleMessage.OrderLineItem> mapLineItems(List<OrderItem> items) {
@@ -163,5 +188,12 @@ public final class OrderLifecycleMessageFactory {
             return Instant.now();
         }
         return reference.atZone(ZoneId.systemDefault()).toInstant();
+    }
+
+    private static Instant resolveInstant(LocalDateTime value) {
+        if (value == null) {
+            return null;
+        }
+        return value.atZone(ZoneId.systemDefault()).toInstant();
     }
 }

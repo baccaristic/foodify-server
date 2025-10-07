@@ -44,6 +44,7 @@ public final class OrderTrackingViewFactory {
                 defaultOccurredAt(message.occurredAt()),
                 mapDelivery(message),
                 mapAmounts(message),
+                mapLogistics(message),
                 mapLineItems(message),
                 history
         );
@@ -58,7 +59,8 @@ public final class OrderTrackingViewFactory {
                 status,
                 defaultOccurredAt(message.occurredAt()),
                 message.changedBy(),
-                message.reason()
+                message.reason(),
+                mapLogistics(message)
         );
     }
 
@@ -84,6 +86,27 @@ public final class OrderTrackingViewFactory {
                 amounts.itemTotal(),
                 amounts.extrasTotal(),
                 amounts.total()
+        );
+    }
+
+    private static OrderTrackingView.Logistics mapLogistics(OrderLifecycleMessage message) {
+        OrderLifecycleMessage.OrderLogistics logistics = message.logistics();
+        if (logistics == null) {
+            return null;
+        }
+        return new OrderTrackingView.Logistics(
+                logistics.driverId(),
+                logistics.driverName(),
+                logistics.driverPhone(),
+                logistics.pendingDriverId(),
+                logistics.pendingDriverName(),
+                logistics.pendingDriverPhone(),
+                logistics.pickupTime(),
+                logistics.deliveredTime(),
+                logistics.deliveryEtaMinutes(),
+                logistics.pickupEtaMinutes(),
+                logistics.pickupToken(),
+                logistics.deliveryToken()
         );
     }
 

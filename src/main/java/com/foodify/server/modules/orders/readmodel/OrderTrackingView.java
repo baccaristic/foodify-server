@@ -18,6 +18,7 @@ public record OrderTrackingView(
         Instant updatedAt,
         Delivery delivery,
         Amounts amounts,
+        Logistics logistics,
         List<LineItem> items,
         List<StatusSnapshot> history
 ) {
@@ -27,10 +28,15 @@ public record OrderTrackingView(
         history = history == null ? List.of() : List.copyOf(history);
     }
 
-    public OrderTrackingView withStatus(String status, Instant occurredAt, String changedBy, String reason) {
+    public OrderTrackingView withStatus(String status,
+                                       Instant occurredAt,
+                                       String changedBy,
+                                       String reason,
+                                       Logistics updatedLogistics) {
         Instant effectiveTime = occurredAt != null ? occurredAt : Instant.now();
         List<StatusSnapshot> updatedHistory = new ArrayList<>(history != null ? history : Collections.emptyList());
         updatedHistory.add(new StatusSnapshot(status, effectiveTime, changedBy, reason));
+        Logistics logisticsToUse = updatedLogistics != null ? updatedLogistics : logistics;
         return new OrderTrackingView(
                 orderId,
                 clientId,
@@ -42,6 +48,7 @@ public record OrderTrackingView(
                 effectiveTime,
                 delivery,
                 amounts,
+                logisticsToUse,
                 items,
                 updatedHistory
         );
@@ -51,6 +58,20 @@ public record OrderTrackingView(
     }
 
     public record Amounts(BigDecimal itemTotal, BigDecimal extrasTotal, BigDecimal total) {
+    }
+
+    public record Logistics(Long driverId,
+                            String driverName,
+                            String driverPhone,
+                            Long pendingDriverId,
+                            String pendingDriverName,
+                            String pendingDriverPhone,
+                            Instant pickupTime,
+                            Instant deliveredTime,
+                            Long deliveryEtaMinutes,
+                            Long pickupEtaMinutes,
+                            String pickupToken,
+                            String deliveryToken) {
     }
 
     public record LineItem(Long menuItemId,

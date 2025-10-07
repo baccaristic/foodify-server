@@ -21,6 +21,7 @@ public record OrderLifecycleMessage(
         Instant occurredAt,
         OrderDelivery delivery,
         OrderAmounts amounts,
+        OrderLogistics logistics,
         List<OrderLineItem> items
 ) {
 
@@ -28,6 +29,20 @@ public record OrderLifecycleMessage(
     }
 
     public record OrderAmounts(BigDecimal itemTotal, BigDecimal extrasTotal, BigDecimal total) {
+    }
+
+    public record OrderLogistics(Long driverId,
+                                 String driverName,
+                                 String driverPhone,
+                                 Long pendingDriverId,
+                                 String pendingDriverName,
+                                 String pendingDriverPhone,
+                                 Instant pickupTime,
+                                 Instant deliveredTime,
+                                 Long deliveryEtaMinutes,
+                                 Long pickupEtaMinutes,
+                                 String pickupToken,
+                                 String deliveryToken) {
     }
 
     public record OrderLineItem(Long menuItemId,
