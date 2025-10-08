@@ -49,6 +49,8 @@ public class DriverController {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         if (request.getAvailable()) {
             driverLocationService.markAvailable(String.valueOf(userId));
+        } else {
+            driverLocationService.markUnavailable(String.valueOf(userId));
         }
     }
     @GetMapping("/pendingOrders")
