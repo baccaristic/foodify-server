@@ -72,7 +72,7 @@ services:
 
     volumes:
       - ./serviceAccountKey.json:/app/config/serviceAccountKey.json
-    restart: unless-stopped
+    restart: on-failure
 
 volumes:
   postgres_data:
