@@ -105,6 +105,20 @@ Once running, point the monolith at the remote service by exporting
 `IDENTITY_SERVICE_MODE=remote` and `IDENTITY_SERVICE_BASE_URL=http://localhost:8080`. All
 `/api/auth/**` calls will be routed through the strangler facade.
 
+When you need the identity service to participate in service discovery, enable the optional Eureka
+client by exporting the same discovery flags that the monolith honours:
+
+```bash
+export SPRING_CLOUD_DISCOVERY_ENABLED=true
+export EUREKA_CLIENT_ENABLED=true
+export EUREKA_REGISTER_WITH_EUREKA=true
+export EUREKA_FETCH_REGISTRY=true
+./gradlew -p services/identity-service bootRun
+```
+
+The service will start normally when the flags are omitted, keeping the binary self-contained for
+local development or minimalist deployments.
+
 All authentication responses now carry OIDC-aligned metadata (`tokenType`, `expiresIn`, and
 `scope`) in addition to the access and refresh tokens so BFFs and edge components can validate
 token semantics without relying on implementation details.
@@ -158,6 +172,18 @@ export CATALOG_SERVICE_BASE_URL=http://localhost:8086
 
 All catalog-facing operations (order placement, cart validation) will call the catalog service while
 continuing to leverage the outbox and Redis projections introduced earlier.
+
+To register the catalog service with Eureka for discovery-driven environments, reuse the discovery
+flags documented above before starting the service. Without those environment variables the catalog
+binary remains fully self-contained so it can operate independently of the platform control plane.
+
+### Order service extraction status
+
+The order domain still lives inside the monolith while the strangler facade is being expanded. The
+roadmap is to carve it into a standalone command service that exposes REST and gRPC endpoints, reusing
+the outbox and lifecycle publisher as the integration seams. Until that module is extracted, order
+workflows continue to execute in-process but can already consume the remote identity and catalog
+services through the toggles described above.
 
 ### Testing the order lifecycle workflow
 
