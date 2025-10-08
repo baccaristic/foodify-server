@@ -72,10 +72,14 @@ public class OrderMapper {
             dto.setDriverAssignedAt(delivery.getAssignedTime());
             dto.setPickedUpAt(delivery.getPickupTime());
             dto.setDeliveredAt(delivery.getDeliveredTime());
+            dto.setUpcoming(false);
         } else if (order.getPendingDriver() != null) {
             dto.setDriverId(order.getPendingDriver().getId());
             dto.setDriverName(order.getPendingDriver().getName());
             dto.setDriverPhone(order.getPendingDriver().getPhone());
+            dto.setUpcoming(true);
+        } else {
+            dto.setUpcoming(false);
         }
 
         // Other fields

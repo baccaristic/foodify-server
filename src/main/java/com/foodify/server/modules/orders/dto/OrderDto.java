@@ -39,4 +39,5 @@ public class OrderDto {
     private LocalDateTime pickedUpAt;
     private LocalDateTime deliveredAt;
 
+    private boolean upcoming;
 }

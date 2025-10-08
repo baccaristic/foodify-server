@@ -6,6 +6,7 @@ import com.foodify.server.modules.notifications.application.PushNotificationServ
 import com.foodify.server.modules.notifications.application.UserDeviceService;
 import com.foodify.server.modules.notifications.domain.NotificationType;
 import com.foodify.server.modules.notifications.domain.UserDevice;
+import com.foodify.server.modules.notifications.websocket.WebSocketService;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.orders.dto.OrderDto;
@@ -50,6 +51,7 @@ public class RestaurantService {
     private final PushNotificationService pushNotificationService;
     private final UserDeviceService userDeviceService;
     private final DriverService driverService;
+    private final WebSocketService webSocketService;
     private final OrderLifecycleService orderLifecycleService;
 
 
@@ -92,6 +94,7 @@ public class RestaurantService {
         driverLocationService.markPending(driverId, order.getId());
         order.setPendingDriver(driverService.findById(Long.valueOf(driverId)));
         order = orderRepository.save(order);
+        webSocketService.notifyDriverUpcoming(Long.valueOf(driverId), order);
         List<UserDevice> userDevices = userDeviceService.findByUser(Long.valueOf(driverId));
         final Order[] finalOrder = {order};
         userDevices.forEach(userDevice -> {
