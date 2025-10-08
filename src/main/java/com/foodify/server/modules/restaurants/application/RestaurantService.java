@@ -6,6 +6,7 @@ import com.foodify.server.modules.notifications.application.PushNotificationServ
 import com.foodify.server.modules.notifications.application.UserDeviceService;
 import com.foodify.server.modules.notifications.domain.NotificationType;
 import com.foodify.server.modules.notifications.domain.UserDevice;
+import com.foodify.server.modules.notifications.websocket.WebSocketService;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.orders.dto.OrderDto;
@@ -50,6 +51,7 @@ public class RestaurantService {
     private final PushNotificationService pushNotificationService;
     private final UserDeviceService userDeviceService;
     private final DriverService driverService;
+    private final WebSocketService webSocketService;
     private final OrderLifecycleService orderLifecycleService;
 
 
@@ -92,6 +94,7 @@ public class RestaurantService {
         driverLocationService.markPending(driverId, order.getId());
         order.setPendingDriver(driverService.findById(Long.valueOf(driverId)));
         order = orderRepository.save(order);
+        webSocketService.notifyDriverUpcoming(Long.valueOf(driverId), order);
         List<UserDevice> userDevices = userDeviceService.findByUser(Long.valueOf(driverId));
         final Order[] finalOrder = {order};
         userDevices.forEach(userDevice -> {
@@ -109,18 +112,25 @@ public class RestaurantService {
         });
 
         // ✅ Start 30s timer
-        final Order[] finalOrder1 = {order};
+        Long orderId = order.getId();
         Executors.newSingleThreadScheduledExecutor().schedule(() -> {
-            // Check if still pending
-            if (driverLocationService.isAvailable(driverId)) return; // already reset
             String status = redisTemplate.opsForValue().get("driver:status:" + driverId);
-            if (finalOrder1[0].getDelivery() == null) {
+
+            // Driver already accepted/declined or was reset manually
+            if (!("PENDING:" + orderId).equals(status)) {
+                return;
+            }
+
+            orderRepository.findById(orderId).ifPresent(pendingOrder -> {
+                if (pendingOrder.getDelivery() != null) {
+                    return; // already accepted by the driver
+                }
+
                 // Timeout: release driver + try next one
                 driverLocationService.markAvailable(driverId);
-                finalOrder1[0].setPendingDriver(null);
-                finalOrder1[0] = orderRepository.save(finalOrder1[0]);
-                assignDriver(finalOrder1[0]);
-            }
+                pendingOrder.setPendingDriver(null);
+                assignDriver(orderRepository.save(pendingOrder));
+            });
         }, 30, TimeUnit.SECONDS);
     }
 

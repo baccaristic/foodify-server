@@ -48,9 +48,25 @@ public class DriverLocationService {
 
     public void markAvailable(String driverId) {
         Driver driver = driverRepository.findById(Long.valueOf(driverId)).orElse(null);
+        if (driver == null) {
+            return;
+        }
+
         driver.setAvailable(true);
         driverRepository.save(driver);
         redisTemplate.opsForValue().set(STATUS_KEY_PREFIX + driverId, "AVAILABLE");
+    }
+
+    public void markUnavailable(String driverId) {
+        Driver driver = driverRepository.findById(Long.valueOf(driverId)).orElse(null);
+        if (driver == null) {
+            return;
+        }
+
+        driver.setAvailable(false);
+        driverRepository.save(driver);
+        redisTemplate.opsForValue().set(STATUS_KEY_PREFIX + driverId, "UNAVAILABLE");
+        removeDriver(Long.valueOf(driverId));
     }
 
     public Point getLastKnownPosition(Long driverId) {
