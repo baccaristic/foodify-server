@@ -1,16 +1,20 @@
 plugins {
-	id 'java'
-	id 'org.springframework.boot' version '3.5.0'
-	id 'io.spring.dependency-management' version '1.1.7'
+        id 'java'
+        id 'org.springframework.boot' version '3.3.4'
+        id 'io.spring.dependency-management' version '1.1.7'
 }
 
 group = 'com.foodify'
 version = '0.0.1-SNAPSHOT'
 
+ext {
+        set('springCloudVersion', "2023.0.3")
+}
+
 java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(17)
-	}
+        toolchain {
+                languageVersion = JavaLanguageVersion.of(17)
+        }
 }
 
 configurations {
@@ -20,7 +24,7 @@ configurations {
 }
 
 repositories {
-	mavenCentral()
+        mavenCentral()
 }
 
 dependencies {
@@ -28,15 +32,22 @@ dependencies {
         implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
         implementation 'org.springframework.boot:spring-boot-starter-security'
         implementation 'org.springframework.boot:spring-boot-starter-web'
+        implementation 'org.springframework.boot:spring-boot-starter-actuator'
         implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
         implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
-	implementation 'org.springframework.boot:spring-boot-starter-websocket'
-	implementation 'org.mapstruct:mapstruct:1.5.5.Final'
-	implementation 'org.springframework.kafka:spring-kafka:3.1.1'
+        implementation 'org.springframework.boot:spring-boot-starter-websocket'
+        implementation 'org.mapstruct:mapstruct:1.5.5.Final'
+        implementation 'org.springframework.kafka:spring-kafka:3.1.1'
         implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+        implementation 'org.springframework.cloud:spring-cloud-starter-config'
+        implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'
+        implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+        implementation 'io.micrometer:micrometer-tracing-bridge-otel'
+        implementation 'io.opentelemetry:opentelemetry-exporter-otlp'
         implementation 'com.google.firebase:firebase-admin:9.1.1' // latest version
         implementation 'com.google.zxing:core:3.5.3'
         implementation 'com.google.zxing:javase:3.5.3'
+        implementation 'org.springframework.boot:spring-boot-starter-webflux'
         implementation 'com.google.maps:google-maps-routing:1.58.0'
         implementation("org.flywaydb:flyway-database-postgresql")
         annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.5.Final'
@@ -47,11 +58,18 @@ dependencies {
         runtimeOnly 'org.postgresql:postgresql'
         annotationProcessor 'org.projectlombok:lombok'
         annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
 	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+        useJUnitPlatform()
+}
+
+dependencyManagement {
+        imports {
+                mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+        }
 }

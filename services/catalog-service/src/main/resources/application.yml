@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: catalog-service
+  datasource:
+    url: ${CATALOG_DATABASE_URL:jdbc:h2:mem:catalog;DB_CLOSE_DELAY=-1}
+    username: ${CATALOG_DATABASE_USERNAME:sa}
+    password: ${CATALOG_DATABASE_PASSWORD:}
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: false
+
+server:
+  port: ${CATALOG_SERVICE_PORT:8086}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

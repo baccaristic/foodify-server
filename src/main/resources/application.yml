@@ -1,10 +1,69 @@
 spring:
+  application:
+    name: foodify-platform
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: 507898158443-v30o4karkuovc0fb3qq43f482am22uid.apps.googleusercontent.com
+            client-secret: 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
+            scope: profile, email
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/foodify}
+    driver-class-name: org.postgresql.Driver
+    username: ${DATABASE_USERNAME:foodify}
+    password: ${DATABASE_PASSWORD:foodify}
+    jpa:
+      hibernate:
+        ddl-auto: update
+      properties:
+        hibernate:
+          dialect: org.hibernate.dialect.PostgreSQLDialect
+      show-sql: true
+    flyway:
+      enabled: true
+      locations: classpath:db/migration
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  cloud:
+    config:
+      fail-fast: false
+    discovery:
+      enabled: ${SPRING_CLOUD_DISCOVERY_ENABLED:false}
   kafka:
     bootstrap-servers: localhost:9092
     producer:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     consumer:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+
+app:
+  messaging:
+    orders:
+      lifecycle-topic: orders.lifecycle
+      outbox:
+        enabled: ${APP_ORDERS_OUTBOX_ENABLED:false}
+        dispatcher-enabled: ${APP_ORDERS_OUTBOX_DISPATCHER_ENABLED:true}
+        poll-interval: 5000
+        retry-delay: 60000
+        batch-size: 50
+        backfill:
+          enabled: ${APP_ORDERS_OUTBOX_BACKFILL_ENABLED:false}
+          chunk-size: ${APP_ORDERS_OUTBOX_BACKFILL_CHUNK_SIZE:200}
+          dry-run: ${APP_ORDERS_OUTBOX_BACKFILL_DRY_RUN:false}
+          actor: ${APP_ORDERS_OUTBOX_BACKFILL_ACTOR:orders-outbox-backfill}
+  orders:
+    tracking:
+      enabled: ${APP_ORDERS_TRACKING_ENABLED:false}
+      key-prefix:
+      orders:tracking:
+        ttl: PT24H
+        kafka:
+          enabled: ${APP_ORDERS_TRACKING_KAFKA_ENABLED:false}
+          group-id: order-tracking-projection
+          concurrency: 1
   servlet:
     multipart:
       max-file-size: 5MB
@@ -24,14 +83,16 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: 507898158443-v30o4karkuovc0fb3qq43f482am22uid.apps.googleusercontent.com
-            client-secret: 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
-            scope: profile, email
+
+eureka:
+  client:
+    enabled: ${EUREKA_CLIENT_ENABLED:false}
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka}
+    register-with-eureka: ${EUREKA_REGISTER_WITH_EUREKA:false}
+    fetch-registry: ${EUREKA_FETCH_REGISTRY:false}
+  instance:
+    prefer-ip-address: true
 
 server:
   port: 8081
@@ -54,3 +115,49 @@ logging:
         kafka: ERROR
       springframework:
         kafka: ERROR
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  tracing:
+    enabled: ${MANAGEMENT_TRACING_ENABLED:false}
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4317}
+
+identity:
+  service:
+    mode: ${IDENTITY_SERVICE_MODE:monolith}
+    remote:
+      base-url: ${IDENTITY_SERVICE_BASE_URL:http://localhost:8085}
+      connect-timeout: ${IDENTITY_SERVICE_CONNECT_TIMEOUT:2s}
+      read-timeout: ${IDENTITY_SERVICE_READ_TIMEOUT:5s}
+    schema:
+      managed: ${IDENTITY_SCHEMA_MANAGED:false}
+      name: ${IDENTITY_SCHEMA_NAME:identity}
+      migration-location: classpath:db/identity/migration
+      history-table: ${IDENTITY_SCHEMA_HISTORY_TABLE:flyway_identity_history}
+      baseline-on-migrate: ${IDENTITY_SCHEMA_BASELINE_ON_MIGRATE:true}
+  tokens:
+    access:
+      secret: ${IDENTITY_ACCESS_TOKEN_SECRET:Zm9vZGlmeS1hY2Nlc3Mtc2VjcmV0LXNob3VsZC1iZS1hdC1sZWFzdC0zMi1ieXRlcw==}
+      ttl: ${IDENTITY_ACCESS_TOKEN_TTL:PT24H}
+    refresh:
+      secret: ${IDENTITY_REFRESH_TOKEN_SECRET:Zm9vZGlmeS1yZWZyZXNoLXNlY3JldC1zaG91bGQtYmUtYXQtbGVhc3QtMzItYnl0ZXM=}
+      ttl: ${IDENTITY_REFRESH_TOKEN_TTL:P7D}
+    issuer: ${IDENTITY_TOKEN_ISSUER:https://identity.foodify.local}
+    audience: ${IDENTITY_TOKEN_AUDIENCE:foodify-platform}
+    scope: ${IDENTITY_TOKEN_SCOPE:openid profile email}
+    token-type: ${IDENTITY_TOKEN_TYPE:Bearer}
+
+catalog:
+  service:
+    mode: ${CATALOG_SERVICE_MODE:monolith}
+    remote:
+      base-url: ${CATALOG_SERVICE_BASE_URL:http://localhost:8086}
+      connect-timeout: ${CATALOG_SERVICE_CONNECT_TIMEOUT:2s}
+      read-timeout: ${CATALOG_SERVICE_READ_TIMEOUT:5s}

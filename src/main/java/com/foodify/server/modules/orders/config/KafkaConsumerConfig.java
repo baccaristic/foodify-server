@@ -1,8 +1,13 @@
 package com.foodify.server.modules.orders.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.foodify.server.modules.orders.dto.OrderRequest;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
+import com.foodify.server.modules.orders.messaging.lifecycle.OrderLifecycleMessage;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -16,20 +21,40 @@ import java.util.Map;
 @Configuration
 public class KafkaConsumerConfig {
     @Bean
-    public ConsumerFactory<String, OrderRequest> consumerFactory() {
-        Map<String, Object> config = new HashMap<>();
-        config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
-        config.put(ConsumerConfig.GROUP_ID_CONFIG, "order_group");
-        config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
-        config.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
-        return new DefaultKafkaConsumerFactory<>(config, new StringDeserializer(), new JsonDeserializer<>(OrderRequest.class));
+    public ConsumerFactory<String, OrderLifecycleMessage> orderLifecycleConsumerFactory(KafkaProperties kafkaProperties) {
+        Map<String, Object> config = new HashMap<>(kafkaProperties.buildConsumerProperties(null));
+        ObjectMapper mapper = JsonMapper.builder()
+                .addModule(new JavaTimeModule())
+                .build()
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        JsonDeserializer<OrderLifecycleMessage> deserializer = new JsonDeserializer<>(OrderLifecycleMessage.class, mapper, false);
+        deserializer.addTrustedPackages(
+                "com.foodify.server.modules.orders.messaging.lifecycle",
+                "com.foodify.server.modules.orders.messaging.lifecycle.outbox");
+        return new DefaultKafkaConsumerFactory<>(config, new StringDeserializer(), deserializer);
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, OrderRequest> kafkaListenerContainerFactory() {
+    public ConcurrentKafkaListenerContainerFactory<String, OrderLifecycleMessage> kafkaListenerContainerFactory(
+            ConsumerFactory<String, OrderLifecycleMessage> orderLifecycleConsumerFactory) {
+        ConcurrentKafkaListenerContainerFactory<String, OrderLifecycleMessage> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(orderLifecycleConsumerFactory);
+        return factory;
+    }
+
+    @Bean
+    public ConsumerFactory<String, OrderRequest> orderRequestConsumerFactory(KafkaProperties kafkaProperties) {
+        Map<String, Object> config = new HashMap<>(kafkaProperties.buildConsumerProperties(null));
+        JsonDeserializer<OrderRequest> deserializer = new JsonDeserializer<>(OrderRequest.class);
+        deserializer.addTrustedPackages("com.foodify.server.modules.orders.dto");
+        return new DefaultKafkaConsumerFactory<>(config, new StringDeserializer(), deserializer);
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, OrderRequest> orderRequestKafkaListenerContainerFactory(
+            ConsumerFactory<String, OrderRequest> orderRequestConsumerFactory) {
         ConcurrentKafkaListenerContainerFactory<String, OrderRequest> factory = new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(consumerFactory());
+        factory.setConsumerFactory(orderRequestConsumerFactory);
         return factory;
     }
 }
