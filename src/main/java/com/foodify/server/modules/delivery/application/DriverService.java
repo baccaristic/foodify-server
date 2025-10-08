@@ -1,10 +1,16 @@
 package com.foodify.server.modules.delivery.application;
 
 import com.foodify.server.modules.delivery.domain.Delivery;
+import com.foodify.server.modules.delivery.domain.DriverShift;
+import com.foodify.server.modules.delivery.domain.DriverShiftStatus;
 import com.foodify.server.modules.delivery.dto.DeliverOrderDto;
 import com.foodify.server.modules.delivery.dto.PickUpOrderRequest;
+import com.foodify.server.modules.delivery.dto.DriverShiftDto;
+import com.foodify.server.modules.delivery.application.QrCodeService;
+import com.foodify.server.modules.delivery.application.GoogleMapsService;
 import com.foodify.server.modules.delivery.location.DriverLocationService;
 import com.foodify.server.modules.delivery.repository.DeliveryRepository;
+import com.foodify.server.modules.delivery.repository.DriverShiftRepository;
 import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.identity.repository.DriverRepository;
 import com.foodify.server.modules.orders.domain.Order;
@@ -29,6 +35,7 @@ public class DriverService {
     private final DriverRepository driverRepository;
     private final OrderRepository orderRepository;
     private final DeliveryRepository deliveryRepository;
+    private final DriverShiftRepository driverShiftRepository;
     private final QrCodeService qrCodeService;
     private final GoogleMapsService googleMapsService;
     private final DriverLocationService driverLocationService;
@@ -187,6 +194,65 @@ public class DriverService {
             result.add(OrderMapper.toDto(order));
         });
         return result;
+    }
+
+    @Transactional
+    public DriverShiftDto updateAvailability(Long driverId, boolean available) {
+        Driver driver = driverRepository.findById(driverId).orElseThrow(() ->
+                new IllegalArgumentException("Driver not found"));
+
+        DriverShift activeShift = driverShiftRepository
+                .findTopByDriverIdAndStatusOrderByStartedAtDesc(driverId, DriverShiftStatus.ACTIVE)
+                .orElse(null);
+
+        if (available) {
+            if (activeShift == null) {
+                LocalDateTime now = LocalDateTime.now();
+                DriverShift newShift = new DriverShift();
+                newShift.setDriver(driver);
+                newShift.setStatus(DriverShiftStatus.ACTIVE);
+                newShift.setStartedAt(now);
+                newShift.setFinishableAt(now.plusHours(2));
+                activeShift = driverShiftRepository.save(newShift);
+            }
+            driverLocationService.markAvailable(String.valueOf(driverId));
+            return toShiftDto(activeShift);
+        }
+
+        if (activeShift != null) {
+            LocalDateTime now = LocalDateTime.now();
+            if (activeShift.getFinishableAt() != null && activeShift.getFinishableAt().isAfter(now)) {
+                throw new IllegalStateException("Shift can be ended after " + activeShift.getFinishableAt());
+            }
+            activeShift.setStatus(DriverShiftStatus.COMPLETED);
+            activeShift.setEndedAt(now);
+            driverShiftRepository.save(activeShift);
+            driverLocationService.markUnavailable(String.valueOf(driverId));
+            return toShiftDto(activeShift);
+        }
+
+        driverLocationService.markUnavailable(String.valueOf(driverId));
+        return null;
+    }
+
+    @Transactional
+    public DriverShiftDto getCurrentShift(Long driverId) {
+        return driverShiftRepository
+                .findTopByDriverIdAndStatusOrderByStartedAtDesc(driverId, DriverShiftStatus.ACTIVE)
+                .map(this::toShiftDto)
+                .orElse(null);
+    }
+
+    private DriverShiftDto toShiftDto(DriverShift shift) {
+        if (shift == null) {
+            return null;
+        }
+        return DriverShiftDto.builder()
+                .status(shift.getStatus())
+                .startedAt(shift.getStartedAt())
+                .finishableAt(shift.getFinishableAt())
+                .endedAt(shift.getEndedAt())
+                .build();
     }
 
     private Long resolveRouteDuration(Double originLat, Double originLng, Double destLat, Double destLng) {

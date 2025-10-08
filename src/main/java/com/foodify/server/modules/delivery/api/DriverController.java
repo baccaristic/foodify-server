@@ -2,6 +2,7 @@ package com.foodify.server.modules.delivery.api;
 
 import com.foodify.server.modules.delivery.dto.DeliverOrderDto;
 import com.foodify.server.modules.delivery.dto.DriverLocationDto;
+import com.foodify.server.modules.delivery.dto.DriverShiftDto;
 import com.foodify.server.modules.delivery.dto.PickUpOrderRequest;
 import com.foodify.server.modules.delivery.dto.StatusUpdateRequest;
 import com.foodify.server.modules.delivery.location.DriverLocationService;
@@ -9,6 +10,7 @@ import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.delivery.application.DriverService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -45,12 +47,18 @@ public class DriverController {
     }
     @PostMapping("/updateStatus")
     @PreAuthorize("hasAuthority('ROLE_DRIVER')")
-    public void updateStatus(Authentication authentication, @RequestBody StatusUpdateRequest request) {
+    public ResponseEntity<?> updateStatus(Authentication authentication, @RequestBody StatusUpdateRequest request) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
-        if (request.getAvailable()) {
-            driverLocationService.markAvailable(String.valueOf(userId));
-        } else {
-            driverLocationService.markUnavailable(String.valueOf(userId));
+        if (request.getAvailable() == null) {
+            return ResponseEntity.badRequest().body("Availability flag is required");
+        }
+        try {
+            DriverShiftDto shift = driverService.updateAvailability(userId, request.getAvailable());
+            return ResponseEntity.ok(shift);
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
         }
     }
     @GetMapping("/pendingOrders")
@@ -77,6 +85,13 @@ public class DriverController {
     public OrderDto ongoingOrder(Authentication authentication) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         return driverService.getOngoingOrder(userId);
+    }
+
+    @GetMapping("/shift")
+    @PreAuthorize("hasAuthority('ROLE_DRIVER')")
+    public DriverShiftDto currentShift(Authentication authentication) {
+        Long userId = Long.parseLong((String) authentication.getPrincipal());
+        return driverService.getCurrentShift(userId);
     }
 
     @PostMapping("/deliver-order")
