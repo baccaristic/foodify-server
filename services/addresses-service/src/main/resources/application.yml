@@ -1,22 +1,26 @@
 spring:
   application:
-    name: identity-service
+    name: addresses-service
   datasource:
-    url: ${IDENTITY_DATABASE_URL:jdbc:postgresql://localhost:5432/identity_service}
+    url: ${ADDRESSES_DATABASE_URL:jdbc:postgresql://localhost:5432/addresses_service}
+    username: ${ADDRESSES_DATABASE_USERNAME:addresses_service}
+    password: ${ADDRESSES_DATABASE_PASSWORD:addresses_service}
     driver-class-name: org.postgresql.Driver
-    username: ${IDENTITY_DATABASE_USERNAME:identity_service}
-    password: ${IDENTITY_DATABASE_PASSWORD:identity_service}
   jpa:
     hibernate:
       ddl-auto: update
     properties:
       hibernate:
         format_sql: true
+    show-sql: false
   cloud:
     discovery:
       enabled: ${SPRING_CLOUD_DISCOVERY_ENABLED:false}
   main:
     banner-mode: "off"
+
+server:
+  port: ${ADDRESSES_SERVICE_PORT:8084}
 
 logging:
   level:
@@ -44,16 +48,3 @@ eureka:
     fetch-registry: ${EUREKA_FETCH_REGISTRY:true}
   instance:
     prefer-ip-address: true
-
-identity:
-  tokens:
-    issuer: ${IDENTITY_TOKEN_ISSUER:https://identity.foodify.local}
-    audience: ${IDENTITY_TOKEN_AUDIENCE:foodify-platform}
-    scope: ${IDENTITY_TOKEN_SCOPE:openid profile email}
-    token-type: ${IDENTITY_TOKEN_TYPE:Bearer}
-    access:
-      secret: ${IDENTITY_ACCESS_TOKEN_SECRET:Zm9vZGlmeS1hY2Nlc3Mtc2VjcmV0LXNob3VsZC1iZS1hdC1sZWFzdC0zMi1ieXRlcw==}
-      ttl: ${IDENTITY_ACCESS_TOKEN_TTL:PT24H}
-    refresh:
-      secret: ${IDENTITY_REFRESH_TOKEN_SECRET:Zm9vZGlmeS1yZWZyZXNoLXNlY3JldC1zaG91bGQtYmUtYXQtbGVhc3QtMzItYnl0ZXM=}
-      ttl: ${IDENTITY_REFRESH_TOKEN_TTL:P7D}

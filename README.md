@@ -14,6 +14,7 @@ containerized environments without relying on the legacy monolith.
 | Orders | `services/orders-service` | Manages the customer order lifecycle, outbox, and read models. |
 | Delivery | `services/delivery-service` | Tracks driver assignments, ETA calculations, and logistics. |
 | Notifications | `services/notifications-service` | Manages push notifications and WebSocket updates. |
+| Addresses | `services/addresses-service` | Stores and manages customer saved delivery locations. |
 
 Shared observability (OpenTelemetry), messaging (Kafka), and cache (Redis) configuration has been
 copied into each service so that they can opt-in to the required infrastructure individually.
@@ -33,6 +34,7 @@ copied into each service so that they can opt-in to the required infrastructure 
    ./gradlew -p services/orders-service bootRun
    ./gradlew -p services/delivery-service bootRun
    ./gradlew -p services/notifications-service bootRun
+   ./gradlew -p services/addresses-service bootRun
    ```
 3. Build container images if desired:
    ```bash
@@ -45,8 +47,9 @@ Each service exposes Swagger/OpenAPI documentation under `/swagger-ui/index.html
 ## Configuration Highlights
 
 - **Discovery:** Toggle registration via `SPRING_CLOUD_DISCOVERY_ENABLED` / `EUREKA_CLIENT_ENABLED`.
-- **Database:** Every service defaults to an in-memory H2 database. Override `spring.datasource.*`
-  to point at PostgreSQL when running with Docker Compose.
+- **Database:** Every service now defaults to PostgreSQL connection settings. Override
+  `spring.datasource.*` environment variables if your database hostnames, credentials, or schemas
+  differ from the local Docker Compose profile.
 - **Messaging:** Orders and notifications load Kafka/Redis properties from their respective
   `application.yml` files. Use the `platform` Compose profile to provision the brokers locally.
 - **Tracing:** Micrometer OTLP exporters are pre-configured but disabled until `OTEL_EXPORTER_OTLP_ENDPOINT`

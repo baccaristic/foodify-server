@@ -2,10 +2,10 @@ spring:
   application:
     name: orders-service
   datasource:
-    url: ${ORDERS_DATABASE_URL:jdbc:h2:mem:orders;DB_CLOSE_DELAY=-1;MODE=PostgreSQL}
-    username: ${ORDERS_DATABASE_USERNAME:sa}
-    password: ${ORDERS_DATABASE_PASSWORD:}
-    driver-class-name: org.h2.Driver
+    url: ${ORDERS_DATABASE_URL:jdbc:postgresql://localhost:5432/orders_service}
+    username: ${ORDERS_DATABASE_USERNAME:orders_service}
+    password: ${ORDERS_DATABASE_PASSWORD:orders_service}
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: update

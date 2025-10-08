@@ -2,10 +2,10 @@ spring:
   application:
     name: delivery-service
   datasource:
-    url: ${DELIVERY_DATABASE_URL:jdbc:h2:mem:delivery;DB_CLOSE_DELAY=-1;MODE=PostgreSQL}
-    username: ${DELIVERY_DATABASE_USERNAME:sa}
-    password: ${DELIVERY_DATABASE_PASSWORD:}
-    driver-class-name: org.h2.Driver
+    url: ${DELIVERY_DATABASE_URL:jdbc:postgresql://localhost:5432/delivery_service}
+    username: ${DELIVERY_DATABASE_USERNAME:delivery_service}
+    password: ${DELIVERY_DATABASE_PASSWORD:delivery_service}
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: update

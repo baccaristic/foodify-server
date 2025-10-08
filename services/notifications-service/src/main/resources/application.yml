@@ -2,10 +2,10 @@ spring:
   application:
     name: notifications-service
   datasource:
-    url: ${NOTIFICATIONS_DATABASE_URL:jdbc:h2:mem:notifications;DB_CLOSE_DELAY=-1;MODE=PostgreSQL}
-    username: ${NOTIFICATIONS_DATABASE_USERNAME:sa}
-    password: ${NOTIFICATIONS_DATABASE_PASSWORD:}
-    driver-class-name: org.h2.Driver
+    url: ${NOTIFICATIONS_DATABASE_URL:jdbc:postgresql://localhost:5432/notifications_service}
+    username: ${NOTIFICATIONS_DATABASE_USERNAME:notifications_service}
+    password: ${NOTIFICATIONS_DATABASE_PASSWORD:notifications_service}
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: update
