@@ -36,7 +36,7 @@ import java.util.Set;
 @Slf4j
 public class DriverAssignmentService {
 
-    private static final EnumSet<OrderStatus> ACTIVE_DRIVER_STATUSES = EnumSet.of(
+    private static final List<OrderStatus> ACTIVE_DRIVER_STATUSES = List.of(
             OrderStatus.ACCEPTED,
             OrderStatus.PREPARING,
             OrderStatus.READY_FOR_PICK_UP,
