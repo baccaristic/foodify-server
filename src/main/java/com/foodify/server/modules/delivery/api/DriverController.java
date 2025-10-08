@@ -6,6 +6,7 @@ import com.foodify.server.modules.delivery.dto.DriverShiftDto;
 import com.foodify.server.modules.delivery.dto.PickUpOrderRequest;
 import com.foodify.server.modules.delivery.dto.StatusUpdateRequest;
 import com.foodify.server.modules.delivery.location.DriverLocationService;
+import com.foodify.server.modules.notifications.websocket.WebSocketService;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.delivery.application.DriverService;
@@ -24,11 +25,15 @@ import java.util.List;
 public class DriverController {
     private final DriverLocationService driverLocationService;
     private final DriverService driverService;
+    private final WebSocketService webSocketService;
 
     @PostMapping("/location")
     @PreAuthorize("hasAuthority('ROLE_DRIVER')")
     public void updateLocation(@RequestBody DriverLocationDto dto) {
         driverLocationService.updateDriverLocation(dto.getDriverId(), dto.getLatitude(), dto.getLongitude());
+        driverService.getOrderInDelivery(dto.getDriverId())
+                .filter(order -> order.getClient() != null)
+                .ifPresent(order -> webSocketService.notifyClient(order.getClient().getId(), order));
     }
 
     @GetMapping("/order/{id}")
