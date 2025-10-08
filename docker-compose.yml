@@ -48,6 +48,28 @@ services:
     volumes:
       - redis_data:/data
 
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: foodify-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_started
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/foodify
+      SPRING_DATASOURCE_USERNAME: foodify
+      SPRING_DATASOURCE_PASSWORD: foodify
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_REDIS_HOST: redis
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
