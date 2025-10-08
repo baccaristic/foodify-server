@@ -162,6 +162,10 @@ public class DriverService {
         return OrderMapper.toDto(orderRepository.findByDriverIdAndStatusIn(userId, ACTIVE_DRIVER_STATUSES).orElse(null));
     }
 
+    public Optional<Order> getOrderInDelivery(Long driverId) {
+        return orderRepository.findByDriverIdAndStatusIn(driverId, List.of(OrderStatus.IN_DELIVERY));
+    }
+
     public Boolean deliverOrder(Long driverId, DeliverOrderDto request) {
         Order order = orderRepository.findById(request.getOrderId()).orElse(null);
         if (order == null) {
