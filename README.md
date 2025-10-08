@@ -1,227 +1,73 @@
-# Foodify Server
+# Foodify Microservices Platform
 
-## Swagger / OpenAPI Playground
+Foodify has fully transitioned to a microservices architecture. The legacy monolithic
+application has been removed and the codebase now hosts independent Spring Boot
+services that can be deployed and scaled separately.
 
-This project now exposes interactive API documentation powered by [Swagger UI](https://swagger.io/tools/swagger-ui/) through Springdoc OpenAPI.
+## Services
 
-### How to run locally
-1. Start the required infrastructure services (PostgreSQL) via Docker Compose:
-   ```bash
-   docker compose up -d postgres
-   ```
-   The app expects a PostgreSQL database named `foodify` with the username and password `foodify`. These defaults can be overridden through the `DATABASE_URL`, `DATABASE_USERNAME`, and `DATABASE_PASSWORD` environment variables.
+The following services live in this repository:
 
-   To enable the optional platform integrations (Kafka, Redis, Eureka, and the OTLP collector), launch the compose profile that provisions them:
-   ```bash
-   docker compose --profile platform up -d
-   ```
-   This mirrors the environment variables exposed in `application.yml`, allowing you to opt in to discovery, messaging, caching, and tracing locally when needed.
-2. Install dependencies and start the application:
-   ```bash
-   ./gradlew bootRun
-   ```
-   The Gradle wrapper downloads the Java toolchain automatically. If you prefer to run
-   the packaged jar instead, build it with `./gradlew bootJar` and then execute
-   `java -jar build/libs/foodify-server-*.jar`.
-3. Once the server is running, open your browser at
-   [http://localhost:8081/swagger-ui/index.html](http://localhost:8081/swagger-ui/index.html).
+- **Identity Service** (`services/identity-service`) &mdash; handles authentication,
+  authorization, and user profile management.
+- **Catalog Service** (`services/catalog-service`) &mdash; serves restaurant,
+  menu, availability, and pricing data consumed by downstream workloads such as
+  ordering and discovery experiences.
 
-### Migration feature toggle quickstart
+Each service is a standalone Gradle project with its own `settings.gradle`. Use
+Gradle's `-p` flag (or change directory into the service) when running build
+and runtime tasks.
 
-The new messaging, outbox, and projection components are disabled by default so the
-monolith can still run without auxiliary services. Use the following environment variables
-to opt in as you work through the migration roadmap:
+## Running locally
 
-```bash
-export APP_ORDERS_OUTBOX_ENABLED=true
-export APP_ORDERS_OUTBOX_DISPATCHER_ENABLED=false   # keep the dispatcher off during backfill
-export APP_ORDERS_OUTBOX_BACKFILL_ENABLED=true      # seed historical orders into the outbox
-export APP_ORDERS_TRACKING_ENABLED=true             # project lifecycle events into Redis
-export APP_ORDERS_TRACKING_KAFKA_ENABLED=true       # consume lifecycle events from Kafka
-export SPRING_CLOUD_DISCOVERY_ENABLED=true          # register with Eureka (requires compose profile)
-export EUREKA_CLIENT_ENABLED=true
-export EUREKA_REGISTER_WITH_EUREKA=true
-```
+1. Start required infrastructure such as PostgreSQL, Kafka, Redis, and Eureka
+   using the provided Docker Compose profiles:
 
-Run `./gradlew bootRun` after exporting the variables. The application logs will indicate
-which optional components were activated. The order tracking endpoint will still appear in
-Swagger UI even when the projection is disabled; in that scenario it responds with
-`501 Not Implemented` to indicate that the feature toggle must be enabled before cached
-tracking snapshots are available.
-
-### Identity service extraction toggles
-
-Authentication, JWT issuance, and profile workflows now flow through an `IdentityAuthService`
-layer so the monolith can either execute the logic locally or proxy to a dedicated identity
-microservice. The behaviour is controlled through the `identity.*` settings in
-`application.yml`:
-
-- `IDENTITY_SERVICE_MODE` &mdash; defaults to `monolith`. Set to `remote` to forward all
-  `/api/auth/**` requests to the external identity service configured by
-  `IDENTITY_SERVICE_BASE_URL`.
-- `IDENTITY_SERVICE_CONNECT_TIMEOUT` / `IDENTITY_SERVICE_READ_TIMEOUT` &mdash; tune the REST
-  client timeouts when proxying.
-- `IDENTITY_ACCESS_TOKEN_SECRET` and `IDENTITY_REFRESH_TOKEN_SECRET` &mdash; Base64-encoded keys
-  used to sign JWTs when the monolith issues tokens locally. Rotate these in each
-  environment; the defaults are provided for local development only.
-- `IDENTITY_SCHEMA_MANAGED` &mdash; when `true`, Flyway will apply migrations located in
-  `db/identity/migration` to the schema defined by `IDENTITY_SCHEMA_NAME`. This allows the
-  identity service to own its database objects independently of the rest of the monolith.
-
-Example local configuration that proxies to a standalone identity service while running the
-schema migrations:
-
-```bash
-export IDENTITY_SERVICE_MODE=remote
-export IDENTITY_SERVICE_BASE_URL=http://localhost:8085
-export IDENTITY_SCHEMA_MANAGED=true
-./gradlew bootRun
-```
-
-When `IDENTITY_SERVICE_MODE=monolith` (the default), the monolith continues to handle user
-management in-process, issuing JWTs via the configured secrets so existing clients remain
-compatible during the strangler migration.
-
-### Running the standalone identity service
-
-The extracted identity microservice lives under `services/identity-service` and exposes the same
-contracts that the monolith now consumes when `IDENTITY_SERVICE_MODE=remote` is enabled.
-
-To launch it locally:
-
-```bash
-./gradlew -p services/identity-service bootRun
-```
-
-The service boots on port `8080` by default and uses an in-memory H2 database. You can build a
-container image with:
-
-```bash
-./gradlew -p services/identity-service bootJar
-docker build -t foodify/identity-service:latest services/identity-service
-```
-
-Once running, point the monolith at the remote service by exporting
-`IDENTITY_SERVICE_MODE=remote` and `IDENTITY_SERVICE_BASE_URL=http://localhost:8080`. All
-`/api/auth/**` calls will be routed through the strangler facade.
-
-When you need the identity service to participate in service discovery, enable the optional Eureka
-client by exporting the same discovery flags that the monolith honours:
-
-```bash
-export SPRING_CLOUD_DISCOVERY_ENABLED=true
-export EUREKA_CLIENT_ENABLED=true
-export EUREKA_REGISTER_WITH_EUREKA=true
-export EUREKA_FETCH_REGISTRY=true
-./gradlew -p services/identity-service bootRun
-```
-
-The service will start normally when the flags are omitted, keeping the binary self-contained for
-local development or minimalist deployments.
-
-All authentication responses now carry OIDC-aligned metadata (`tokenType`, `expiresIn`, and
-`scope`) in addition to the access and refresh tokens so BFFs and edge components can validate
-token semantics without relying on implementation details.
-
-### Catalog service extraction toggles
-
-Order validation and pricing workflows now consume restaurant, menu, and extra data through a
-`RestaurantCatalogService` facade. The behaviour mirrors the identity migration so the monolith can
-either execute reads locally or proxy to the dedicated catalog microservice via the
-`catalog.service.*` configuration block:
-
-- `CATALOG_SERVICE_MODE` &mdash; defaults to `monolith`. Set to `remote` to fetch restaurants, menu
-  items, and extras from the standalone catalog service.
-- `CATALOG_SERVICE_BASE_URL` &mdash; the remote endpoint used by the monolith when proxying requests.
-- `CATALOG_SERVICE_CONNECT_TIMEOUT` / `CATALOG_SERVICE_READ_TIMEOUT` &mdash; override the REST client
-  timeouts when the remote service is enabled.
-
-When operating in `monolith` mode the existing repositories remain in use, keeping legacy flows
-unchanged while we extract downstream consumers to their own services.
-
-### Running the standalone catalog service
-
-The new catalog microservice lives under `services/catalog-service`. It exposes REST endpoints that
-mirror the methods in `RestaurantCatalogService`, allowing the monolith (or future BFFs) to retrieve
-restaurant metadata without reaching into the monolith database directly. Beyond single resource
-lookups the service now provides search, availability, and pricing endpoints so downstream
-consumers can query complex catalog views without hitting the monolith database.
-
-Launch it locally on port `8080` (mapped to `8086` in Docker Compose) with:
-
-```bash
-./gradlew -p services/catalog-service bootRun
-```
-
-By default the service uses an in-memory H2 database. Point it at PostgreSQL or another persistent
-store by exporting the `CATALOG_DATABASE_URL`, `CATALOG_DATABASE_USERNAME`, and
-`CATALOG_DATABASE_PASSWORD` variables before booting. To build a container image:
-
-```bash
-./gradlew -p services/catalog-service bootJar
-docker build -t foodify/catalog-service:latest services/catalog-service
-```
-
-Enable remote catalog mode in the monolith with:
-
-```bash
-export CATALOG_SERVICE_MODE=remote
-export CATALOG_SERVICE_BASE_URL=http://localhost:8086
-./gradlew bootRun
-```
-
-All catalog-facing operations (order placement, cart validation) will call the catalog service while
-continuing to leverage the outbox and Redis projections introduced earlier.
-
-To register the catalog service with Eureka for discovery-driven environments, reuse the discovery
-flags documented above before starting the service. Without those environment variables the catalog
-binary remains fully self-contained so it can operate independently of the platform control plane.
-
-### Order service extraction status
-
-The order domain still lives inside the monolith while the strangler facade is being expanded. The
-roadmap is to carve it into a standalone command service that exposes REST and gRPC endpoints, reusing
-the outbox and lifecycle publisher as the integration seams. Until that module is extracted, order
-workflows continue to execute in-process but can already consume the remote identity and catalog
-services through the toggles described above.
-
-### Testing the order lifecycle workflow
-
-1. Launch the infrastructure stack with the `platform` profile:
    ```bash
    docker compose --profile platform up -d
    ```
-2. Enable the environment variables listed above and start the application. The
-   `OrderLifecycleOutboxBackfillRunner` executes at startup when
-   `APP_ORDERS_OUTBOX_BACKFILL_ENABLED=true`. Review the log statement to confirm how many
-   historical orders were enqueued and whether the run was a dry run.
-3. Create a new order through the existing REST API (for example via Swagger UI). The
-   order will be written to the outbox, published to Kafka, and projected into Redis.
-4. Verify the projection through the new tracking endpoint (requires `ROLE_CLIENT` authentication):
+
+   This provisions the shared dependencies used during development. You can
+   start a subset (for example just PostgreSQL) by omitting the `--profile`
+   flag.
+
+2. Launch the desired service. For example, to start the identity service on
+   port `8080`:
+
    ```bash
-   curl -H "Authorization: Bearer <jwt>" http://localhost:8081/api/orders/<orderId>/tracking
+   ./gradlew -p services/identity-service bootRun
    ```
-   The response should include the cached logistics, amounts, and status history that were populated by
-   the projection pipeline. A `404` indicates that the projection has not yet materialised or belongs to a
-   different client account.
-5. Inspect Redis to verify the cached projection:
+
+   Start the catalog service similarly:
+
    ```bash
-   docker exec -it redis redis-cli --raw get "orders:tracking:<orderId>"
+   ./gradlew -p services/catalog-service bootRun
    ```
-6. Once the backfill has been verified, re-enable the dispatcher by exporting
-   `APP_ORDERS_OUTBOX_DISPATCHER_ENABLED=true` and restarting the application so the
-   outbox processor delivers messages continuously.
 
-### Authenticating requests in Swagger UI
-Many endpoints require a JWT access token. You can obtain a token by calling one of the authentication endpoints (for example `POST /api/auth/login`) with valid credentials. After retrieving the `accessToken` from the response:
+3. Optional: build container images for distribution:
 
-1. Open the Swagger UI page and press the **Authorize** button in the top-right corner.
-2. Select the `bearerAuth` scheme and enter the token in the field using the format:
+   ```bash
+   ./gradlew -p services/identity-service bootJar
+   docker build -t foodify/identity-service:latest services/identity-service
+
+   ./gradlew -p services/catalog-service bootJar
+   docker build -t foodify/catalog-service:latest services/catalog-service
    ```
-   Bearer <your-jwt-token>
-   ```
-3. Click **Authorize** and then **Close**. All subsequent requests sent from Swagger UI will include the JWT in the `Authorization` header, allowing you to exercise protected endpoints.
 
-### Notes
-- The OpenAPI specification is available at `/v3/api-docs` (JSON) or `/v3/api-docs.yaml` (YAML).
-- Swagger UI and the OpenAPI documents are publicly accessible while the rest of the API remains protected by the existing security configuration.
+Discovery registration is disabled by default to keep the binaries self-contained.
+Enable it by exporting the `SPRING_CLOUD_DISCOVERY_ENABLED`,
+`EUREKA_CLIENT_ENABLED`, and related flags documented in each service's
+`application.yml` before launching the service.
+
+## Tooling
+
+- **Gradle Wrapper** &mdash; shared across services for consistent builds.
+- **Docker Compose** &mdash; provisions local infrastructure dependencies.
+- **OpenAPI/Swagger** &mdash; each service exposes its own API documentation once
+  running.
+
+## Next steps
+
+The order command service is being extracted in a dedicated repository. Once
+completed, it will integrate with these services via REST, messaging, and
+outbox-driven workflows.
