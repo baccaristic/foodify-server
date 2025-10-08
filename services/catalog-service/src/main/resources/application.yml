@@ -16,10 +16,13 @@ spring:
       hibernate:
         format_sql: true
     show-sql: false
-
+  main:
+    banner-mode: "off"
 server:
   port: ${CATALOG_SERVICE_PORT:8086}
-
+logging:
+  level:
+    root: info
 management:
   endpoints:
     web:

@@ -1,0 +1,89 @@
+spring:
+  application:
+    name: orders-service
+  datasource:
+    url: ${ORDERS_DATABASE_URL:jdbc:h2:mem:orders;DB_CLOSE_DELAY=-1;MODE=PostgreSQL}
+    username: ${ORDERS_DATABASE_USERNAME:sa}
+    password: ${ORDERS_DATABASE_PASSWORD:}
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: false
+  cloud:
+    discovery:
+      enabled: ${SPRING_CLOUD_DISCOVERY_ENABLED:false}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring:
+          json:
+            trusted:
+              packages: "*"
+    producer:
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+  main:
+    banner-mode: "off"
+
+server:
+  port: ${ORDERS_SERVICE_PORT:8081}
+
+logging:
+  level:
+    root: info
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  tracing:
+    enabled: ${MANAGEMENT_TRACING_ENABLED:false}
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4317}
+
+eureka:
+  client:
+    enabled: ${EUREKA_CLIENT_ENABLED:false}
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka}
+    register-with-eureka: ${EUREKA_REGISTER_WITH_EUREKA:true}
+    fetch-registry: ${EUREKA_FETCH_REGISTRY:true}
+  instance:
+    prefer-ip-address: true
+
+app:
+  messaging:
+    orders:
+      lifecycle-topic: ${ORDERS_LIFECYCLE_TOPIC:orders.lifecycle}
+      outbox:
+        enabled: ${APP_ORDERS_OUTBOX_ENABLED:false}
+        dispatcher-enabled: ${APP_ORDERS_OUTBOX_DISPATCHER_ENABLED:true}
+        poll-interval: ${APP_ORDERS_OUTBOX_POLL_INTERVAL:5000}
+        retry-delay: ${APP_ORDERS_OUTBOX_RETRY_DELAY:60000}
+        batch-size: ${APP_ORDERS_OUTBOX_BATCH_SIZE:50}
+        backfill:
+          enabled: ${APP_ORDERS_OUTBOX_BACKFILL_ENABLED:false}
+          chunk-size: ${APP_ORDERS_OUTBOX_BACKFILL_CHUNK_SIZE:200}
+          dry-run: ${APP_ORDERS_OUTBOX_BACKFILL_DRY_RUN:false}
+          actor: ${APP_ORDERS_OUTBOX_BACKFILL_ACTOR:orders-outbox-backfill}
+  orders:
+    tracking:
+      enabled: ${APP_ORDERS_TRACKING_ENABLED:false}
+      kafka:
+        enabled: ${APP_ORDERS_TRACKING_KAFKA_ENABLED:false}
+        group-id: ${APP_ORDERS_TRACKING_GROUP_ID:order-tracking-projection}
+        concurrency: ${APP_ORDERS_TRACKING_CONCURRENCY:1}
+      key-prefix: ${APP_ORDERS_TRACKING_KEY_PREFIX:orders:tracking}
+      ttl: ${APP_ORDERS_TRACKING_TTL:PT24H}

@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: notifications-service
+  datasource:
+    url: ${NOTIFICATIONS_DATABASE_URL:jdbc:h2:mem:notifications;DB_CLOSE_DELAY=-1;MODE=PostgreSQL}
+    username: ${NOTIFICATIONS_DATABASE_USERNAME:sa}
+    password: ${NOTIFICATIONS_DATABASE_PASSWORD:}
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: false
+  cloud:
+    discovery:
+      enabled: ${SPRING_CLOUD_DISCOVERY_ENABLED:false}
+  main:
+    banner-mode: "off"
+
+server:
+  port: ${NOTIFICATIONS_SERVICE_PORT:8083}
+
+logging:
+  level:
+    root: info
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  tracing:
+    enabled: ${MANAGEMENT_TRACING_ENABLED:false}
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4317}
+
+eureka:
+  client:
+    enabled: ${EUREKA_CLIENT_ENABLED:false}
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka}
+    register-with-eureka: ${EUREKA_REGISTER_WITH_EUREKA:true}
+    fetch-registry: ${EUREKA_FETCH_REGISTRY:true}
+  instance:
+    prefer-ip-address: true
+
+notifications:
+  firebase:
+    credentials-location: ${FIREBASE_CREDENTIALS:classpath:firebase-service-account.json}

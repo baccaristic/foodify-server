@@ -1,8 +1,7 @@
 package com.foodify.catalogservice.repository;
 
-import com.foodify.catalogservice.domain.Restaurant;
+import com.foodify.server.modules.restaurants.domain.Restaurant;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-public interface RestaurantRepository extends JpaRepository<Restaurant, Long>, JpaSpecificationExecutor<Restaurant> {
+public interface RestaurantRepository extends JpaRepository<Restaurant, Long> {
 }

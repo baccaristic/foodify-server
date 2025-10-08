@@ -1,73 +1,61 @@
-# Foodify Microservices Platform
+# Foodify Platform Services
 
-Foodify has fully transitioned to a microservices architecture. The legacy monolithic
-application has been removed and the codebase now hosts independent Spring Boot
-services that can be deployed and scaled separately.
+Foodify has been decomposed into independent Spring Boot microservices. Each service ships with
+its own Gradle build, Dockerfile, and `application.yml` so they can run locally or in
+containerized environments without relying on the legacy monolith.
 
-## Services
+## Service Overview
 
-The following services live in this repository:
+| Service | Path | Description |
+| --- | --- | --- |
+| Discovery | `services/discovery-service` | Eureka server used for service registration and discovery. |
+| Identity | `services/identity-service` | Handles authentication, registration, and JWT management. |
+| Catalog | `services/catalog-service` | Exposes restaurant, menu, availability, and pricing APIs. |
+| Orders | `services/orders-service` | Manages the customer order lifecycle, outbox, and read models. |
+| Delivery | `services/delivery-service` | Tracks driver assignments, ETA calculations, and logistics. |
+| Notifications | `services/notifications-service` | Manages push notifications and WebSocket updates. |
 
-- **Identity Service** (`services/identity-service`) &mdash; handles authentication,
-  authorization, and user profile management.
-- **Catalog Service** (`services/catalog-service`) &mdash; serves restaurant,
-  menu, availability, and pricing data consumed by downstream workloads such as
-  ordering and discovery experiences.
+Shared observability (OpenTelemetry), messaging (Kafka), and cache (Redis) configuration has been
+copied into each service so that they can opt-in to the required infrastructure individually.
 
-Each service is a standalone Gradle project with its own `settings.gradle`. Use
-Gradle's `-p` flag (or change directory into the service) when running build
-and runtime tasks.
+## Local Development
 
-## Running locally
-
-1. Start required infrastructure such as PostgreSQL, Kafka, Redis, and Eureka
-   using the provided Docker Compose profiles:
-
+1. Launch infrastructure dependencies (PostgreSQL, Redis, Kafka, Eureka) via Docker Compose:
    ```bash
    docker compose --profile platform up -d
    ```
-
-   This provisions the shared dependencies used during development. You can
-   start a subset (for example just PostgreSQL) by omitting the `--profile`
-   flag.
-
-2. Launch the desired service. For example, to start the identity service on
-   port `8080`:
-
+   The compose profile exposes the environment variables expected by each service's `application.yml`.
+2. Start any subset of services with Gradle. For example:
    ```bash
+   ./gradlew -p services/discovery-service bootRun
    ./gradlew -p services/identity-service bootRun
-   ```
-
-   Start the catalog service similarly:
-
-   ```bash
    ./gradlew -p services/catalog-service bootRun
+   ./gradlew -p services/orders-service bootRun
+   ./gradlew -p services/delivery-service bootRun
+   ./gradlew -p services/notifications-service bootRun
    ```
-
-3. Optional: build container images for distribution:
-
+3. Build container images if desired:
    ```bash
-   ./gradlew -p services/identity-service bootJar
-   docker build -t foodify/identity-service:latest services/identity-service
-
-   ./gradlew -p services/catalog-service bootJar
-   docker build -t foodify/catalog-service:latest services/catalog-service
+   ./gradlew -p services/orders-service bootJar
+   docker build -t foodify/orders-service:latest services/orders-service
    ```
 
-Discovery registration is disabled by default to keep the binaries self-contained.
-Enable it by exporting the `SPRING_CLOUD_DISCOVERY_ENABLED`,
-`EUREKA_CLIENT_ENABLED`, and related flags documented in each service's
-`application.yml` before launching the service.
+Each service exposes Swagger/OpenAPI documentation under `/swagger-ui/index.html` once running.
 
-## Tooling
+## Configuration Highlights
 
-- **Gradle Wrapper** &mdash; shared across services for consistent builds.
-- **Docker Compose** &mdash; provisions local infrastructure dependencies.
-- **OpenAPI/Swagger** &mdash; each service exposes its own API documentation once
-  running.
+- **Discovery:** Toggle registration via `SPRING_CLOUD_DISCOVERY_ENABLED` / `EUREKA_CLIENT_ENABLED`.
+- **Database:** Every service defaults to an in-memory H2 database. Override `spring.datasource.*`
+  to point at PostgreSQL when running with Docker Compose.
+- **Messaging:** Orders and notifications load Kafka/Redis properties from their respective
+  `application.yml` files. Use the `platform` Compose profile to provision the brokers locally.
+- **Tracing:** Micrometer OTLP exporters are pre-configured but disabled until `OTEL_EXPORTER_OTLP_ENDPOINT`
+  is provided.
 
-## Next steps
+## Testing
 
-The order command service is being extracted in a dedicated repository. Once
-completed, it will integrate with these services via REST, messaging, and
-outbox-driven workflows.
+Run the service-specific test suites via Gradle. For example:
+```bash
+./gradlew -p services/orders-service test --console=plain
+```
+(Gradle will attempt to provision the Java 17 toolchain as required.)
