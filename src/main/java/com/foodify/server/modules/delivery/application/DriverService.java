@@ -1,7 +1,5 @@
 package com.foodify.server.modules.delivery.application;
 
-import com.foodify.server.modules.delivery.application.GoogleMapsService;
-import com.foodify.server.modules.delivery.application.QrCodeService;
 import com.foodify.server.modules.delivery.domain.Delivery;
 import com.foodify.server.modules.delivery.dto.DeliverOrderDto;
 import com.foodify.server.modules.delivery.dto.PickUpOrderRequest;
@@ -17,7 +15,7 @@ import com.foodify.server.modules.orders.application.OrderLifecycleService;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.data.geo.Point;
 
@@ -26,15 +24,22 @@ import java.util.*;
 
 @Service
 @AllArgsConstructor
+@Slf4j
 public class DriverService {
     private final DriverRepository driverRepository;
     private final OrderRepository orderRepository;
     private final DeliveryRepository deliveryRepository;
     private final QrCodeService qrCodeService;
-    private final StringRedisTemplate redisTemplate;
     private final GoogleMapsService googleMapsService;
     private final DriverLocationService driverLocationService;
     private final OrderLifecycleService orderLifecycleService;
+
+    private static final List<OrderStatus> ACTIVE_DRIVER_STATUSES = List.of(
+            OrderStatus.ACCEPTED,
+            OrderStatus.PREPARING,
+            OrderStatus.READY_FOR_PICK_UP,
+            OrderStatus.IN_DELIVERY
+    );
 
 
     public OrderDto acceptOrder(Long driverId, Long orderId) throws Exception {
@@ -45,6 +50,10 @@ public class DriverService {
             return null;
         }
 
+        if (orderRepository.findByDriverIdAndStatusIn(driverId, ACTIVE_DRIVER_STATUSES).isPresent()) {
+            throw new IllegalStateException("Driver already has an active order.");
+        }
+
         // Prevent re-assigning if already has delivery
         if (order.getDelivery() != null) {
             throw new IllegalStateException("Order already has a driver assigned.");
@@ -53,30 +62,25 @@ public class DriverService {
             throw new IllegalStateException("Driver is not available.");
         }
 
-        redisTemplate.delete("driver:status:" + driverId);
-
 
         // Create Delivery
         Delivery delivery = new Delivery();
         delivery.setOrder(order);
         delivery.setDriver(driver);
         Point lastPosition = driverLocationService.getLastKnownPosition(driverId);
-        delivery.setTimeToPickUp(
-                googleMapsService.getDrivingRoute(
-                        lastPosition.getY(),
-                        lastPosition.getX(),
-                        order.getRestaurant().getLatitude(),
-                        order.getRestaurant().getLongitude()
-                )
-        );
-        delivery.setDeliveryTime(
-                googleMapsService.getDrivingRoute(
-                        order.getRestaurant().getLatitude(),
-                        order.getRestaurant().getLongitude(),
-                        order.getLat(),
-                        order.getLng()
-                )
-        );
+        delivery.setTimeToPickUp(resolveRouteDuration(
+                lastPosition != null ? lastPosition.getY() : null,
+                lastPosition != null ? lastPosition.getX() : null,
+                order.getRestaurant() != null ? order.getRestaurant().getLatitude() : null,
+                order.getRestaurant() != null ? order.getRestaurant().getLongitude() : null
+        ));
+        delivery.setDeliveryTime(resolveRouteDuration(
+                order.getRestaurant() != null ? order.getRestaurant().getLatitude() : null,
+                order.getRestaurant() != null ? order.getRestaurant().getLongitude() : null,
+                order.getLat(),
+                order.getLng()
+        ));
+        delivery.setAssignedTime(LocalDateTime.now());
 
         // Update relations
         order.setDelivery(delivery);
@@ -91,6 +95,7 @@ public class DriverService {
         Order updatedOrder = orderLifecycleService.transition(order, OrderStatus.PREPARING,
                 "driver:" + driverId,
                 "Driver accepted order");
+        driverLocationService.markBusy(String.valueOf(driverId), orderId);
         return OrderMapper.toDto(updatedOrder);
     }
 
@@ -103,18 +108,33 @@ public class DriverService {
     public Order getOrderDetails(Long orderId, Long userId ) {
         Driver driver = driverRepository.findById(userId).orElse(null);
         Order order = orderRepository.findById(orderId).orElse(null);
-        if (Objects.equals(order.getDelivery().getDriver().getId(), driver.getId())) {
+        if (driver == null || order == null) {
+            return null;
+        }
+        Delivery delivery = order.getDelivery();
+        if (delivery == null || delivery.getDriver() == null) {
+            return null;
+        }
+        if (Objects.equals(delivery.getDriver().getId(), driver.getId())) {
             return order;
         }
         return null;
     }
 
     public Boolean pickUpOrder(PickUpOrderRequest request, Long userId) {
-        Order order = orderRepository.findById(Long.valueOf(request.getOrderId())).orElse(null);
+        Long orderId;
+        try {
+            orderId = Long.valueOf(request.getOrderId());
+        } catch (NumberFormatException ex) {
+            log.warn("Driver {} sent invalid order id {} when attempting pickup", userId, request.getOrderId());
+            return false;
+        }
+        Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {
             return false;
         }
-        if (!Objects.equals(order.getDelivery().getDriver().getId(), userId)) {
+        Delivery delivery = order.getDelivery();
+        if (delivery == null || delivery.getDriver() == null || !Objects.equals(delivery.getDriver().getId(), userId)) {
             return false;
         }
         if (!Objects.equals(order.getPickupToken(), request.getToken())) {
@@ -122,28 +142,38 @@ public class DriverService {
         }
         String deliveryToken = String.format("%03d", new Random().nextInt(900) + 100);
         order.setDeliveryToken(deliveryToken);
+        delivery.setPickupTime(LocalDateTime.now());
+        deliveryRepository.save(delivery);
         orderLifecycleService.transition(order, OrderStatus.IN_DELIVERY,
                 "driver:" + userId,
                 "Order picked up by driver");
+        driverLocationService.markBusy(String.valueOf(userId), order.getId());
         return true;
     }
     @Transactional
     public OrderDto getOngoingOrder(Long userId) {
-        return OrderMapper.toDto(orderRepository.findByDriverIdAndStatusIn(userId, List.of(OrderStatus.ACCEPTED, OrderStatus.PREPARING,
-                OrderStatus.READY_FOR_PICK_UP, OrderStatus.IN_DELIVERY)).orElse(null));
+        return OrderMapper.toDto(orderRepository.findByDriverIdAndStatusIn(userId, ACTIVE_DRIVER_STATUSES).orElse(null));
     }
 
     public Boolean deliverOrder(Long driverId, DeliverOrderDto request) {
         Order order = orderRepository.findById(request.getOrderId()).orElse(null);
-        if (order == null || !Objects.equals(order.getDelivery().getDriver().getId(), driverId)) {
+        if (order == null) {
             return false;
         }
-        if (!order.getDeliveryToken().equals(request.getToken())) {
+        Delivery delivery = order.getDelivery();
+        if (delivery == null || delivery.getDriver() == null || !Objects.equals(delivery.getDriver().getId(), driverId)) {
             return false;
         }
-        order.getDelivery().setDeliveredTime(LocalDateTime.now());
-        deliveryRepository.save(order.getDelivery());
-        orderRepository.save(order);
+        if (!Objects.equals(order.getDeliveryToken(), request.getToken())) {
+            return false;
+        }
+        delivery.setDeliveredTime(LocalDateTime.now());
+        deliveryRepository.save(delivery);
+        Driver driver = delivery.getDriver();
+        driver.setAvailable(true);
+        driverRepository.save(driver);
+        driverLocationService.markAvailable(String.valueOf(driverId));
+        order.setDeliveryToken(null);
         orderLifecycleService.transition(order, OrderStatus.DELIVERED,
                 "driver:" + driverId,
                 "Order delivered to client");
@@ -157,5 +187,17 @@ public class DriverService {
             result.add(OrderMapper.toDto(order));
         });
         return result;
+    }
+
+    private Long resolveRouteDuration(Double originLat, Double originLng, Double destLat, Double destLng) {
+        if (originLat == null || originLng == null || destLat == null || destLng == null) {
+            return null;
+        }
+        try {
+            return googleMapsService.getDrivingRoute(originLat, originLng, destLat, destLng);
+        } catch (Exception ex) {
+            log.warn("Failed to fetch route duration for driver flow", ex);
+            return null;
+        }
     }
 }

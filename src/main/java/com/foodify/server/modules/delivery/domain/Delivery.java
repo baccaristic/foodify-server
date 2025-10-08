@@ -28,6 +28,7 @@ public class Delivery {
     private Long deliveryTime;
     private Long timeToPickUp;
 
+    private LocalDateTime assignedTime;
     private LocalDateTime pickupTime;
     private LocalDateTime deliveredTime;
 }

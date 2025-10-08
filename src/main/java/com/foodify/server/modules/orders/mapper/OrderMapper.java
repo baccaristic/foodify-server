@@ -1,5 +1,6 @@
 package com.foodify.server.modules.orders.mapper;
 
+import com.foodify.server.modules.delivery.domain.Delivery;
 import com.foodify.server.modules.orders.dto.LocationDto;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.orders.dto.OrderItemDTO;
@@ -57,14 +58,20 @@ public class OrderMapper {
         }
 
         // Delivery / Driver
-        if (order.getDelivery() != null && order.getDelivery().getDriver() != null) {
-            Driver driver = order.getDelivery().getDriver();
-            dto.setDriverId(driver.getId());
-            dto.setDriverName(driver.getName());
-            dto.setDriverPhone(driver.getPhone());
+        Delivery delivery = order.getDelivery();
+        if (delivery != null) {
+            if (delivery.getDriver() != null) {
+                Driver driver = delivery.getDriver();
+                dto.setDriverId(driver.getId());
+                dto.setDriverName(driver.getName());
+                dto.setDriverPhone(driver.getPhone());
+            }
 
-            dto.setEstimatedPickUpTime(order.getDelivery().getTimeToPickUp());
-            dto.setEstimatedDeliveryTime(order.getDelivery().getDeliveryTime());
+            dto.setEstimatedPickUpTime(delivery.getTimeToPickUp());
+            dto.setEstimatedDeliveryTime(delivery.getDeliveryTime());
+            dto.setDriverAssignedAt(delivery.getAssignedTime());
+            dto.setPickedUpAt(delivery.getPickupTime());
+            dto.setDeliveredAt(delivery.getDeliveredTime());
         } else if (order.getPendingDriver() != null) {
             dto.setDriverId(order.getPendingDriver().getId());
             dto.setDriverName(order.getPendingDriver().getName());
