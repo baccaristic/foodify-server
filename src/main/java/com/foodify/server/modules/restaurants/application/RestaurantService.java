@@ -112,18 +112,25 @@ public class RestaurantService {
         });
 
         // ✅ Start 30s timer
-        final Order[] finalOrder1 = {order};
+        Long orderId = order.getId();
         Executors.newSingleThreadScheduledExecutor().schedule(() -> {
-            // Check if still pending
-            if (driverLocationService.isAvailable(driverId)) return; // already reset
             String status = redisTemplate.opsForValue().get("driver:status:" + driverId);
-            if (finalOrder1[0].getDelivery() == null) {
+
+            // Driver already accepted/declined or was reset manually
+            if (!("PENDING:" + orderId).equals(status)) {
+                return;
+            }
+
+            orderRepository.findById(orderId).ifPresent(pendingOrder -> {
+                if (pendingOrder.getDelivery() != null) {
+                    return; // already accepted by the driver
+                }
+
                 // Timeout: release driver + try next one
                 driverLocationService.markAvailable(driverId);
-                finalOrder1[0].setPendingDriver(null);
-                finalOrder1[0] = orderRepository.save(finalOrder1[0]);
-                assignDriver(finalOrder1[0]);
-            }
+                pendingOrder.setPendingDriver(null);
+                assignDriver(orderRepository.save(pendingOrder));
+            });
         }, 30, TimeUnit.SECONDS);
     }
 
