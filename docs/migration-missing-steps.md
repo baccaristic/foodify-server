@@ -3,7 +3,7 @@
 This checklist expands on the completed migration phases and captures the remaining work required to operate Foodify as a production-ready microservice ecosystem. It is organised by capability so teams can prioritise and track progress towards the target architecture.
 
 ## 1. Domain Service Extraction
-- **Identity Service**: Externalise authentication, JWT issuance, and profile management behind dedicated REST + OIDC endpoints. Introduce database schema ownership and migration pipelines per service.
+- **Identity Service** *(partially addressed)*: Authentication flows now route through an `IdentityAuthService` facade with remote proxying, dedicated token secrets, and optional schema migrations. Complete the extraction by moving persistence to the standalone service, exposing OIDC-compliant contracts, and migrating dependent modules (phone signup, notifications) to consume the remote APIs/events.
 - **Catalog Service**: Split restaurant, menu, and availability management into an independent service with its own search index preparation and cache warming flows.
 - **Order Service**: Convert the monolithic orders module into a standalone command service exposing REST/gRPC endpoints, retaining the lifecycle publisher and outbox pattern as the canonical integration surface.
 - **Payments & Pricing Services**: Move payment authorisation, refund workflows, and pricing computations out of the order service. Adopt Sagas for order → payment → logistics orchestration.

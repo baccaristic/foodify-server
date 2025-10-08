@@ -49,6 +49,39 @@ Swagger UI even when the projection is disabled; in that scenario it responds wi
 `501 Not Implemented` to indicate that the feature toggle must be enabled before cached
 tracking snapshots are available.
 
+### Identity service extraction toggles
+
+Authentication, JWT issuance, and profile workflows now flow through an `IdentityAuthService`
+layer so the monolith can either execute the logic locally or proxy to a dedicated identity
+microservice. The behaviour is controlled through the `identity.*` settings in
+`application.yml`:
+
+- `IDENTITY_SERVICE_MODE` &mdash; defaults to `monolith`. Set to `remote` to forward all
+  `/api/auth/**` requests to the external identity service configured by
+  `IDENTITY_SERVICE_BASE_URL`.
+- `IDENTITY_SERVICE_CONNECT_TIMEOUT` / `IDENTITY_SERVICE_READ_TIMEOUT` &mdash; tune the REST
+  client timeouts when proxying.
+- `IDENTITY_ACCESS_TOKEN_SECRET` and `IDENTITY_REFRESH_TOKEN_SECRET` &mdash; Base64-encoded keys
+  used to sign JWTs when the monolith issues tokens locally. Rotate these in each
+  environment; the defaults are provided for local development only.
+- `IDENTITY_SCHEMA_MANAGED` &mdash; when `true`, Flyway will apply migrations located in
+  `db/identity/migration` to the schema defined by `IDENTITY_SCHEMA_NAME`. This allows the
+  identity service to own its database objects independently of the rest of the monolith.
+
+Example local configuration that proxies to a standalone identity service while running the
+schema migrations:
+
+```bash
+export IDENTITY_SERVICE_MODE=remote
+export IDENTITY_SERVICE_BASE_URL=http://localhost:8085
+export IDENTITY_SCHEMA_MANAGED=true
+./gradlew bootRun
+```
+
+When `IDENTITY_SERVICE_MODE=monolith` (the default), the monolith continues to handle user
+management in-process, issuing JWTs via the configured secrets so existing clients remain
+compatible during the strangler migration.
+
 ### Testing the order lifecycle workflow
 
 1. Launch the infrastructure stack with the `platform` profile:

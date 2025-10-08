@@ -111,3 +111,24 @@ management:
   otlp:
     tracing:
       endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4317}
+
+identity:
+  service:
+    mode: ${IDENTITY_SERVICE_MODE:monolith}
+    remote:
+      base-url: ${IDENTITY_SERVICE_BASE_URL:http://localhost:8085}
+      connect-timeout: ${IDENTITY_SERVICE_CONNECT_TIMEOUT:2s}
+      read-timeout: ${IDENTITY_SERVICE_READ_TIMEOUT:5s}
+    schema:
+      managed: ${IDENTITY_SCHEMA_MANAGED:false}
+      name: ${IDENTITY_SCHEMA_NAME:identity}
+      migration-location: classpath:db/identity/migration
+      history-table: ${IDENTITY_SCHEMA_HISTORY_TABLE:flyway_identity_history}
+      baseline-on-migrate: ${IDENTITY_SCHEMA_BASELINE_ON_MIGRATE:true}
+  tokens:
+    access:
+      secret: ${IDENTITY_ACCESS_TOKEN_SECRET:Zm9vZGlmeS1hY2Nlc3Mtc2VjcmV0LXNob3VsZC1iZS1hdC1sZWFzdC0zMi1ieXRlcw==}
+      ttl: ${IDENTITY_ACCESS_TOKEN_TTL:PT24H}
+    refresh:
+      secret: ${IDENTITY_REFRESH_TOKEN_SECRET:Zm9vZGlmeS1yZWZyZXNoLXNlY3JldC1zaG91bGQtYmUtYXQtbGVhc3QtMzItYnl0ZXM=}
+      ttl: ${IDENTITY_REFRESH_TOKEN_TTL:P7D}
