@@ -1,12 +1,11 @@
 package com.foodify.server.modules.orders.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.foodify.server.modules.addresses.domain.SavedAddress;
 import com.foodify.server.modules.delivery.domain.Delivery;
 import com.foodify.server.modules.identity.domain.Client;
 import com.foodify.server.modules.identity.domain.Driver;
-import com.foodify.server.modules.restaurants.domain.Restaurant;
+import com.foodify.server.modules.orders.domain.catalog.OrderRestaurantSnapshot;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -25,9 +24,8 @@ public class Order  {
     @ManyToOne
     private Client client;
 
-    @JsonIgnoreProperties({"orders", "admin", "menu"})
-    @ManyToOne
-    private Restaurant restaurant;
+    @Embedded
+    private OrderRestaurantSnapshot restaurant;
 
     private String deliveryAddress;
 

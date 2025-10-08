@@ -3,8 +3,8 @@ package com.foodify.server.modules.orders.messaging.lifecycle;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderItem;
 import com.foodify.server.modules.orders.domain.OrderStatus;
-import com.foodify.server.modules.restaurants.domain.MenuItem;
-import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
+import com.foodify.server.modules.orders.domain.catalog.OrderItemCatalogSnapshot;
+import com.foodify.server.modules.orders.domain.catalog.OrderItemExtraSnapshot;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -125,7 +125,7 @@ public final class OrderLifecycleMessageFactory {
             return result;
         }
         for (OrderItem item : items) {
-            MenuItem menuItem = item.getMenuItem();
+            OrderItemCatalogSnapshot menuItem = item.getCatalogItem();
             BigDecimal basePrice = resolveMenuItemPrice(menuItem);
             List<OrderLifecycleMessage.ExtraSelection> extras = mapExtras(item.getMenuItemExtras());
             BigDecimal extrasTotal = extras.stream()
@@ -134,8 +134,8 @@ public final class OrderLifecycleMessageFactory {
             BigDecimal unitTotal = basePrice.add(extrasTotal);
             BigDecimal lineTotal = unitTotal.multiply(BigDecimal.valueOf(item.getQuantity()));
             result.add(new OrderLifecycleMessage.OrderLineItem(
-                    menuItem != null ? menuItem.getId() : null,
-                    menuItem != null ? menuItem.getName() : null,
+                    menuItem != null ? menuItem.getMenuItemId() : null,
+                    menuItem != null ? menuItem.getMenuItemName() : null,
                     item.getQuantity(),
                     basePrice,
                     extrasTotal,
@@ -146,29 +146,29 @@ public final class OrderLifecycleMessageFactory {
         return result;
     }
 
-    private static List<OrderLifecycleMessage.ExtraSelection> mapExtras(List<MenuItemExtra> extras) {
+    private static List<OrderLifecycleMessage.ExtraSelection> mapExtras(List<OrderItemExtraSnapshot> extras) {
         List<OrderLifecycleMessage.ExtraSelection> result = new ArrayList<>();
         if (extras == null) {
             return result;
         }
-        for (MenuItemExtra extra : extras) {
+        for (OrderItemExtraSnapshot extra : extras) {
             result.add(new OrderLifecycleMessage.ExtraSelection(
-                    extra.getId(),
+                    extra.getExtraId(),
                     extra.getName(),
-                    toBigDecimal(extra.getPrice())
+                    toBigDecimal(extra.getPrice() == null ? 0.0 : extra.getPrice())
             ));
         }
         return result;
     }
 
-    private static BigDecimal resolveMenuItemPrice(MenuItem menuItem) {
+    private static BigDecimal resolveMenuItemPrice(OrderItemCatalogSnapshot menuItem) {
         if (menuItem == null) {
             return BigDecimal.ZERO;
         }
         if (Boolean.TRUE.equals(menuItem.getPromotionActive()) && menuItem.getPromotionPrice() != null) {
             return toBigDecimal(menuItem.getPromotionPrice());
         }
-        return toBigDecimal(menuItem.getPrice());
+        return toBigDecimal(menuItem.getBasePrice() == null ? 0.0 : menuItem.getBasePrice());
     }
 
     private static BigDecimal toBigDecimal(Double value) {

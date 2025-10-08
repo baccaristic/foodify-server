@@ -1,14 +1,15 @@
 package com.foodify.server.modules.orders.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.foodify.server.modules.restaurants.domain.MenuItem;
-import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
+import com.foodify.server.modules.orders.domain.catalog.OrderItemCatalogSnapshot;
+import com.foodify.server.modules.orders.domain.catalog.OrderItemExtraSnapshot;
 import jakarta.persistence.*;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -20,17 +21,15 @@ public class OrderItem {
 
     private String specialInstructions;
 
-    @ManyToOne
-    private MenuItem menuItem;
+    @Embedded
+    private OrderItemCatalogSnapshot catalogItem;
 
-
-    @ManyToMany
-    @JoinTable(
-            name = "order_item_menu_item_extras",
-            joinColumns = @JoinColumn(name = "order_item_id"),
-            inverseJoinColumns = @JoinColumn(name = "menu_item_extras_id")
+    @ElementCollection
+    @CollectionTable(
+            name = "order_item_extras",
+            joinColumns = @JoinColumn(name = "order_item_id")
     )
-    private List<MenuItemExtra> menuItemExtras;
+    private List<OrderItemExtraSnapshot> menuItemExtras = new ArrayList<>();
 
     private int quantity;
 

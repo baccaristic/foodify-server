@@ -61,18 +61,23 @@ public class DriverService {
         delivery.setOrder(order);
         delivery.setDriver(driver);
         Point lastPosition = driverLocationService.getLastKnownPosition(driverId);
+        Double restaurantLat = order.getRestaurant() != null ? order.getRestaurant().getLatitude() : null;
+        Double restaurantLng = order.getRestaurant() != null ? order.getRestaurant().getLongitude() : null;
+        if (restaurantLat == null || restaurantLng == null) {
+            throw new IllegalStateException("Order is missing restaurant location details");
+        }
         delivery.setTimeToPickUp(
                 googleMapsService.getDrivingRoute(
                         lastPosition.getY(),
                         lastPosition.getX(),
-                        order.getRestaurant().getLatitude(),
-                        order.getRestaurant().getLongitude()
+                        restaurantLat,
+                        restaurantLng
                 )
         );
         delivery.setDeliveryTime(
                 googleMapsService.getDrivingRoute(
-                        order.getRestaurant().getLatitude(),
-                        order.getRestaurant().getLongitude(),
+                        restaurantLat,
+                        restaurantLng,
                         order.getLat(),
                         order.getLng()
                 )

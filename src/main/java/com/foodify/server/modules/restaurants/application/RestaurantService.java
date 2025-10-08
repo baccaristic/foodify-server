@@ -55,7 +55,7 @@ public class RestaurantService {
 
     @Transactional(readOnly = true)
     public List<OrderDto> getAllOrders(Restaurant restaurant) {
-        return this.orderRepository.findAllByRestaurantOrderByDateDesc(restaurant)
+        return this.orderRepository.findAllByRestaurant_IdOrderByDateDesc(restaurant.getId())
                 .stream()
                 .map(OrderMapper::toDto)
                 .toList();
@@ -64,7 +64,7 @@ public class RestaurantService {
     @Transactional
     public OrderDto acceptOrder(Long id, Long userId) {
         return orderRepository.findById(id).map(order -> {
-            if (!order.getRestaurant().getAdmin().getId().equals(userId)) {
+            if (order.getRestaurant() == null || !userId.equals(order.getRestaurant().getAdminId())) {
                 throw new RuntimeException("Unauthorized");
             }
 
@@ -77,9 +77,15 @@ public class RestaurantService {
     }
 
     private void assignDriver(Order order) {
+        Double restaurantLat = order.getRestaurant() != null ? order.getRestaurant().getLatitude() : null;
+        Double restaurantLng = order.getRestaurant() != null ? order.getRestaurant().getLongitude() : null;
+        if (restaurantLat == null || restaurantLng == null) {
+            return;
+        }
+
         List<String> driverIds = driverLocationService.findClosestDrivers(
-                order.getRestaurant().getLatitude(),
-                order.getRestaurant().getLongitude(),
+                restaurantLat,
+                restaurantLng,
                 50, 5
         );
 
@@ -128,7 +134,8 @@ public class RestaurantService {
     @Transactional(readOnly = true)
     public OrderDto getOrderForRestaurant(Long orderId, Long restaurantId) {
         return orderRepository.findDetailedById(orderId)
-                .filter(order -> order.getRestaurant() != null && order.getRestaurant().getId().equals(restaurantId))
+                .filter(order -> order.getRestaurant() != null && order.getRestaurant().getId() != null
+                        && order.getRestaurant().getId().equals(restaurantId))
                 .map(OrderMapper::toDto)
                 .orElse(null);
     }
@@ -196,7 +203,7 @@ public class RestaurantService {
     @Transactional
     public OrderDto markOrderReady(Long orderId, Long userId) {
         return orderRepository.findById(orderId).map(order -> {
-            if (!order.getRestaurant().getAdmin().getId().equals(userId)) {
+            if (order.getRestaurant() == null || !userId.equals(order.getRestaurant().getAdminId())) {
                 throw new RuntimeException("Unauthorized");
             }
             var updated = orderLifecycleService.transition(order, OrderStatus.READY_FOR_PICK_UP,

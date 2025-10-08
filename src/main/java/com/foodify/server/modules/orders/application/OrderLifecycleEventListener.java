@@ -50,11 +50,11 @@ public class OrderLifecycleEventListener {
     }
 
     private void notifyRestaurant(Order order) {
-        if (order.getRestaurant() == null || order.getRestaurant().getAdmin() == null) {
+        if (order.getRestaurant() == null || order.getRestaurant().getAdminId() == null) {
             return;
         }
         messagingTemplate.convertAndSend(
-                "/topic/orders/" + order.getRestaurant().getAdmin().getId(),
+                "/topic/orders/" + order.getRestaurant().getAdminId(),
                 orderNotificationMapper.toDto(order)
         );
     }

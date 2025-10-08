@@ -7,6 +7,9 @@ import com.foodify.server.modules.identity.application.ClientDirectoryService;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderItem;
 import com.foodify.server.modules.orders.domain.OrderStatus;
+import com.foodify.server.modules.orders.domain.catalog.OrderItemCatalogSnapshot;
+import com.foodify.server.modules.orders.domain.catalog.OrderItemExtraSnapshot;
+import com.foodify.server.modules.orders.domain.catalog.OrderRestaurantSnapshot;
 import com.foodify.server.modules.orders.dto.LocationDto;
 import com.foodify.server.modules.orders.dto.OrderItemRequest;
 import com.foodify.server.modules.orders.dto.OrderRequest;
@@ -17,6 +20,7 @@ import com.foodify.server.modules.orders.dto.response.CreateOrderResponse;
 import com.foodify.server.modules.orders.mapper.OrderNotificationMapper;
 import com.foodify.server.modules.orders.mapper.SavedAddressSummaryMapper;
 import com.foodify.server.modules.orders.repository.OrderRepository;
+import com.foodify.server.modules.restaurants.sync.CatalogSnapshotCache;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
@@ -90,6 +94,7 @@ public class CustomerOrderService {
     private final OrderLifecycleService orderLifecycleService;
     private final SavedAddressDirectoryService savedAddressDirectoryService;
     private final OrderNotificationMapper orderNotificationMapper;
+    private final CatalogSnapshotCache catalogSnapshotCache;
 
     @Transactional
     public CreateOrderResponse placeOrder(Long clientId, OrderRequest request) {
@@ -126,7 +131,7 @@ public class CustomerOrderService {
 
         Order order = new Order();
         order.setClient(client);
-        order.setRestaurant(restaurant);
+        order.setRestaurant(applyRestaurantSnapshot(buildRestaurantSnapshot(restaurant)));
         order.setPaymentMethod(request.getPaymentMethod());
         if (request.getLocation() != null) {
             order.setLat(request.getLocation().getLat());
@@ -163,7 +168,9 @@ public class CustomerOrderService {
 
             OrderItem orderItem = new OrderItem();
             orderItem.setOrder(order);
-            orderItem.setMenuItem(menuItem);
+            OrderItemCatalogSnapshot catalogSnapshot = buildCatalogSnapshot(menuItem);
+            catalogSnapshot = applyMenuItemSnapshot(restaurant.getId(), catalogSnapshot);
+            orderItem.setCatalogItem(catalogSnapshot);
             orderItem.setQuantity(itemRequest.getQuantity());
             orderItem.setSpecialInstructions(itemRequest.getSpecialInstructions());
 
@@ -176,7 +183,7 @@ public class CustomerOrderService {
                 validateExtras(menuItem, extras);
             }
 
-            orderItem.setMenuItemExtras(new ArrayList<>(extras));
+            orderItem.setMenuItemExtras(buildExtraSnapshots(menuItem, extras));
             orderItems.add(orderItem);
         }
 
@@ -222,7 +229,7 @@ public class CustomerOrderService {
             BigDecimal unitPrice = resolveUnitPrice(item);
             BigDecimal extrasPerUnit = Optional.ofNullable(item.getMenuItemExtras()).orElse(Collections.emptyList())
                     .stream()
-                    .map(extra -> BigDecimal.valueOf(extra.getPrice()))
+                    .map(extra -> BigDecimal.valueOf(Optional.ofNullable(extra.getPrice()).orElse(0.0)))
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             BigDecimal quantity = BigDecimal.valueOf(item.getQuantity());
@@ -236,15 +243,15 @@ public class CustomerOrderService {
             List<CreateOrderResponse.Extra> extras = Optional.ofNullable(item.getMenuItemExtras()).orElse(Collections.emptyList())
                     .stream()
                     .map(extra -> new CreateOrderResponse.Extra(
-                            extra.getId(),
+                            extra.getExtraId(),
                             extra.getName(),
-                            BigDecimal.valueOf(extra.getPrice())
+                            BigDecimal.valueOf(Optional.ofNullable(extra.getPrice()).orElse(0.0))
                     ))
                     .collect(Collectors.toList());
 
             orderedItems.add(new CreateOrderResponse.OrderedItem(
-                    item.getMenuItem().getId(),
-                    item.getMenuItem().getName(),
+                    item.getCatalogItem() != null ? item.getCatalogItem().getMenuItemId() : null,
+                    item.getCatalogItem() != null ? item.getCatalogItem().getMenuItemName() : null,
                     item.getQuantity(),
                     unitPrice,
                     extrasPerUnit,
@@ -256,11 +263,12 @@ public class CustomerOrderService {
 
         BigDecimal total = subtotal.add(extrasTotal);
 
-        CreateOrderResponse.RestaurantSummary restaurantSummary = new CreateOrderResponse.RestaurantSummary(
-                order.getRestaurant().getId(),
-                order.getRestaurant().getName(),
-                order.getRestaurant().getImageUrl()
-        );
+        CreateOrderResponse.RestaurantSummary restaurantSummary = order.getRestaurant() == null ? null :
+                new CreateOrderResponse.RestaurantSummary(
+                        order.getRestaurant().getId(),
+                        order.getRestaurant().getName(),
+                        order.getRestaurant().getImageUrl()
+                );
 
         SavedAddressSummaryDto savedAddress = SavedAddressSummaryMapper.from(order.getSavedAddress());
         CreateOrderResponse.DeliverySummary deliverySummary = new CreateOrderResponse.DeliverySummary(
@@ -288,16 +296,124 @@ public class CustomerOrderService {
     }
 
     private BigDecimal resolveUnitPrice(OrderItem orderItem) {
-        if (orderItem == null || orderItem.getMenuItem() == null) {
+        if (orderItem == null || orderItem.getCatalogItem() == null) {
             return BigDecimal.ZERO;
         }
 
-        if (Boolean.TRUE.equals(orderItem.getMenuItem().getPromotionActive())
-                && orderItem.getMenuItem().getPromotionPrice() != null) {
-            return BigDecimal.valueOf(orderItem.getMenuItem().getPromotionPrice());
+        if (Boolean.TRUE.equals(orderItem.getCatalogItem().getPromotionActive())
+                && orderItem.getCatalogItem().getPromotionPrice() != null) {
+            return BigDecimal.valueOf(orderItem.getCatalogItem().getPromotionPrice());
         }
 
-        return BigDecimal.valueOf(orderItem.getMenuItem().getPrice());
+        return BigDecimal.valueOf(Optional.ofNullable(orderItem.getCatalogItem().getBasePrice()).orElse(0.0));
+    }
+
+    private OrderRestaurantSnapshot buildRestaurantSnapshot(Restaurant restaurant) {
+        if (restaurant == null) {
+            return null;
+        }
+        return OrderRestaurantSnapshot.builder()
+                .id(restaurant.getId())
+                .adminId(restaurant.getAdmin() != null ? restaurant.getAdmin().getId() : null)
+                .name(restaurant.getName())
+                .address(restaurant.getAddress())
+                .phone(restaurant.getPhone())
+                .imageUrl(restaurant.getImageUrl())
+                .latitude(restaurant.getLatitude())
+                .longitude(restaurant.getLongitude())
+                .build();
+    }
+
+    private OrderRestaurantSnapshot applyRestaurantSnapshot(OrderRestaurantSnapshot localSnapshot) {
+        if (localSnapshot == null || localSnapshot.getId() == null) {
+            return localSnapshot;
+        }
+        return catalogSnapshotCache.getRestaurant(localSnapshot.getId())
+                .map(remote -> localSnapshot.toBuilder()
+                        .adminId(firstNonNull(remote.adminId(), localSnapshot.getAdminId()))
+                        .name(firstNonNull(remote.name(), localSnapshot.getName()))
+                        .address(firstNonNull(remote.address(), localSnapshot.getAddress()))
+                        .phone(firstNonNull(remote.phone(), localSnapshot.getPhone()))
+                        .imageUrl(firstNonNull(remote.imageUrl(), localSnapshot.getImageUrl()))
+                        .latitude(firstNonNull(remote.latitude(), localSnapshot.getLatitude()))
+                        .longitude(firstNonNull(remote.longitude(), localSnapshot.getLongitude()))
+                        .build())
+                .orElse(localSnapshot);
+    }
+
+    private OrderItemCatalogSnapshot buildCatalogSnapshot(MenuItem menuItem) {
+        if (menuItem == null) {
+            return null;
+        }
+        return OrderItemCatalogSnapshot.builder()
+                .menuItemId(menuItem.getId())
+                .menuItemName(menuItem.getName())
+                .basePrice(menuItem.getPrice())
+                .promotionActive(menuItem.getPromotionActive())
+                .promotionPrice(menuItem.getPromotionPrice())
+                .build();
+    }
+
+    private OrderItemCatalogSnapshot applyMenuItemSnapshot(Long restaurantId, OrderItemCatalogSnapshot localSnapshot) {
+        if (localSnapshot == null || localSnapshot.getMenuItemId() == null) {
+            return localSnapshot;
+        }
+        return catalogSnapshotCache.getMenuItem(localSnapshot.getMenuItemId())
+                .map(remote -> {
+                    if (restaurantId != null && remote.restaurantId() != null
+                            && !Objects.equals(remote.restaurantId(), restaurantId)) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Menu item does not belong to the selected restaurant");
+                    }
+                    if (Boolean.FALSE.equals(remote.available())) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Menu item is currently unavailable");
+                    }
+                    return localSnapshot.toBuilder()
+                            .basePrice(firstNonNull(remote.price(), localSnapshot.getBasePrice()))
+                            .promotionActive(firstNonNull(remote.promotionActive(), localSnapshot.getPromotionActive()))
+                            .promotionPrice(firstNonNull(remote.promotionPrice(), localSnapshot.getPromotionPrice()))
+                            .build();
+                })
+                .orElse(localSnapshot);
+    }
+
+    private OrderItemExtraSnapshot buildExtraSnapshot(MenuItemExtra extra) {
+        if (extra == null) {
+            return null;
+        }
+        return OrderItemExtraSnapshot.builder()
+                .extraId(extra.getId())
+                .name(extra.getName())
+                .price(extra.getPrice())
+                .build();
+    }
+
+    private List<OrderItemExtraSnapshot> buildExtraSnapshots(MenuItem menuItem, List<MenuItemExtra> extras) {
+        Long menuItemId = menuItem != null ? menuItem.getId() : null;
+        return extras.stream()
+                .map(extra -> applyExtraSnapshot(buildExtraSnapshot(extra), menuItemId))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(ArrayList::new));
+    }
+
+    private OrderItemExtraSnapshot applyExtraSnapshot(OrderItemExtraSnapshot localSnapshot, Long menuItemId) {
+        if (localSnapshot == null || localSnapshot.getExtraId() == null) {
+            return localSnapshot;
+        }
+        return catalogSnapshotCache.getExtra(localSnapshot.getExtraId())
+                .map(remote -> {
+                    if (menuItemId != null && remote.menuItemId() != null
+                            && !Objects.equals(remote.menuItemId(), menuItemId)) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "One or more extras do not belong to the selected menu item");
+                    }
+                    if (Boolean.FALSE.equals(remote.available())) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "One or more selected extras are unavailable");
+                    }
+                    return localSnapshot.toBuilder()
+                            .name(firstNonNull(remote.name(), localSnapshot.getName()))
+                            .price(firstNonNull(remote.price(), localSnapshot.getPrice()))
+                            .build();
+                })
+                .orElse(localSnapshot);
     }
 
     private SavedAddress resolveSavedAddress(Long clientId, UUID savedAddressId) {
@@ -307,6 +423,10 @@ public class CustomerOrderService {
 
         return savedAddressDirectoryService.findByIdAndClient(savedAddressId, clientId)
                 .orElseThrow(() -> new EntityNotFoundException("Saved address not found for client"));
+    }
+
+    private <T> T firstNonNull(T primary, T fallback) {
+        return primary != null ? primary : fallback;
     }
 
     private List<OrderWorkflowStepDto> buildWorkflow(OrderStatus currentStatus) {

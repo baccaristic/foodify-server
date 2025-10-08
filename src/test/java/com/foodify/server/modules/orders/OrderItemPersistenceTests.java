@@ -7,6 +7,9 @@ import com.foodify.server.modules.identity.domain.Role;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderItem;
 import com.foodify.server.modules.orders.domain.OrderStatus;
+import com.foodify.server.modules.orders.domain.catalog.OrderItemCatalogSnapshot;
+import com.foodify.server.modules.orders.domain.catalog.OrderItemExtraSnapshot;
+import com.foodify.server.modules.orders.domain.catalog.OrderRestaurantSnapshot;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
@@ -102,7 +105,11 @@ class OrderItemPersistenceTests {
 
         Order order = new Order();
         order.setClient(savedClient);
-        order.setRestaurant(savedRestaurant);
+        order.setRestaurant(OrderRestaurantSnapshot.builder()
+                .id(savedRestaurant.getId())
+                .adminId(savedAdmin.getId())
+                .name(savedRestaurant.getName())
+                .build());
         order.setStatus(OrderStatus.PENDING);
         order.setOrderTime(LocalDateTime.now());
         order.setDate(LocalDateTime.now());
@@ -111,15 +118,31 @@ class OrderItemPersistenceTests {
 
         OrderItem firstItem = new OrderItem();
         firstItem.setOrder(order);
-        firstItem.setMenuItem(savedMenuItem);
+        firstItem.setCatalogItem(OrderItemCatalogSnapshot.builder()
+                .menuItemId(savedMenuItem.getId())
+                .menuItemName(savedMenuItem.getName())
+                .basePrice(savedMenuItem.getPrice())
+                .build());
         firstItem.setQuantity(1);
-        firstItem.setMenuItemExtras(new ArrayList<>(List.of(savedExtra)));
+        firstItem.setMenuItemExtras(new ArrayList<>(List.of(OrderItemExtraSnapshot.builder()
+                .extraId(savedExtra.getId())
+                .name(savedExtra.getName())
+                .price(savedExtra.getPrice())
+                .build())));
 
         OrderItem secondItem = new OrderItem();
         secondItem.setOrder(order);
-        secondItem.setMenuItem(savedMenuItem);
+        secondItem.setCatalogItem(OrderItemCatalogSnapshot.builder()
+                .menuItemId(savedMenuItem.getId())
+                .menuItemName(savedMenuItem.getName())
+                .basePrice(savedMenuItem.getPrice())
+                .build());
         secondItem.setQuantity(2);
-        secondItem.setMenuItemExtras(new ArrayList<>(List.of(savedExtra)));
+        secondItem.setMenuItemExtras(new ArrayList<>(List.of(OrderItemExtraSnapshot.builder()
+                .extraId(savedExtra.getId())
+                .name(savedExtra.getName())
+                .price(savedExtra.getPrice())
+                .build())));
 
         order.setItems(new ArrayList<>(List.of(firstItem, secondItem)));
 
@@ -129,10 +152,10 @@ class OrderItemPersistenceTests {
 
         Assertions.assertThat(reloaded.getItems()).hasSize(2);
         Assertions.assertThat(reloaded.getItems().get(0).getMenuItemExtras())
-                .extracting(MenuItemExtra::getId)
+                .extracting(OrderItemExtraSnapshot::getExtraId)
                 .containsExactly(savedExtra.getId());
         Assertions.assertThat(reloaded.getItems().get(1).getMenuItemExtras())
-                .extracting(MenuItemExtra::getId)
+                .extracting(OrderItemExtraSnapshot::getExtraId)
                 .containsExactly(savedExtra.getId());
 
         Assertions.assertThat(hasUniqueConstraintOnMenuItemExtraId()).isFalse();
@@ -140,7 +163,7 @@ class OrderItemPersistenceTests {
 
     private boolean hasUniqueConstraintOnMenuItemExtraId() {
         try (Connection connection = Objects.requireNonNull(jdbcTemplate.getDataSource()).getConnection();
-             ResultSet resultSet = connection.getMetaData().getIndexInfo(null, "PUBLIC", "ORDER_ITEM_MENU_ITEM_EXTRAS", false, false)) {
+             ResultSet resultSet = connection.getMetaData().getIndexInfo(null, "PUBLIC", "ORDER_ITEM_EXTRAS", false, false)) {
             Map<String, Set<String>> columnsByIndex = new HashMap<>();
             Map<String, Boolean> isUniqueIndex = new HashMap<>();
 
@@ -161,7 +184,7 @@ class OrderItemPersistenceTests {
             return columnsByIndex.entrySet().stream()
                     .anyMatch(entry -> Boolean.TRUE.equals(isUniqueIndex.get(entry.getKey()))
                             && entry.getValue().size() == 1
-                            && entry.getValue().contains("MENU_ITEM_EXTRA_ID"));
+                            && entry.getValue().contains("EXTRA_ID"));
         } catch (SQLException exception) {
             throw new IllegalStateException("Failed to inspect database metadata", exception);
         }

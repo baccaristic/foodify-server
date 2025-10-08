@@ -9,9 +9,9 @@ import com.foodify.server.modules.orders.dto.LocationDto;
 import com.foodify.server.modules.orders.dto.OrderItemDTO;
 import com.foodify.server.modules.orders.dto.OrderNotificationDTO;
 import com.foodify.server.modules.orders.domain.OrderStatusHistory;
+import com.foodify.server.modules.orders.domain.catalog.OrderItemExtraSnapshot;
+import com.foodify.server.modules.orders.domain.catalog.OrderRestaurantSnapshot;
 import com.foodify.server.modules.orders.repository.OrderStatusHistoryRepository;
-import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
-import com.foodify.server.modules.restaurants.domain.Restaurant;
 import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
@@ -36,10 +36,10 @@ public class OrderNotificationMapper {
         OrderNotificationDTO.DeliverySummary deliverySummary = toDeliverySummary(order.getDelivery());
 
         List<OrderItemDTO> items = order.getItems() == null ? List.of() : order.getItems().stream().map(item -> new OrderItemDTO(
-                item.getMenuItem().getId(),
-                item.getMenuItem().getName(),
+                item.getCatalogItem() != null ? item.getCatalogItem().getMenuItemId() : null,
+                item.getCatalogItem() != null ? item.getCatalogItem().getMenuItemName() : null,
                 item.getQuantity(),
-                item.getMenuItemExtras().stream().map(MenuItemExtra::getName).toList(),
+                item.getMenuItemExtras().stream().map(OrderItemExtraSnapshot::getName).toList(),
                 item.getSpecialInstructions()
         )).toList();
 
@@ -76,14 +76,14 @@ public class OrderNotificationMapper {
         return new LocationDto(lat, lng);
     }
 
-    private OrderNotificationDTO.RestaurantSummary toRestaurantSummary(Restaurant restaurant) {
+    private OrderNotificationDTO.RestaurantSummary toRestaurantSummary(OrderRestaurantSnapshot restaurant) {
         if (restaurant == null) {
             return null;
         }
         LocationDto location = null;
-        double latitude = restaurant.getLatitude();
-        double longitude = restaurant.getLongitude();
-        if (!(latitude == 0.0 && longitude == 0.0)) {
+        Double latitude = restaurant.getLatitude();
+        Double longitude = restaurant.getLongitude();
+        if (latitude != null && longitude != null && !(latitude == 0.0 && longitude == 0.0)) {
             location = new LocationDto(latitude, longitude);
         }
         return new OrderNotificationDTO.RestaurantSummary(

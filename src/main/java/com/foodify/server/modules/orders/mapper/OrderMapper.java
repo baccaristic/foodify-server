@@ -4,9 +4,9 @@ import com.foodify.server.modules.orders.dto.LocationDto;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.orders.dto.OrderItemDTO;
 import com.foodify.server.modules.identity.domain.Driver;
-import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderItem;
+import com.foodify.server.modules.orders.domain.catalog.OrderItemExtraSnapshot;
 
 public class OrderMapper {
 
@@ -25,10 +25,12 @@ public class OrderMapper {
             dto.setRestaurantAddress(order.getRestaurant().getAddress());
             dto.setRestaurantPhone(order.getRestaurant().getPhone());
 
-            dto.setRestaurantLocation(new LocationDto(
-                    order.getRestaurant().getLatitude(),
-                    order.getRestaurant().getLongitude()
-            ));
+            if (order.getRestaurant().getLatitude() != null && order.getRestaurant().getLongitude() != null) {
+                dto.setRestaurantLocation(new LocationDto(
+                        order.getRestaurant().getLatitude(),
+                        order.getRestaurant().getLongitude()
+                ));
+            }
         }
 
         // Client
@@ -46,10 +48,10 @@ public class OrderMapper {
         if (order.getItems() != null) {
             dto.setItems(order.getItems().stream()
                     .map(item -> new OrderItemDTO(
-                            item.getMenuItem().getId(),
-                            item.getMenuItem().getName(),
+                            item.getCatalogItem() != null ? item.getCatalogItem().getMenuItemId() : null,
+                            item.getCatalogItem() != null ? item.getCatalogItem().getMenuItemName() : null,
                             item.getQuantity(),
-                            item.getMenuItemExtras().stream().map(extra -> extra.getName()).toList(),
+                            item.getMenuItemExtras().stream().map(OrderItemExtraSnapshot::getName).toList(),
                             item.getSpecialInstructions()
                     ))
                     .toList()
@@ -88,7 +90,7 @@ public class OrderMapper {
             total += price * item.getQuantity();
             if (item.getMenuItemExtras() != null) {
                 double extrasTotal = item.getMenuItemExtras().stream()
-                        .mapToDouble(MenuItemExtra::getPrice)
+                        .mapToDouble(extra -> extra.getPrice() == null ? 0.0 : extra.getPrice())
                         .sum();
                 total += extrasTotal * item.getQuantity();
             }
@@ -97,15 +99,15 @@ public class OrderMapper {
     }
 
     private static double resolveUnitPrice(OrderItem orderItem) {
-        if (orderItem == null || orderItem.getMenuItem() == null) {
+        if (orderItem == null || orderItem.getCatalogItem() == null) {
             return 0;
         }
 
-        if (Boolean.TRUE.equals(orderItem.getMenuItem().getPromotionActive())
-                && orderItem.getMenuItem().getPromotionPrice() != null) {
-            return orderItem.getMenuItem().getPromotionPrice();
+        if (Boolean.TRUE.equals(orderItem.getCatalogItem().getPromotionActive())
+                && orderItem.getCatalogItem().getPromotionPrice() != null) {
+            return orderItem.getCatalogItem().getPromotionPrice();
         }
 
-        return orderItem.getMenuItem().getPrice();
+        return orderItem.getCatalogItem().getBasePrice() == null ? 0.0 : orderItem.getCatalogItem().getBasePrice();
     }
 }
