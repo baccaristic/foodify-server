@@ -79,6 +79,24 @@ services:
     volumes:
       - ./docker/otel-collector-config.yaml:/etc/otel/collector-config.yaml:ro
 
+  identity-service:
+    profiles: [platform]
+    build:
+      context: ./services/identity-service
+    ports:
+      - "8085:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+
+  catalog-service:
+    profiles: [platform]
+    build:
+      context: ./services/catalog-service
+    ports:
+      - "8086:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+
 volumes:
   postgres_data:
   redis_data:

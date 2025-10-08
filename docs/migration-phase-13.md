@@ -2,7 +2,9 @@
 
 Phase 13 begins the identity service extraction by wrapping all authentication endpoints
 with a dedicated service facade, introducing remote proxy support, and externalising JWT
-configuration so credentials remain stable across restarts.
+configuration so credentials remain stable across restarts. The follow-up refinements in this
+iteration complete the strangler seam by moving phone signup state into the facade, emitting
+OIDC-compliant tokens, and delivering the first standalone identity microservice build.
 
 ## Highlights
 
@@ -16,10 +18,8 @@ configuration so credentials remain stable across restarts.
 
 ## Next Steps
 
-- Move the phone signup workflow and any remaining repository access to the
-  `IdentityAuthService` facade so the monolith never touches identity persistence
-  directly.
-- Stand up the dedicated identity microservice, implement the remote endpoints, and enable
-  `IDENTITY_SERVICE_MODE=remote` in staging environments to exercise the strangler rollout.
-- Introduce OIDC-compliant token issuance and contract tests between the edge gateway/BFFs
-  and the identity service to guarantee compatibility.
+- Extend contract testing coverage by adding consumer-driven tests for the new phone signup
+  metadata (`tokenType`, `expiresIn`, `scope`) once downstream clients integrate the richer
+  responses.
+- Harden the standalone identity service with persistent storage, schema migrations, and CI/CD
+  automation so remote mode becomes production-ready.

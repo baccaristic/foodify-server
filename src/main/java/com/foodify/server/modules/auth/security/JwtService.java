@@ -25,12 +25,20 @@ public class JwtService {
     private final Key refreshSecretKey; // Separate key for refresh
     private final Duration accessTtl;
     private final Duration refreshTtl;
+    private final String issuer;
+    private final String audience;
+    private final String scope;
+    private final String tokenType;
 
     public JwtService(IdentityTokenProperties properties) {
         this.secretKey = buildKey(properties.getAccess().getSecret(), "access");
         this.refreshSecretKey = buildKey(properties.getRefresh().getSecret(), "refresh");
         this.accessTtl = properties.getAccess().getTtl();
         this.refreshTtl = properties.getRefresh().getTtl();
+        this.issuer = properties.getIssuer();
+        this.audience = properties.getAudience();
+        this.scope = properties.getScope();
+        this.tokenType = properties.getTokenType();
     }
 
     private Key buildKey(String secret, String alias) {
@@ -50,9 +58,13 @@ public class JwtService {
     public String generateAccessToken(User user) {
         Instant now = Instant.now();
         return Jwts.builder()
+                .setIssuer(issuer)
+                .setAudience(audience)
                 .setSubject(user.getId().toString())
                 .claim("email", user.getEmail())
                 .claim("role", user.getRole())
+                .claim("scope", scope)
+                .claim("token_type", tokenType)
                 .setIssuedAt(Date.from(now))
                 .setExpiration(Date.from(now.plus(accessTtl)))
                 .signWith(secretKey)
@@ -63,6 +75,8 @@ public class JwtService {
     public String generateRefreshToken(User user) {
         Instant now = Instant.now();
         return Jwts.builder()
+                .setIssuer(issuer)
+                .setAudience(audience)
                 .setSubject(user.getId().toString())
                 .setIssuedAt(Date.from(now))
                 .setExpiration(Date.from(now.plus(refreshTtl)))
@@ -94,5 +108,29 @@ public class JwtService {
 
     public boolean isRefreshTokenExpired(String token){
         return parseRefreshToken(token).getExpiration().before(new Date());
+    }
+
+    public Duration getAccessTtl() {
+        return accessTtl;
+    }
+
+    public Duration getRefreshTtl() {
+        return refreshTtl;
+    }
+
+    public String getIssuer() {
+        return issuer;
+    }
+
+    public String getAudience() {
+        return audience;
+    }
+
+    public String getScope() {
+        return scope;
+    }
+
+    public String getTokenType() {
+        return tokenType;
     }
 }

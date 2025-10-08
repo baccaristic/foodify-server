@@ -45,6 +45,20 @@ This document summarises the architecture-level outcomes of the Foodify migratio
 
 **Benefit:** Onboarding and testing cycles are faster—developers can reproduce the emerging distributed topology locally and follow repeatable validation steps before promoting to higher environments.
 
+## 8. Identity Service Strangler & OIDC Alignment
+- Centralised all authentication flows behind the `IdentityAuthService` facade, moving phone signup persistence and token minting away from controllers.
+- Added an opt-in remote mode that proxies to the new `services/identity-service` Spring Boot app, which mirrors the contracts exposed by the monolith.
+- Issued OIDC-compliant tokens that surface `tokenType`, `expiresIn`, and `scope` metadata, and added contract tests to lock the wire format for BFFs and edge gateways.
+
+**Benefit:** Identity becomes an independently deployable component with standards-based tokens, enabling staged strangler rollouts and tighter compatibility guarantees for clients.
+
+## 9. Catalog Service Facade & Remote Microservice
+- Wrapped restaurant and menu lookups behind `RestaurantCatalogService`, with conditional wiring for local repository access or a remote `RestClient` proxy.
+- Published a standalone catalog Spring Boot service (under `services/catalog-service`) exposing REST endpoints for restaurants, menu items, and extras, packaged for Docker Compose alongside the platform stack.
+- Added remote contract tests so order flows continue to validate menu data even when the catalog service is the source of truth.
+
+**Benefit:** Order placement and pricing can consume catalog data without touching persistence directly, paving the way to split the catalog domain into an independently scaled service while safeguarding existing flows.
+
 ---
 
 Collectively, these changes transition the monolith from a tightly coupled application into a modular, event-aware platform that already exercises the patterns required for a federated microservice architecture. Services can now be extracted incrementally with confidence that data contracts, messaging reliability, observability, and deployment ergonomics have been addressed.

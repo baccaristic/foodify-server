@@ -132,3 +132,15 @@ identity:
     refresh:
       secret: ${IDENTITY_REFRESH_TOKEN_SECRET:Zm9vZGlmeS1yZWZyZXNoLXNlY3JldC1zaG91bGQtYmUtYXQtbGVhc3QtMzItYnl0ZXM=}
       ttl: ${IDENTITY_REFRESH_TOKEN_TTL:P7D}
+    issuer: ${IDENTITY_TOKEN_ISSUER:https://identity.foodify.local}
+    audience: ${IDENTITY_TOKEN_AUDIENCE:foodify-platform}
+    scope: ${IDENTITY_TOKEN_SCOPE:openid profile email}
+    token-type: ${IDENTITY_TOKEN_TYPE:Bearer}
+
+catalog:
+  service:
+    mode: ${CATALOG_SERVICE_MODE:monolith}
+    remote:
+      base-url: ${CATALOG_SERVICE_BASE_URL:http://localhost:8086}
+      connect-timeout: ${CATALOG_SERVICE_CONNECT_TIMEOUT:2s}
+      read-timeout: ${CATALOG_SERVICE_READ_TIMEOUT:5s}

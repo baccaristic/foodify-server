@@ -1,6 +1,6 @@
-package com.foodify.server.modules.auth.repository;
+package com.foodify.server.modules.identity.repository;
 
-import com.foodify.server.modules.auth.domain.PhoneSignupSession;
+import com.foodify.server.modules.identity.domain.PhoneSignupSession;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

@@ -1,4 +1,4 @@
-package com.foodify.server.modules.auth.domain;
+package com.foodify.identityservice.phone;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -38,44 +38,26 @@ public class PhoneSignupSession {
     private int resendCount = 0;
 
     private Instant phoneVerifiedAt;
-
-    @Column(length = 160)
     private String email;
-
     private Instant emailCapturedAt;
-
-    @Column(length = 80)
     private String firstName;
-
-    @Column(length = 80)
     private String lastName;
-
     private Instant nameCapturedAt;
-
     private Instant termsAcceptedAt;
-
-    @Column(nullable = false)
-    private boolean completed = false;
-
-    @Column(nullable = false, updatable = false)
-    private Instant createdAt;
-
-    @Column(nullable = false)
-    private Instant updatedAt;
+    private boolean completed;
 
     @PrePersist
     public void onCreate() {
         Instant now = Instant.now();
-        createdAt = now;
-        updatedAt = now;
         if (sessionId == null) {
             sessionId = UUID.randomUUID().toString();
         }
-    }
-
-    @PreUpdate
-    public void onUpdate() {
-        updatedAt = Instant.now();
+        if (lastCodeSentAt == null) {
+            lastCodeSentAt = now;
+        }
+        if (codeExpiresAt == null) {
+            codeExpiresAt = now.plusSeconds(300);
+        }
     }
 
     public boolean isPhoneVerified() {
@@ -87,7 +69,7 @@ public class PhoneSignupSession {
     }
 
     public boolean isNameProvided() {
-        return (firstName != null && !firstName.isBlank()) && (lastName != null && !lastName.isBlank());
+        return firstName != null && !firstName.isBlank() && lastName != null && !lastName.isBlank();
     }
 
     public boolean isTermsAccepted() {

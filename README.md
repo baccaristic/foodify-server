@@ -82,6 +82,81 @@ When `IDENTITY_SERVICE_MODE=monolith` (the default), the monolith continues to h
 management in-process, issuing JWTs via the configured secrets so existing clients remain
 compatible during the strangler migration.
 
+### Running the standalone identity service
+
+The extracted identity microservice lives under `services/identity-service` and exposes the same
+contracts that the monolith now consumes when `IDENTITY_SERVICE_MODE=remote` is enabled.
+
+To launch it locally:
+
+```bash
+./gradlew -p services/identity-service bootRun
+```
+
+The service boots on port `8080` by default and uses an in-memory H2 database. You can build a
+container image with:
+
+```bash
+./gradlew -p services/identity-service bootJar
+docker build -t foodify/identity-service:latest services/identity-service
+```
+
+Once running, point the monolith at the remote service by exporting
+`IDENTITY_SERVICE_MODE=remote` and `IDENTITY_SERVICE_BASE_URL=http://localhost:8080`. All
+`/api/auth/**` calls will be routed through the strangler facade.
+
+All authentication responses now carry OIDC-aligned metadata (`tokenType`, `expiresIn`, and
+`scope`) in addition to the access and refresh tokens so BFFs and edge components can validate
+token semantics without relying on implementation details.
+
+### Catalog service extraction toggles
+
+Order validation and pricing workflows now consume restaurant, menu, and extra data through a
+`RestaurantCatalogService` facade. The behaviour mirrors the identity migration so the monolith can
+either execute reads locally or proxy to the dedicated catalog microservice via the
+`catalog.service.*` configuration block:
+
+- `CATALOG_SERVICE_MODE` &mdash; defaults to `monolith`. Set to `remote` to fetch restaurants, menu
+  items, and extras from the standalone catalog service.
+- `CATALOG_SERVICE_BASE_URL` &mdash; the remote endpoint used by the monolith when proxying requests.
+- `CATALOG_SERVICE_CONNECT_TIMEOUT` / `CATALOG_SERVICE_READ_TIMEOUT` &mdash; override the REST client
+  timeouts when the remote service is enabled.
+
+When operating in `monolith` mode the existing repositories remain in use, keeping legacy flows
+unchanged while we extract downstream consumers to their own services.
+
+### Running the standalone catalog service
+
+The new catalog microservice lives under `services/catalog-service`. It exposes REST endpoints that
+mirror the methods in `RestaurantCatalogService`, allowing the monolith (or future BFFs) to retrieve
+restaurant metadata without reaching into the monolith database directly.
+
+Launch it locally on port `8080` (mapped to `8086` in Docker Compose) with:
+
+```bash
+./gradlew -p services/catalog-service bootRun
+```
+
+By default the service uses an in-memory H2 database. Point it at PostgreSQL or another persistent
+store by exporting the `CATALOG_DATABASE_URL`, `CATALOG_DATABASE_USERNAME`, and
+`CATALOG_DATABASE_PASSWORD` variables before booting. To build a container image:
+
+```bash
+./gradlew -p services/catalog-service bootJar
+docker build -t foodify/catalog-service:latest services/catalog-service
+```
+
+Enable remote catalog mode in the monolith with:
+
+```bash
+export CATALOG_SERVICE_MODE=remote
+export CATALOG_SERVICE_BASE_URL=http://localhost:8086
+./gradlew bootRun
+```
+
+All catalog-facing operations (order placement, cart validation) will call the catalog service while
+continuing to leverage the outbox and Redis projections introduced earlier.
+
 ### Testing the order lifecycle workflow
 
 1. Launch the infrastructure stack with the `platform` profile:

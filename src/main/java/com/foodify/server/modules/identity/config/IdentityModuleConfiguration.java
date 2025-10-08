@@ -1,10 +1,12 @@
 package com.foodify.server.modules.identity.config;
 
+import com.foodify.server.modules.auth.application.SmsSender;
 import com.foodify.server.modules.auth.security.JwtService;
 import com.foodify.server.modules.identity.application.IdentityAuthService;
 import com.foodify.server.modules.identity.application.LocalIdentityAuthService;
 import com.foodify.server.modules.identity.application.RemoteIdentityAuthService;
 import com.foodify.server.modules.identity.repository.ClientRepository;
+import com.foodify.server.modules.identity.repository.PhoneSignupSessionRepository;
 import com.foodify.server.modules.identity.repository.UserRepository;
 import org.flywaydb.core.Flyway;
 import org.springframework.beans.factory.ObjectProvider;
@@ -47,9 +49,12 @@ public class IdentityModuleConfiguration {
     @ConditionalOnMissingBean(IdentityAuthService.class)
     public IdentityAuthService localIdentityAuthService(UserRepository userRepository,
                                                         ClientRepository clientRepository,
+                                                        PhoneSignupSessionRepository phoneSignupSessionRepository,
                                                         PasswordEncoder passwordEncoder,
-                                                        JwtService jwtService) {
-        return new LocalIdentityAuthService(userRepository, clientRepository, passwordEncoder, jwtService);
+                                                        JwtService jwtService,
+                                                        SmsSender smsSender) {
+        return new LocalIdentityAuthService(userRepository, clientRepository, phoneSignupSessionRepository,
+                passwordEncoder, jwtService, smsSender);
     }
 
     @Bean(initMethod = "migrate")
