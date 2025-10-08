@@ -1,11 +1,11 @@
 package com.foodify.catalogservice.service;
 
-import com.foodify.catalogservice.domain.MenuItem;
-import com.foodify.catalogservice.domain.MenuItemExtra;
-import com.foodify.catalogservice.domain.Restaurant;
 import com.foodify.catalogservice.repository.MenuItemExtraRepository;
 import com.foodify.catalogservice.repository.MenuItemRepository;
 import com.foodify.catalogservice.repository.RestaurantRepository;
+import com.foodify.server.modules.restaurants.domain.MenuItem;
+import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
+import com.foodify.server.modules.restaurants.domain.Restaurant;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

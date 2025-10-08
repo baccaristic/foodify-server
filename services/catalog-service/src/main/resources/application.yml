@@ -1,11 +1,14 @@
 spring:
   application:
     name: catalog-service
+  cloud:
+    discovery:
+      enabled: ${SPRING_CLOUD_DISCOVERY_ENABLED:false}
   datasource:
-    url: ${CATALOG_DATABASE_URL:jdbc:h2:mem:catalog;DB_CLOSE_DELAY=-1}
-    username: ${CATALOG_DATABASE_USERNAME:sa}
-    password: ${CATALOG_DATABASE_PASSWORD:}
-    driver-class-name: org.h2.Driver
+    url: ${CATALOG_DATABASE_URL:jdbc:postgresql://localhost:5432/catalog_service}
+    username: ${CATALOG_DATABASE_USERNAME:catalog_service}
+    password: ${CATALOG_DATABASE_PASSWORD:catalog_service}
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: update
@@ -13,12 +16,24 @@ spring:
       hibernate:
         format_sql: true
     show-sql: false
-
+  main:
+    banner-mode: "off"
 server:
   port: ${CATALOG_SERVICE_PORT:8086}
-
+logging:
+  level:
+    root: info
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+eureka:
+  client:
+    enabled: ${EUREKA_CLIENT_ENABLED:false}
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka}
+    register-with-eureka: ${EUREKA_REGISTER_WITH_EUREKA:true}
+    fetch-registry: ${EUREKA_FETCH_REGISTRY:true}
+  instance:
+    prefer-ip-address: true

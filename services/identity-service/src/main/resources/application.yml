@@ -1,28 +1,59 @@
 spring:
+  application:
+    name: identity-service
   datasource:
-    url: jdbc:h2:mem:identity;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: ''
+    url: ${IDENTITY_DATABASE_URL:jdbc:postgresql://localhost:5432/identity_service}
+    driver-class-name: org.postgresql.Driver
+    username: ${IDENTITY_DATABASE_USERNAME:identity_service}
+    password: ${IDENTITY_DATABASE_PASSWORD:identity_service}
   jpa:
     hibernate:
       ddl-auto: update
     properties:
       hibernate:
         format_sql: true
+  cloud:
+    discovery:
+      enabled: ${SPRING_CLOUD_DISCOVERY_ENABLED:false}
   main:
     banner-mode: "off"
+
 logging:
   level:
     root: info
+
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+  tracing:
+    enabled: ${MANAGEMENT_TRACING_ENABLED:false}
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4317}
+
+eureka:
+  client:
+    enabled: ${EUREKA_CLIENT_ENABLED:false}
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka}
+    register-with-eureka: ${EUREKA_REGISTER_WITH_EUREKA:true}
+    fetch-registry: ${EUREKA_FETCH_REGISTRY:true}
+  instance:
+    prefer-ip-address: true
+
 identity:
   tokens:
-    issuer: https://identity.foodify.local
-    audience: foodify-platform
-    scope: openid profile email
-    token-type: Bearer
+    issuer: ${IDENTITY_TOKEN_ISSUER:https://identity.foodify.local}
+    audience: ${IDENTITY_TOKEN_AUDIENCE:foodify-platform}
+    scope: ${IDENTITY_TOKEN_SCOPE:openid profile email}
+    token-type: ${IDENTITY_TOKEN_TYPE:Bearer}
+    access:
+      secret: ${IDENTITY_ACCESS_TOKEN_SECRET:Zm9vZGlmeS1hY2Nlc3Mtc2VjcmV0LXNob3VsZC1iZS1hdC1sZWFzdC0zMi1ieXRlcw==}
+      ttl: ${IDENTITY_ACCESS_TOKEN_TTL:PT24H}
+    refresh:
+      secret: ${IDENTITY_REFRESH_TOKEN_SECRET:Zm9vZGlmeS1yZWZyZXNoLXNlY3JldC1zaG91bGQtYmUtYXQtbGVhc3QtMzItYnl0ZXM=}
+      ttl: ${IDENTITY_REFRESH_TOKEN_TTL:P7D}

@@ -4,12 +4,12 @@ import lombok.Data;
 
 @Data
 public class RegisterRequest {
-    private String name;
+    private String phone;
     private String email;
     private String password;
+    private String name;
     private String address;
-    private String phone;
-    private boolean googleAccount;
     private boolean phoneVerified;
     private boolean emailVerified;
+    private boolean googleAccount;
 }
