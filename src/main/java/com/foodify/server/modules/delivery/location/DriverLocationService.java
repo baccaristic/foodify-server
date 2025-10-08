@@ -21,7 +21,7 @@ public class DriverLocationService {
     private static final String STATUS_KEY_PREFIX = "driver:status:";
     private final DriverRepository driverRepository;
     // ✅ Find closest available drivers
-    public List<String> findClosestDrivers(double lat, double lon, double radiusKm, int limit) {
+    public List<DriverCandidate> findClosestDrivers(double lat, double lon, double radiusKm, int limit) {
         GeoResults<RedisGeoCommands.GeoLocation<String>> results =
                 redisTemplate.opsForGeo().radius(
                         GEO_KEY,
@@ -29,13 +29,21 @@ public class DriverLocationService {
                         RedisGeoCommands.GeoRadiusCommandArgs.newGeoRadiusArgs().limit(limit).sortAscending()
                 );
 
-        if (results == null) return List.of();
+        if (results == null) {
+            return List.of();
+        }
 
         return results.getContent().stream()
-                .map(r -> r.getContent().getName())
-                .filter(this::isAvailable) // ✅ only pick available drivers
+                .map(r -> {
+                    Distance distance = r.getDistance();
+                    double distanceKmValue = distance != null ? distance.getValue() : Double.MAX_VALUE;
+                    return new DriverCandidate(r.getContent().getName(), distanceKmValue);
+                })
+                .filter(candidate -> isAvailable(candidate.driverId())) // ✅ only pick available drivers
                 .collect(Collectors.toList());
     }
+
+    public record DriverCandidate(String driverId, double distanceKm) { }
 
     public boolean isAvailable(String driverId) {
         String status = redisTemplate.opsForValue().get(STATUS_KEY_PREFIX + driverId);
