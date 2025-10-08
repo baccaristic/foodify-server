@@ -18,6 +18,8 @@ import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.restaurants.domain.MenuOptionGroup;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
+import com.foodify.server.modules.restaurants.dto.MenuItemPricingDto;
+import com.foodify.server.modules.restaurants.dto.RestaurantAvailabilityDto;
 import com.foodify.server.modules.restaurants.sync.CatalogMenuItemExtraSnapshot;
 import com.foodify.server.modules.restaurants.sync.CatalogMenuItemSnapshot;
 import com.foodify.server.modules.restaurants.sync.CatalogRestaurantSnapshot;
@@ -33,6 +35,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -44,6 +47,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 
 @ExtendWith(MockitoExtension.class)
 class CustomerOrderServicePricingConsistencyTest {
@@ -110,6 +116,8 @@ class CustomerOrderServicePricingConsistencyTest {
         restaurant.setLongitude(-45.6);
         restaurant.setAdmin(admin);
         when(restaurantCatalogService.getRestaurantOrThrow(restaurantId)).thenReturn(restaurant);
+        when(restaurantCatalogService.getRestaurantAvailability(eq(restaurantId), any(Instant.class)))
+                .thenReturn(new RestaurantAvailabilityDto(restaurantId, true, Instant.now(), "08:00", "22:00"));
 
         MenuItem menuItem = new MenuItem();
         menuItem.setId(menuItemId);
@@ -118,6 +126,8 @@ class CustomerOrderServicePricingConsistencyTest {
         menuItem.setPromotionActive(false);
         menuItem.setRestaurant(restaurant);
         when(restaurantCatalogService.getMenuItemOrThrow(menuItemId)).thenReturn(menuItem);
+        when(restaurantCatalogService.getMenuItemPricing(menuItemId))
+                .thenReturn(new MenuItemPricingDto(menuItemId, 9.0, 8.0, "PROMO", false, Instant.now()));
 
         MenuOptionGroup optionGroup = new MenuOptionGroup();
         optionGroup.setMenuItem(menuItem);

@@ -1,11 +1,12 @@
 package com.foodify.server.modules.restaurants.application;
 
+import com.foodify.server.modules.restaurants.application.LocalRestaurantCatalogService;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
+import com.foodify.server.modules.restaurants.dto.PageResponse;
 import com.foodify.server.modules.restaurants.dto.RestaurantSearchItemDto;
 import com.foodify.server.modules.restaurants.dto.RestaurantSearchQuery;
 import com.foodify.server.modules.restaurants.dto.RestaurantSearchSort;
-import com.foodify.server.modules.restaurants.dto.PageResponse;
 import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,7 +18,7 @@ import org.springframework.context.annotation.Import;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-@Import(RestaurantSearchService.class)
+@Import({RestaurantSearchService.class, LocalRestaurantCatalogService.class})
 class RestaurantSearchServiceIntegrationTest {
 
     @Autowired

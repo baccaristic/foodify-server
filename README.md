@@ -129,7 +129,9 @@ unchanged while we extract downstream consumers to their own services.
 
 The new catalog microservice lives under `services/catalog-service`. It exposes REST endpoints that
 mirror the methods in `RestaurantCatalogService`, allowing the monolith (or future BFFs) to retrieve
-restaurant metadata without reaching into the monolith database directly.
+restaurant metadata without reaching into the monolith database directly. Beyond single resource
+lookups the service now provides search, availability, and pricing endpoints so downstream
+consumers can query complex catalog views without hitting the monolith database.
 
 Launch it locally on port `8080` (mapped to `8086` in Docker Compose) with:
 

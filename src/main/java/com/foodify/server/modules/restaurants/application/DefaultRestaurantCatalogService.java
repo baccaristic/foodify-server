@@ -3,50 +3,57 @@ package com.foodify.server.modules.restaurants.application;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
+import com.foodify.server.modules.restaurants.dto.MenuItemPricingDto;
+import com.foodify.server.modules.restaurants.dto.PageResponse;
+import com.foodify.server.modules.restaurants.dto.RestaurantAvailabilityDto;
+import com.foodify.server.modules.restaurants.dto.RestaurantSearchItemDto;
+import com.foodify.server.modules.restaurants.dto.RestaurantSearchQuery;
 import com.foodify.server.modules.restaurants.repository.MenuItemExtraRepository;
 import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
-import jakarta.persistence.EntityNotFoundException;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
+import java.time.Instant;
 import java.util.List;
-import java.util.Objects;
 
 @Service
-@RequiredArgsConstructor
 public class DefaultRestaurantCatalogService implements RestaurantCatalogService {
 
-    private final RestaurantRepository restaurantRepository;
-    private final MenuItemRepository menuItemRepository;
-    private final MenuItemExtraRepository menuItemExtraRepository;
+    private final LocalRestaurantCatalogService delegate;
+
+    public DefaultRestaurantCatalogService(RestaurantRepository restaurantRepository,
+                                           MenuItemRepository menuItemRepository,
+                                           MenuItemExtraRepository menuItemExtraRepository) {
+        this.delegate = new LocalRestaurantCatalogService(restaurantRepository, menuItemRepository, menuItemExtraRepository);
+    }
 
     @Override
     public Restaurant getRestaurantOrThrow(Long restaurantId) {
-        if (restaurantId == null) {
-            throw new IllegalArgumentException("Restaurant id is required");
-        }
-        return restaurantRepository.findById(restaurantId)
-                .orElseThrow(() -> new EntityNotFoundException("Restaurant not found"));
+        return delegate.getRestaurantOrThrow(restaurantId);
     }
 
     @Override
     public MenuItem getMenuItemOrThrow(Long menuItemId) {
-        if (menuItemId == null) {
-            throw new IllegalArgumentException("Menu item id is required");
-        }
-        return menuItemRepository.findById(menuItemId)
-                .orElseThrow(() -> new EntityNotFoundException("Menu item not found"));
+        return delegate.getMenuItemOrThrow(menuItemId);
     }
 
     @Override
     public List<MenuItemExtra> getMenuItemExtras(List<Long> extraIds) {
-        if (extraIds == null || extraIds.isEmpty()) {
-            return Collections.emptyList();
-        }
-        return menuItemExtraRepository.findAllById(extraIds).stream()
-                .filter(Objects::nonNull)
-                .toList();
+        return delegate.getMenuItemExtras(extraIds);
+    }
+
+    @Override
+    public PageResponse<RestaurantSearchItemDto> searchRestaurants(RestaurantSearchQuery query) {
+        return delegate.searchRestaurants(query);
+    }
+
+    @Override
+    public RestaurantAvailabilityDto getRestaurantAvailability(Long restaurantId, Instant asOf) {
+        return delegate.getRestaurantAvailability(restaurantId, asOf);
+    }
+
+    @Override
+    public MenuItemPricingDto getMenuItemPricing(Long menuItemId) {
+        return delegate.getMenuItemPricing(menuItemId);
     }
 }

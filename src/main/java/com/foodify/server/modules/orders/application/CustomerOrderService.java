@@ -25,6 +25,8 @@ import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
 import com.foodify.server.modules.restaurants.application.RestaurantCatalogService;
+import com.foodify.server.modules.restaurants.dto.MenuItemPricingDto;
+import com.foodify.server.modules.restaurants.dto.RestaurantAvailabilityDto;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -126,6 +129,11 @@ public class CustomerOrderService {
                 .orElseThrow(() -> new IllegalArgumentException("Restaurant id is required"));
 
         Restaurant restaurant = restaurantCatalogService.getRestaurantOrThrow(restaurantId);
+
+        RestaurantAvailabilityDto availability = restaurantCatalogService.getRestaurantAvailability(restaurantId, Instant.now());
+        if (availability != null && !availability.available()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Restaurant is currently unavailable");
+        }
 
         SavedAddress savedAddress = resolveSavedAddress(clientId, request.getSavedAddressId());
 
@@ -345,12 +353,28 @@ public class CustomerOrderService {
         if (menuItem == null) {
             return null;
         }
+        MenuItemPricingDto pricing = null;
+        if (menuItem.getId() != null) {
+            try {
+                pricing = restaurantCatalogService.getMenuItemPricing(menuItem.getId());
+            } catch (RuntimeException ignored) {
+                pricing = null;
+            }
+        }
+        double basePrice = menuItem.getPrice();
+        Boolean promotionActive = menuItem.getPromotionActive();
+        Double promotionPrice = menuItem.getPromotionPrice();
+        if (pricing != null) {
+            basePrice = pricing.price();
+            promotionActive = pricing.promotionActive();
+            promotionPrice = pricing.promotionPrice();
+        }
         return OrderItemCatalogSnapshot.builder()
                 .menuItemId(menuItem.getId())
                 .menuItemName(menuItem.getName())
-                .basePrice(menuItem.getPrice())
-                .promotionActive(menuItem.getPromotionActive())
-                .promotionPrice(menuItem.getPromotionPrice())
+                .basePrice(basePrice)
+                .promotionActive(promotionActive)
+                .promotionPrice(promotionPrice)
                 .build();
     }
 
