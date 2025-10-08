@@ -39,6 +39,7 @@ public class DriverService {
     private final QrCodeService qrCodeService;
     private final GoogleMapsService googleMapsService;
     private final DriverLocationService driverLocationService;
+    private final DriverAvailabilityService driverAvailabilityService;
     private final OrderLifecycleService orderLifecycleService;
 
     private static final List<OrderStatus> ACTIVE_DRIVER_STATUSES = List.of(
@@ -181,9 +182,7 @@ public class DriverService {
         delivery.setDeliveredTime(LocalDateTime.now());
         deliveryRepository.save(delivery);
         Driver driver = delivery.getDriver();
-        driver.setAvailable(true);
-        driverRepository.save(driver);
-        driverLocationService.markAvailable(String.valueOf(driverId));
+        driverAvailabilityService.refreshAvailability(driver.getId());
         order.setDeliveryToken(null);
         orderLifecycleService.transition(order, OrderStatus.DELIVERED,
                 "driver:" + driverId,

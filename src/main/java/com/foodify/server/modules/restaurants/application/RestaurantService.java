@@ -1,6 +1,6 @@
 package com.foodify.server.modules.restaurants.application;
 
-import com.foodify.server.modules.delivery.application.DriverService;
+import com.foodify.server.modules.delivery.application.DriverAssignmentService;
 import com.foodify.server.modules.delivery.location.DriverLocationService;
 import com.foodify.server.modules.notifications.application.PushNotificationService;
 import com.foodify.server.modules.notifications.application.UserDeviceService;
@@ -21,6 +21,7 @@ import com.foodify.server.modules.restaurants.dto.MenuItemRequestDTO;
 import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -32,8 +33,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -41,18 +45,21 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class RestaurantService {
 
     private final OrderRepository orderRepository;
     private final RestaurantRepository restaurantRepository;
     private final MenuItemRepository menuItemRepository;
     private final DriverLocationService driverLocationService;
+    private final DriverAssignmentService driverAssignmentService;
     private final StringRedisTemplate redisTemplate;
     private final PushNotificationService pushNotificationService;
     private final UserDeviceService userDeviceService;
-    private final DriverService driverService;
     private final WebSocketService webSocketService;
     private final OrderLifecycleService orderLifecycleService;
+
+    private static final String ORDER_ATTEMPTED_DRIVERS_KEY_PREFIX = "order:drivers:attempted:";
 
 
     @Transactional(readOnly = true)
@@ -79,29 +86,31 @@ public class RestaurantService {
     }
 
     private void assignDriver(Order order) {
-        List<String> driverIds = driverLocationService.findClosestDrivers(
-                order.getRestaurant().getLatitude(),
-                order.getRestaurant().getLongitude(),
-                50, 5
-        );
+        Set<Long> excludedDriverIds = loadAttemptedDrivers(order.getId());
 
-        if (driverIds.isEmpty()) {
-           // webSocketService.notifyRestaurant(order.getRestaurant().getId(), "No drivers available");
-            return;
-        }
+        driverAssignmentService.findBestDriver(order, excludedDriverIds).ifPresentOrElse(match -> {
+            Long driverId = match.driver().getId();
+            rememberAttemptedDriver(order.getId(), driverId);
 
-        String driverId = driverIds.get(0);
-        driverLocationService.markPending(driverId, order.getId());
-        order.setPendingDriver(driverService.findById(Long.valueOf(driverId)));
-        order = orderRepository.save(order);
-        webSocketService.notifyDriverUpcoming(Long.valueOf(driverId), order);
-        List<UserDevice> userDevices = userDeviceService.findByUser(Long.valueOf(driverId));
-        final Order[] finalOrder = {order};
+            driverLocationService.markPending(String.valueOf(driverId), order.getId());
+            order.setPendingDriver(match.driver());
+            Order persistedOrder = orderRepository.save(order);
+
+            notifyDriverAboutOrder(persistedOrder, driverId);
+            scheduleDriverTimeout(persistedOrder.getId(), driverId);
+        }, () -> {
+            log.info("No eligible drivers found for order {} after evaluating {} previous attempts", order.getId(), excludedDriverIds.size());
+        });
+    }
+
+    private void notifyDriverAboutOrder(Order order, Long driverId) {
+        webSocketService.notifyDriverUpcoming(driverId, order);
+        List<UserDevice> userDevices = userDeviceService.findByUser(driverId);
         userDevices.forEach(userDevice -> {
             try {
                 pushNotificationService.sendOrderNotification(
                         userDevice.getDeviceToken(),
-                        finalOrder[0].getId(),
+                        order.getId(),
                         "You have a new delivery request",
                         "You have recieved a new delivery request. You have 2 minutes to accept or decline.",
                         NotificationType.ORDER_DRIVER_NEW_ORDER
@@ -110,28 +119,55 @@ public class RestaurantService {
                 throw new RuntimeException(e);
             }
         });
+    }
 
-        // ✅ Start 30s timer
-        Long orderId = order.getId();
-        Executors.newSingleThreadScheduledExecutor().schedule(() -> {
-            String status = redisTemplate.opsForValue().get("driver:status:" + driverId);
-
-            // Driver already accepted/declined or was reset manually
-            if (!("PENDING:" + orderId).equals(status)) {
-                return;
-            }
-
-            orderRepository.findById(orderId).ifPresent(pendingOrder -> {
-                if (pendingOrder.getDelivery() != null) {
-                    return; // already accepted by the driver
+    private void scheduleDriverTimeout(Long orderId, Long driverId) {
+        var scheduler = Executors.newSingleThreadScheduledExecutor();
+        scheduler.schedule(() -> {
+            try {
+                String status = redisTemplate.opsForValue().get("driver:status:" + driverId);
+                if (!("PENDING:" + orderId).equals(status)) {
+                    return;
                 }
 
-                // Timeout: release driver + try next one
-                driverLocationService.markAvailable(driverId);
-                pendingOrder.setPendingDriver(null);
-                assignDriver(orderRepository.save(pendingOrder));
-            });
+                orderRepository.findById(orderId).ifPresent(pendingOrder -> {
+                    if (pendingOrder.getDelivery() != null) {
+                        return;
+                    }
+
+                    driverLocationService.markAvailable(String.valueOf(driverId));
+                    pendingOrder.setPendingDriver(null);
+                    orderRepository.save(pendingOrder);
+                    assignDriver(pendingOrder);
+                });
+            } finally {
+                scheduler.shutdown();
+            }
         }, 30, TimeUnit.SECONDS);
+    }
+
+    private Set<Long> loadAttemptedDrivers(Long orderId) {
+        String key = ORDER_ATTEMPTED_DRIVERS_KEY_PREFIX + orderId;
+        Set<String> rawValues = redisTemplate.opsForSet().members(key);
+        if (rawValues == null || rawValues.isEmpty()) {
+            return new HashSet<>();
+        }
+        return rawValues.stream()
+                .map(value -> {
+                    try {
+                        return Long.valueOf(value);
+                    } catch (NumberFormatException ex) {
+                        return null;
+                    }
+                })
+                .filter(id -> id != null)
+                .collect(Collectors.toCollection(HashSet::new));
+    }
+
+    private void rememberAttemptedDriver(Long orderId, Long driverId) {
+        String key = ORDER_ATTEMPTED_DRIVERS_KEY_PREFIX + orderId;
+        redisTemplate.opsForSet().add(key, String.valueOf(driverId));
+        redisTemplate.expire(key, Duration.ofHours(6));
     }
 
 
