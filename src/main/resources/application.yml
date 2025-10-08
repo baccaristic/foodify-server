@@ -1,6 +1,30 @@
 spring:
   application:
     name: foodify-platform
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: 507898158443-v30o4karkuovc0fb3qq43f482am22uid.apps.googleusercontent.com
+            client-secret: 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
+            scope: profile, email
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/foodify}
+    driver-class-name: org.postgresql.Driver
+    username: ${DATABASE_USERNAME:foodify}
+    password: ${DATABASE_PASSWORD:foodify}
+    jpa:
+      hibernate:
+        ddl-auto: update
+      properties:
+        hibernate:
+          dialect: org.hibernate.dialect.PostgreSQLDialect
+      show-sql: true
+    flyway:
+      enabled: true
+      locations: classpath:db/migration
   config:
     import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
   cloud:
@@ -33,12 +57,13 @@ app:
   orders:
     tracking:
       enabled: ${APP_ORDERS_TRACKING_ENABLED:false}
-      key-prefix: orders:tracking:
-      ttl: PT24H
-      kafka:
-        enabled: ${APP_ORDERS_TRACKING_KAFKA_ENABLED:false}
-        group-id: order-tracking-projection
-        concurrency: 1
+      key-prefix:
+      orders:tracking:
+        ttl: PT24H
+        kafka:
+          enabled: ${APP_ORDERS_TRACKING_KAFKA_ENABLED:false}
+          group-id: order-tracking-projection
+          concurrency: 1
   servlet:
     multipart:
       max-file-size: 5MB
@@ -58,14 +83,6 @@ app:
   flyway:
     enabled: true
     locations: classpath:db/migration
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: 507898158443-v30o4karkuovc0fb3qq43f482am22uid.apps.googleusercontent.com
-            client-secret: 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
-            scope: profile, email
 
 eureka:
   client:

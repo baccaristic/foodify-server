@@ -2,10 +2,7 @@ package com.foodify.server.modules.orders.readmodel;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 public record OrderTrackingView(
         Long orderId,
@@ -54,7 +51,7 @@ public record OrderTrackingView(
         );
     }
 
-    public record Delivery(String address, Double lat, Double lng, Long savedAddressId) {
+    public record Delivery(String address, Double lat, Double lng, UUID savedAddressId) {
     }
 
     public record Amounts(BigDecimal itemTotal, BigDecimal extrasTotal, BigDecimal total) {

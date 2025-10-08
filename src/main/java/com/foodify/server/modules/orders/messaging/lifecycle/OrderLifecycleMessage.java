@@ -25,7 +25,7 @@ public record OrderLifecycleMessage(
         List<OrderLineItem> items
 ) {
 
-    public record OrderDelivery(String address, Double lat, Double lng, Long savedAddressId) {
+    public record OrderDelivery(String address, Double lat, Double lng, UUID savedAddressId) {
     }
 
     public record OrderAmounts(BigDecimal itemTotal, BigDecimal extrasTotal, BigDecimal total) {

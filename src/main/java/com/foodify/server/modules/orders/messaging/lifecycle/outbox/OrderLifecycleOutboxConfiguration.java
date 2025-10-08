@@ -45,7 +45,6 @@ public class OrderLifecycleOutboxConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = "app.messaging.orders.outbox", name = "enabled", havingValue = "true")
-    @ConditionalOnProperty(prefix = "app.messaging.orders.outbox", name = "dispatcher-enabled", havingValue = "true", matchIfMissing = true)
     public OrderLifecycleOutboxProcessor orderLifecycleOutboxProcessor(OrderLifecycleOutboxService outboxService,
                                                                       OrderLifecycleMessageSender sender,
                                                                       OrderMessagingProperties properties,
