@@ -68,6 +68,10 @@ services:
       SPRING_DATASOURCE_PASSWORD: foodify
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_REDIS_HOST: redis
+      GOOGLE_APPLICATION_CREDENTIALS: /app/config/serviceAccountKey.json
+
+    volumes:
+      - ./serviceAccountKey.json:/app/config/serviceAccountKey.json
     restart: unless-stopped
 
 volumes:
