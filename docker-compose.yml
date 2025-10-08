@@ -61,7 +61,7 @@ services:
       redis:
         condition: service_started
     ports:
-      - "8084:8084"
+      - "8084:8081"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/foodify
       SPRING_DATASOURCE_USERNAME: foodify
