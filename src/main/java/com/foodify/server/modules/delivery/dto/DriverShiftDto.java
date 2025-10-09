@@ -16,7 +16,7 @@ public class DriverShiftDto {
     LocalDateTime endedAt;
     BigDecimal totalAmount;
     BigDecimal driverShare;
-    BigDecimal officeShare;
+    BigDecimal restaurantShare;
     boolean settled;
     LocalDateTime settledAt;
 }

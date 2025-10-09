@@ -20,6 +20,7 @@ import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.orders.mapper.OrderMapper;
 import com.foodify.server.modules.orders.support.OrderPricingCalculator;
+import com.foodify.server.modules.restaurants.domain.Restaurant;
 import com.foodify.server.modules.orders.application.OrderLifecycleService;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import jakarta.transaction.Transactional;
@@ -280,7 +281,7 @@ public class DriverService {
                 .endedAt(shift.getEndedAt())
                 .totalAmount(balance != null ? balance.getTotalAmount() : ZERO_AMOUNT)
                 .driverShare(balance != null ? balance.getDriverShare() : ZERO_AMOUNT)
-                .officeShare(balance != null ? balance.getOfficeShare() : ZERO_AMOUNT)
+                .restaurantShare(balance != null ? balance.getRestaurantShare() : ZERO_AMOUNT)
                 .settled(balance != null && balance.isSettled())
                 .settledAt(balance != null ? balance.getSettledAt() : null)
                 .build();
@@ -319,7 +320,11 @@ public class DriverService {
                 return newBalance;
             });
         }
-        balance.recordOrder(orderTotal);
+        BigDecimal restaurantShareRate = Optional.ofNullable(order.getRestaurant())
+                .map(Restaurant::getRestaurantShareRate)
+                .orElse(null);
+
+        balance.recordOrder(orderTotal, restaurantShareRate);
         driverShiftBalanceRepository.save(balance);
         shift.setBalance(balance);
     }

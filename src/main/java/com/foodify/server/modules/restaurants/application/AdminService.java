@@ -15,6 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -36,6 +38,11 @@ public class AdminService {
 
     public Restaurant addRestaurant(RestaurantDto dto, MultipartFile file) throws IOException {
         Restaurant restaurant = this.restaurantMapper.toEntity(dto);
+        BigDecimal defaultRestaurantShare = BigDecimal.valueOf(0.88).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal effectiveShare = dto.getRestaurantShareRate() == null
+                ? defaultRestaurantShare
+                : dto.getRestaurantShareRate().setScale(4, RoundingMode.HALF_UP);
+        restaurant.setRestaurantShareRate(effectiveShare);
 
         String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
         Path path = Paths.get("uploads").resolve(filename);
