@@ -42,7 +42,7 @@ public class Restaurant {
     @Column(name = "delivery_time_range")
     private String deliveryTimeRange;
 
-    @Column(name = "restaurant_share_rate", precision = 5, scale = 4, nullable = false)
+    @Column(name = "restaurant_share_rate", precision = 5, scale = 4, nullable = true)
     private BigDecimal restaurantShareRate = BigDecimal.valueOf(0.88).setScale(4, RoundingMode.HALF_UP);
 
     @OneToOne
