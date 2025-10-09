@@ -286,15 +286,15 @@ public class DriverService {
 
     @Transactional
     public DriverShiftBalanceDto getCurrentShiftBalance(Long driverId) {
-        BigDecimal totalAmount = driverShiftRepository
+        BigDecimal driverShare = driverShiftRepository
                 .findTopByDriverIdAndStatusOrderByStartedAtDesc(driverId, DriverShiftStatus.ACTIVE)
                 .map(shift -> {
                     DriverShiftBalance balance = resolveBalance(shift);
-                    return balance != null ? balance.getTotalAmount() : ZERO_AMOUNT;
+                    return balance != null ? balance.getDriverShare() : ZERO_AMOUNT;
                 })
                 .orElse(ZERO_AMOUNT);
 
-        return new DriverShiftBalanceDto(totalAmount);
+        return new DriverShiftBalanceDto(driverShare);
     }
 
     private DriverShiftBalance resolveBalance(DriverShift shift) {
