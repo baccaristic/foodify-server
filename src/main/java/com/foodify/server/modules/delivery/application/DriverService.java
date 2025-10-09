@@ -3,6 +3,7 @@ package com.foodify.server.modules.delivery.application;
 import com.foodify.server.modules.delivery.domain.Delivery;
 import com.foodify.server.modules.delivery.domain.DriverShift;
 import com.foodify.server.modules.delivery.domain.DriverShiftStatus;
+import com.foodify.server.modules.delivery.domain.DriverShiftBalance;
 import com.foodify.server.modules.delivery.dto.DeliverOrderDto;
 import com.foodify.server.modules.delivery.dto.PickUpOrderRequest;
 import com.foodify.server.modules.delivery.dto.DriverShiftDto;
@@ -10,6 +11,7 @@ import com.foodify.server.modules.delivery.application.QrCodeService;
 import com.foodify.server.modules.delivery.application.GoogleMapsService;
 import com.foodify.server.modules.delivery.location.DriverLocationService;
 import com.foodify.server.modules.delivery.repository.DeliveryRepository;
+import com.foodify.server.modules.delivery.repository.DriverShiftBalanceRepository;
 import com.foodify.server.modules.delivery.repository.DriverShiftRepository;
 import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.identity.repository.DriverRepository;
@@ -17,6 +19,7 @@ import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.orders.mapper.OrderMapper;
+import com.foodify.server.modules.orders.support.OrderPricingCalculator;
 import com.foodify.server.modules.orders.application.OrderLifecycleService;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import jakarta.transaction.Transactional;
@@ -25,6 +28,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.data.geo.Point;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -36,6 +41,7 @@ public class DriverService {
     private final OrderRepository orderRepository;
     private final DeliveryRepository deliveryRepository;
     private final DriverShiftRepository driverShiftRepository;
+    private final DriverShiftBalanceRepository driverShiftBalanceRepository;
     private final QrCodeService qrCodeService;
     private final GoogleMapsService googleMapsService;
     private final DriverLocationService driverLocationService;
@@ -48,6 +54,8 @@ public class DriverService {
             OrderStatus.READY_FOR_PICK_UP,
             OrderStatus.IN_DELIVERY
     );
+
+    private static final BigDecimal ZERO_AMOUNT = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 
 
     public OrderDto acceptOrder(Long driverId, Long orderId) throws Exception {
@@ -70,11 +78,16 @@ public class DriverService {
             throw new IllegalStateException("Driver is not available.");
         }
 
+        DriverShift activeShift = driverShiftRepository
+                .findTopByDriverIdAndStatusOrderByStartedAtDesc(driverId, DriverShiftStatus.ACTIVE)
+                .orElseThrow(() -> new IllegalStateException("Driver must have an active shift to accept orders."));
+
 
         // Create Delivery
         Delivery delivery = new Delivery();
         delivery.setOrder(order);
         delivery.setDriver(driver);
+        delivery.setShift(activeShift);
         Point lastPosition = driverLocationService.getLastKnownPosition(driverId);
         delivery.setTimeToPickUp(resolveRouteDuration(
                 lastPosition != null ? lastPosition.getY() : null,
@@ -187,6 +200,7 @@ public class DriverService {
         orderLifecycleService.transition(order, OrderStatus.DELIVERED,
                 "driver:" + driverId,
                 "Order delivered to client");
+        updateShiftBalance(driver, order);
         return true;
     }
 
@@ -217,6 +231,10 @@ public class DriverService {
                 newShift.setStartedAt(now);
                 newShift.setFinishableAt(now.plusHours(2));
                 activeShift = driverShiftRepository.save(newShift);
+                DriverShiftBalance balance = new DriverShiftBalance();
+                balance.setShift(activeShift);
+                driverShiftBalanceRepository.save(balance);
+                activeShift.setBalance(balance);
             }
             driverLocationService.markAvailable(String.valueOf(driverId));
             return toShiftDto(activeShift);
@@ -250,12 +268,70 @@ public class DriverService {
         if (shift == null) {
             return null;
         }
+        DriverShiftBalance balance = shift.getBalance();
+        if (balance == null && shift.getId() != null) {
+            balance = driverShiftBalanceRepository.findByShift_Id(shift.getId()).orElse(null);
+            shift.setBalance(balance);
+        }
         return DriverShiftDto.builder()
                 .status(shift.getStatus())
                 .startedAt(shift.getStartedAt())
                 .finishableAt(shift.getFinishableAt())
                 .endedAt(shift.getEndedAt())
+                .totalAmount(balance != null ? balance.getTotalAmount() : ZERO_AMOUNT)
+                .driverShare(balance != null ? balance.getDriverShare() : ZERO_AMOUNT)
+                .officeShare(balance != null ? balance.getOfficeShare() : ZERO_AMOUNT)
+                .settled(balance != null && balance.isSettled())
+                .settledAt(balance != null ? balance.getSettledAt() : null)
                 .build();
+    }
+
+    private void updateShiftBalance(Driver driver, Order order) {
+        if (driver == null || order == null) {
+            return;
+        }
+
+        BigDecimal orderTotal = OrderPricingCalculator.calculateTotal(order);
+        if (orderTotal.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+
+        Delivery delivery = order.getDelivery();
+        DriverShift shift = Optional.ofNullable(delivery)
+                .map(Delivery::getShift)
+                .orElseGet(() -> findCurrentOrLatestShift(driver.getId()).orElse(null));
+
+        if (shift == null) {
+            log.warn("Unable to resolve shift for driver {} when recording order {} earnings", driver.getId(), order.getId());
+            return;
+        }
+
+        if (delivery != null && delivery.getShift() == null) {
+            delivery.setShift(shift);
+            deliveryRepository.save(delivery);
+        }
+
+        DriverShiftBalance balance = shift.getBalance();
+        if (balance == null) {
+            balance = driverShiftBalanceRepository.findByShift_Id(shift.getId()).orElseGet(() -> {
+                DriverShiftBalance newBalance = new DriverShiftBalance();
+                newBalance.setShift(shift);
+                return newBalance;
+            });
+        }
+        balance.recordOrder(orderTotal);
+        driverShiftBalanceRepository.save(balance);
+        shift.setBalance(balance);
+    }
+
+    private Optional<DriverShift> findCurrentOrLatestShift(Long driverId) {
+        Optional<DriverShift> activeShift = driverShiftRepository
+                .findTopByDriverIdAndStatusOrderByStartedAtDesc(driverId, DriverShiftStatus.ACTIVE);
+        if (activeShift.isPresent()) {
+            return activeShift;
+        }
+        return driverShiftRepository
+                .findTopByDriverIdAndStatusOrderByStartedAtDesc(driverId, DriverShiftStatus.COMPLETED);
     }
 
     private Long resolveRouteDuration(Double originLat, Double originLng, Double destLat, Double destLng) {
