@@ -25,6 +25,10 @@ public class Delivery {
     @ManyToOne
     private Driver driver;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "shift_id")
+    private DriverShift shift;
+
     private Long deliveryTime;
     private Long timeToPickUp;
 

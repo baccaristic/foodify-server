@@ -5,9 +5,8 @@ import com.foodify.server.modules.orders.dto.LocationDto;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.orders.dto.OrderItemDTO;
 import com.foodify.server.modules.identity.domain.Driver;
-import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.orders.domain.Order;
-import com.foodify.server.modules.orders.domain.OrderItem;
+import com.foodify.server.modules.orders.support.OrderPricingCalculator;
 
 public class OrderMapper {
 
@@ -91,32 +90,6 @@ public class OrderMapper {
     }
 
     private static Long calculateTotal(Order order) {
-        if (order.getItems() == null) return 0L;
-
-        double total = 0;
-        for (var item : order.getItems()) {
-            double price = resolveUnitPrice(item);
-            total += price * item.getQuantity();
-            if (item.getMenuItemExtras() != null) {
-                double extrasTotal = item.getMenuItemExtras().stream()
-                        .mapToDouble(MenuItemExtra::getPrice)
-                        .sum();
-                total += extrasTotal * item.getQuantity();
-            }
-        }
-        return (long) total;
-    }
-
-    private static double resolveUnitPrice(OrderItem orderItem) {
-        if (orderItem == null || orderItem.getMenuItem() == null) {
-            return 0;
-        }
-
-        if (Boolean.TRUE.equals(orderItem.getMenuItem().getPromotionActive())
-                && orderItem.getMenuItem().getPromotionPrice() != null) {
-            return orderItem.getMenuItem().getPromotionPrice();
-        }
-
-        return orderItem.getMenuItem().getPrice();
+        return OrderPricingCalculator.calculateTotal(order).longValue();
     }
 }

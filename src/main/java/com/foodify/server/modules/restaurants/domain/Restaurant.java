@@ -7,6 +7,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 @Entity
@@ -39,6 +41,9 @@ public class Restaurant {
     private Double deliveryFee;
     @Column(name = "delivery_time_range")
     private String deliveryTimeRange;
+
+    @Column(name = "restaurant_share_rate", precision = 5, scale = 4, nullable = true)
+    private BigDecimal restaurantShareRate = BigDecimal.valueOf(0.88).setScale(4, RoundingMode.HALF_UP);
 
     @OneToOne
     @JoinColumn(name = "admin_id")

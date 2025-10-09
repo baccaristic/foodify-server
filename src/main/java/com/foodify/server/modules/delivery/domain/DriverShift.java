@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "driver_shifts")
@@ -28,4 +30,10 @@ public class DriverShift {
     private LocalDateTime finishableAt;
 
     private LocalDateTime endedAt;
+
+    @OneToOne(mappedBy = "shift", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private DriverShiftBalance balance;
+
+    @OneToMany(mappedBy = "shift")
+    private List<Delivery> deliveries = new ArrayList<>();
 }
