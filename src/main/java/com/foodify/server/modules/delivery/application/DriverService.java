@@ -7,6 +7,7 @@ import com.foodify.server.modules.delivery.domain.DriverShiftBalance;
 import com.foodify.server.modules.delivery.dto.DeliverOrderDto;
 import com.foodify.server.modules.delivery.dto.PickUpOrderRequest;
 import com.foodify.server.modules.delivery.dto.DriverShiftDto;
+import com.foodify.server.modules.delivery.dto.DriverShiftBalanceDto;
 import com.foodify.server.modules.delivery.application.QrCodeService;
 import com.foodify.server.modules.delivery.application.GoogleMapsService;
 import com.foodify.server.modules.delivery.location.DriverLocationService;
@@ -269,11 +270,7 @@ public class DriverService {
         if (shift == null) {
             return null;
         }
-        DriverShiftBalance balance = shift.getBalance();
-        if (balance == null && shift.getId() != null) {
-            balance = driverShiftBalanceRepository.findByShift_Id(shift.getId()).orElse(null);
-            shift.setBalance(balance);
-        }
+        DriverShiftBalance balance = resolveBalance(shift);
         return DriverShiftDto.builder()
                 .status(shift.getStatus())
                 .startedAt(shift.getStartedAt())
@@ -285,6 +282,31 @@ public class DriverService {
                 .settled(balance != null && balance.isSettled())
                 .settledAt(balance != null ? balance.getSettledAt() : null)
                 .build();
+    }
+
+    @Transactional
+    public DriverShiftBalanceDto getCurrentShiftBalance(Long driverId) {
+        BigDecimal totalAmount = driverShiftRepository
+                .findTopByDriverIdAndStatusOrderByStartedAtDesc(driverId, DriverShiftStatus.ACTIVE)
+                .map(shift -> {
+                    DriverShiftBalance balance = resolveBalance(shift);
+                    return balance != null ? balance.getTotalAmount() : ZERO_AMOUNT;
+                })
+                .orElse(ZERO_AMOUNT);
+
+        return new DriverShiftBalanceDto(totalAmount);
+    }
+
+    private DriverShiftBalance resolveBalance(DriverShift shift) {
+        if (shift == null) {
+            return null;
+        }
+        DriverShiftBalance balance = shift.getBalance();
+        if (balance == null && shift.getId() != null) {
+            balance = driverShiftBalanceRepository.findByShift_Id(shift.getId()).orElse(null);
+            shift.setBalance(balance);
+        }
+        return balance;
     }
 
     private void updateShiftBalance(Driver driver, Order order) {

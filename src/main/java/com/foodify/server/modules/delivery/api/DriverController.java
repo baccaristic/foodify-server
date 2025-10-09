@@ -3,6 +3,7 @@ package com.foodify.server.modules.delivery.api;
 import com.foodify.server.modules.delivery.dto.DeliverOrderDto;
 import com.foodify.server.modules.delivery.dto.DriverLocationDto;
 import com.foodify.server.modules.delivery.dto.DriverShiftDto;
+import com.foodify.server.modules.delivery.dto.DriverShiftBalanceDto;
 import com.foodify.server.modules.delivery.dto.PickUpOrderRequest;
 import com.foodify.server.modules.delivery.dto.StatusUpdateRequest;
 import com.foodify.server.modules.delivery.location.DriverLocationService;
@@ -97,6 +98,13 @@ public class DriverController {
     public DriverShiftDto currentShift(Authentication authentication) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         return driverService.getCurrentShift(userId);
+    }
+
+    @GetMapping("/shift/balance")
+    @PreAuthorize("hasAuthority('ROLE_DRIVER')")
+    public DriverShiftBalanceDto currentShiftBalance(Authentication authentication) {
+        Long userId = Long.parseLong((String) authentication.getPrincipal());
+        return driverService.getCurrentShiftBalance(userId);
     }
 
     @PostMapping("/deliver-order")
