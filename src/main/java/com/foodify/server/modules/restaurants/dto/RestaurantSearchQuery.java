@@ -8,6 +8,8 @@ public record RestaurantSearchQuery(
         RestaurantSearchSort sort,
         Boolean topEatOnly,
         Double maxDeliveryFee,
+        Double clientLatitude,
+        Double clientLongitude,
         Integer page,
         Integer pageSize
 ) {

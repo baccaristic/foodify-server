@@ -36,6 +36,8 @@ public class ClientRestaurantController {
             @RequestParam(required = false) Double maxDeliveryFee,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer pageSize,
+            @RequestParam(required = false) Double lat,
+            @RequestParam(required = false) Double lng,
             Authentication authentication
     ) {
         RestaurantSearchQuery searchQuery = new RestaurantSearchQuery(
@@ -46,6 +48,8 @@ public class ClientRestaurantController {
                 RestaurantSearchSort.fromNullable(sort),
                 topEatOnly,
                 maxDeliveryFee,
+                lat,
+                lng,
                 page,
                 pageSize
         );

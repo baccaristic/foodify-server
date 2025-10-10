@@ -15,6 +15,7 @@ public record RestaurantDetailsResponse(
         String closingHours,
         double latitude,
         double longitude,
+        Double deliveryFee,
         boolean favorite,
         List<RestaurantBadge> highlights,
         List<String> quickFilters,

@@ -20,4 +20,5 @@ public class RestaurantDisplayDto {
     private double latitude;
     private double longitude;
     private boolean favorite;
+    private Double deliveryFee;
 }
