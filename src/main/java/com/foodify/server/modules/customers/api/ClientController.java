@@ -1,25 +1,27 @@
 package com.foodify.server.modules.customers.api;
 
 import com.foodify.server.modules.customers.application.ClientService;
+import com.foodify.server.modules.customers.dto.ClientFavoriteIds;
+import com.foodify.server.modules.customers.dto.ClientFavoritesResponse;
 import com.foodify.server.modules.identity.repository.ClientRepository;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.restaurants.application.RestaurantDetailsService;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
 import com.foodify.server.modules.restaurants.dto.RestaurantDetailsResponse;
+import com.foodify.server.modules.restaurants.dto.RestaurantDisplayDto;
 import com.foodify.server.modules.restaurants.mapper.RestaurantMapper;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.persistence.EntityNotFoundException;
 
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/client")
@@ -31,20 +33,31 @@ public class ClientController {
     private final RestaurantMapper restaurantMapper;
     private final RestaurantDetailsService restaurantDetailsService;
 
+    private Long extractUserId(Authentication authentication) {
+        return Long.parseLong((String) authentication.getPrincipal());
+    }
+
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
     @GetMapping("/nearby")
-    public ResponseEntity<?> getNearbyRestaurants(
+    public ResponseEntity<List<RestaurantDisplayDto>> getNearbyRestaurants(
             @RequestParam double lat,
             @RequestParam double lng,
-            @RequestParam(defaultValue = "1000") double radiusKm
+            @RequestParam(defaultValue = "1000") double radiusKm,
+            Authentication authentication
     ) {
+        Long userId = extractUserId(authentication);
+        ClientFavoriteIds favoriteIds = clientService.getFavoriteIds(userId);
+        Set<Long> favoriteRestaurantIds = favoriteIds.restaurantIds();
         List<Restaurant> nearby = restaurantRepository.findNearby(lat, lng, radiusKm);
-        return ResponseEntity.ok(restaurantMapper.toDto(nearby));
+        List<RestaurantDisplayDto> restaurants = restaurantMapper.toDto(nearby);
+        restaurants.forEach(restaurant -> restaurant.setFavorite(favoriteRestaurantIds.contains(restaurant.getId())));
+        return ResponseEntity.ok(restaurants);
     }
+
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
     @GetMapping("/my-orders")
     public List<OrderDto> getMyOrders(Authentication authentication) {
-        Long userId = Long.parseLong((String)authentication.getPrincipal());
+        Long userId = extractUserId(authentication);
         return this.clientService.getMyOrders(clientRepository.findById(userId).orElse(null));
     }
 
@@ -55,7 +68,7 @@ public class ClientController {
         if (order == null) {
             return ResponseEntity.notFound().build();
         }
-        Long userId = Long.parseLong((String)authentication.getPrincipal());
+        Long userId = extractUserId(authentication);
         if (order.getClient().getId().equals(userId)) {
             return ResponseEntity.ok(order);
         }
@@ -64,7 +77,68 @@ public class ClientController {
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
     @GetMapping("/restaurant/{id}")
-    public RestaurantDetailsResponse getRestaurant(@PathVariable Long id) {
-        return restaurantDetailsService.getRestaurantDetails(id);
+    public RestaurantDetailsResponse getRestaurant(@PathVariable Long id, Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        ClientFavoriteIds favoriteIds = clientService.getFavoriteIds(userId);
+        return restaurantDetailsService.getRestaurantDetails(id, favoriteIds.restaurantIds(), favoriteIds.menuItemIds());
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_CLIENT')")
+    @PostMapping("/favorites/restaurants/{restaurantId}")
+    public ResponseEntity<Void> addFavoriteRestaurant(@PathVariable Long restaurantId, Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        try {
+            clientService.addFavoriteRestaurant(userId, restaurantId);
+            return ResponseEntity.noContent().build();
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_CLIENT')")
+    @DeleteMapping("/favorites/restaurants/{restaurantId}")
+    public ResponseEntity<Void> removeFavoriteRestaurant(@PathVariable Long restaurantId, Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        try {
+            clientService.removeFavoriteRestaurant(userId, restaurantId);
+            return ResponseEntity.noContent().build();
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_CLIENT')")
+    @PostMapping("/favorites/menu-items/{menuItemId}")
+    public ResponseEntity<Void> addFavoriteMenuItem(@PathVariable Long menuItemId, Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        try {
+            clientService.addFavoriteMenuItem(userId, menuItemId);
+            return ResponseEntity.noContent().build();
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_CLIENT')")
+    @DeleteMapping("/favorites/menu-items/{menuItemId}")
+    public ResponseEntity<Void> removeFavoriteMenuItem(@PathVariable Long menuItemId, Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        try {
+            clientService.removeFavoriteMenuItem(userId, menuItemId);
+            return ResponseEntity.noContent().build();
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_CLIENT')")
+    @GetMapping("/favorites")
+    public ResponseEntity<ClientFavoritesResponse> getFavorites(Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        try {
+            return ResponseEntity.ok(clientService.getFavorites(userId));
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.notFound().build();
+        }
     }
 }

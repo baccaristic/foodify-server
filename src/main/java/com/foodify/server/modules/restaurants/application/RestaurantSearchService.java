@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,7 +33,7 @@ public class RestaurantSearchService {
     private final RestaurantRepository restaurantRepository;
     private final MenuItemRepository menuItemRepository;
 
-    public PageResponse<RestaurantSearchItemDto> search(RestaurantSearchQuery query) {
+    public PageResponse<RestaurantSearchItemDto> search(RestaurantSearchQuery query, Set<Long> favoriteRestaurantIds, Set<Long> favoriteMenuItemIds) {
         Specification<Restaurant> specification = buildSpecification(query);
         Sort sort = toSort(query.sort());
         int page = query.page() != null && query.page() > 0 ? query.page() : 1;
@@ -42,8 +43,15 @@ public class RestaurantSearchService {
         Page<Restaurant> restaurants = restaurantRepository.findAll(specification, pageable);
         List<Restaurant> restaurantContent = restaurants.getContent();
         Map<Long, List<MenuItem>> promotionsByRestaurant = groupPromotedItems(restaurantContent);
+        Set<Long> restaurantFavorites = favoriteRestaurantIds == null ? Set.of() : favoriteRestaurantIds;
+        Set<Long> menuFavorites = favoriteMenuItemIds == null ? Set.of() : favoriteMenuItemIds;
         List<RestaurantSearchItemDto> items = restaurantContent.stream()
-                .map(restaurant -> toDto(restaurant, promotionsByRestaurant.getOrDefault(restaurant.getId(), List.of())))
+                .map(restaurant -> toDto(
+                        restaurant,
+                        promotionsByRestaurant.getOrDefault(restaurant.getId(), List.of()),
+                        restaurantFavorites,
+                        menuFavorites
+                ))
                 .toList();
 
         return new PageResponse<>(items, page, pageSize, restaurants.getTotalElements());
@@ -66,9 +74,9 @@ public class RestaurantSearchService {
                 .collect(Collectors.groupingBy(item -> item.getRestaurant().getId()));
     }
 
-    private RestaurantSearchItemDto toDto(Restaurant restaurant, List<MenuItem> promotedItems) {
+    private RestaurantSearchItemDto toDto(Restaurant restaurant, List<MenuItem> promotedItems, Set<Long> favoriteRestaurantIds, Set<Long> favoriteMenuItemIds) {
         List<MenuItemPromotionDto> promotedMenuItems = promotedItems == null ? List.of() : promotedItems.stream()
-                .map(this::toPromotionDto)
+                .map(item -> toPromotionDto(item, favoriteMenuItemIds))
                 .toList();
         return new RestaurantSearchItemDto(
                 restaurant.getId(),
@@ -77,19 +85,21 @@ public class RestaurantSearchService {
                 restaurant.getRating(),
                 Boolean.TRUE.equals(restaurant.getTopChoice()),
                 Boolean.TRUE.equals(restaurant.getFreeDelivery()),
+                favoriteRestaurantIds.contains(restaurant.getId()),
                 restaurant.getImageUrl(),
                 promotedMenuItems
         );
     }
 
-    private MenuItemPromotionDto toPromotionDto(MenuItem menuItem) {
+    private MenuItemPromotionDto toPromotionDto(MenuItem menuItem, Set<Long> favoriteMenuItemIds) {
         return new MenuItemPromotionDto(
                 menuItem.getId(),
                 menuItem.getName(),
                 menuItem.getPrice(),
                 menuItem.getPromotionPrice(),
                 menuItem.getPromotionLabel(),
-                firstImage(menuItem)
+                firstImage(menuItem),
+                favoriteMenuItemIds.contains(menuItem.getId())
         );
     }
 

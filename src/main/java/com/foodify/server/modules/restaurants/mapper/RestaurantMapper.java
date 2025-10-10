@@ -23,6 +23,7 @@ public interface RestaurantMapper {
     @Mapping(target = "latitude", source = "latitude")
     @Mapping(target = "longitude", source = "longitude")
     @Mapping(target = "imageUrl", source = "imageUrl")
+    @Mapping(target = "favorite", constant = "false")
     RestaurantDisplayDto toDto(Restaurant entity);
     List<RestaurantDisplayDto> toDto(List<Restaurant> entities);
 }

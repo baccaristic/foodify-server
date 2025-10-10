@@ -6,6 +6,7 @@ public record MenuItemPromotionDto(
         double price,
         Double promotionPrice,
         String promotionLabel,
-        String imageUrl
+        String imageUrl,
+        boolean favorite
 ) {
 }

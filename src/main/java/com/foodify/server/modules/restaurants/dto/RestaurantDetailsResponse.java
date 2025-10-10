@@ -15,6 +15,7 @@ public record RestaurantDetailsResponse(
         String closingHours,
         double latitude,
         double longitude,
+        boolean favorite,
         List<RestaurantBadge> highlights,
         List<String> quickFilters,
         List<MenuItemSummary> topSales,
@@ -32,7 +33,8 @@ public record RestaurantDetailsResponse(
             List<String> tags,
             Double promotionPrice,
             String promotionLabel,
-            boolean promotionActive
+            boolean promotionActive,
+            boolean favorite
     ) {}
 
     public record MenuCategory(String name, List<MenuItemDetails> items) {}
@@ -48,6 +50,7 @@ public record RestaurantDetailsResponse(
             Double promotionPrice,
             String promotionLabel,
             boolean promotionActive,
+            boolean favorite,
             List<MenuOptionGroupDto> optionGroups
     ) {}
 
