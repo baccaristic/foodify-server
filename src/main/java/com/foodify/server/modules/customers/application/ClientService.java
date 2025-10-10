@@ -1,5 +1,6 @@
 package com.foodify.server.modules.customers.application;
 
+import com.foodify.server.modules.customers.dto.ClientFavoriteIds;
 import com.foodify.server.modules.customers.dto.ClientFavoritesResponse;
 import com.foodify.server.modules.customers.dto.MenuItemFavoriteDto;
 import com.foodify.server.modules.identity.domain.Client;
@@ -10,6 +11,7 @@ import com.foodify.server.modules.orders.mapper.OrderMapper;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
+import com.foodify.server.modules.restaurants.dto.RestaurantDisplayDto;
 import com.foodify.server.modules.restaurants.mapper.RestaurantMapper;
 import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
@@ -19,9 +21,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityNotFoundException;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -89,10 +95,36 @@ public class ClientService {
                 .sorted(Comparator.comparing(MenuItem::getName, Comparator.nullsLast(String::compareToIgnoreCase)))
                 .toList();
 
+        List<RestaurantDisplayDto> restaurantDtos = restaurants.stream()
+                .map(restaurantMapper::toDto)
+                .collect(Collectors.toCollection(ArrayList::new));
+        restaurantDtos.forEach(dto -> dto.setFavorite(true));
+
+        List<MenuItemFavoriteDto> menuItemDtos = menuItems.stream()
+                .map(this::toFavoriteDto)
+                .toList();
+
         return new ClientFavoritesResponse(
-                restaurants.stream().map(restaurantMapper::toDto).toList(),
-                menuItems.stream().map(this::toFavoriteDto).toList()
+                restaurantDtos,
+                menuItemDtos
         );
+    }
+
+    @Transactional(readOnly = true)
+    public ClientFavoriteIds getFavoriteIds(Long clientId) {
+        Client client = getClientOrThrow(clientId);
+
+        Set<Long> restaurantIds = client.getFavoriteRestaurants().stream()
+                .map(Restaurant::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Set<Long> menuItemIds = client.getFavoriteMenuItems().stream()
+                .map(MenuItem::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        return new ClientFavoriteIds(restaurantIds, menuItemIds);
     }
 
     private Client getClientOrThrow(Long clientId) {
@@ -130,6 +162,7 @@ public class ClientService {
                 item.getPromotionPrice(),
                 item.getPromotionLabel(),
                 Boolean.TRUE.equals(item.getPromotionActive()),
+                true,
                 restaurantId,
                 restaurantName
         );

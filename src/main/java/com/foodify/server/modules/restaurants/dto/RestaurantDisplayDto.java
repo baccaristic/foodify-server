@@ -19,4 +19,5 @@ public class RestaurantDisplayDto {
     private String closingHours;
     private double latitude;
     private double longitude;
+    private boolean favorite;
 }

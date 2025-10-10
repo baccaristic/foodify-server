@@ -28,16 +28,24 @@ public class RestaurantDetailsService {
 
     @Transactional()
     public RestaurantDetailsResponse getRestaurantDetails(Long restaurantId) {
+        return getRestaurantDetails(restaurantId, Set.of(), Set.of());
+    }
+
+    @Transactional()
+    public RestaurantDetailsResponse getRestaurantDetails(Long restaurantId, Set<Long> favoriteRestaurantIds, Set<Long> favoriteMenuItemIds) {
         Restaurant restaurant = restaurantRepository.findById(restaurantId)
                 .orElseThrow(() -> new EntityNotFoundException("Restaurant not found"));
+
+        Set<Long> restaurantFavorites = favoriteRestaurantIds == null ? Set.of() : favoriteRestaurantIds;
+        Set<Long> menuItemFavorites = favoriteMenuItemIds == null ? Set.of() : favoriteMenuItemIds;
 
         List<MenuItem> menuItems = restaurant.getMenu() != null ? restaurant.getMenu() : List.of();
 
         List<RestaurantDetailsResponse.RestaurantBadge> highlights = buildHighlights(restaurant);
         Map<String, List<MenuItem>> itemsByCategory = groupByCategory(menuItems);
         List<String> quickFilters = buildQuickFilters(itemsByCategory);
-        List<RestaurantDetailsResponse.MenuItemSummary> topSales = mapTopSales(menuItems);
-        List<RestaurantDetailsResponse.MenuCategory> categories = mapCategories(itemsByCategory);
+        List<RestaurantDetailsResponse.MenuItemSummary> topSales = mapTopSales(menuItems, menuItemFavorites);
+        List<RestaurantDetailsResponse.MenuCategory> categories = mapCategories(itemsByCategory, menuItemFavorites);
 
         return new RestaurantDetailsResponse(
                 restaurant.getId(),
@@ -52,6 +60,7 @@ public class RestaurantDetailsService {
                 restaurant.getClosingHours(),
                 restaurant.getLatitude(),
                 restaurant.getLongitude(),
+                restaurantFavorites.contains(restaurant.getId()),
                 highlights,
                 quickFilters,
                 topSales,
@@ -100,15 +109,15 @@ public class RestaurantDetailsService {
         return filters;
     }
 
-    private List<RestaurantDetailsResponse.MenuItemSummary> mapTopSales(List<MenuItem> menuItems) {
+    private List<RestaurantDetailsResponse.MenuItemSummary> mapTopSales(List<MenuItem> menuItems, Set<Long> favoriteMenuItemIds) {
         return menuItems.stream()
                 .filter(MenuItem::isPopular)
                 .sorted(Comparator.comparing(MenuItem::getName, Comparator.nullsLast(String::compareToIgnoreCase)))
-                .map(this::toSummary)
+                .map(item -> toSummary(item, favoriteMenuItemIds))
                 .toList();
     }
 
-    private RestaurantDetailsResponse.MenuItemSummary toSummary(MenuItem item) {
+    private RestaurantDetailsResponse.MenuItemSummary toSummary(MenuItem item, Set<Long> favoriteMenuItemIds) {
         boolean promotionActive = Boolean.TRUE.equals(item.getPromotionActive());
         return new RestaurantDetailsResponse.MenuItemSummary(
                 item.getId(),
@@ -120,22 +129,23 @@ public class RestaurantDetailsService {
                 buildTags(item, promotionActive),
                 item.getPromotionPrice(),
                 item.getPromotionLabel(),
-                promotionActive
+                promotionActive,
+                favoriteMenuItemIds.contains(item.getId())
         );
     }
 
-    private List<RestaurantDetailsResponse.MenuCategory> mapCategories(Map<String, List<MenuItem>> itemsByCategory) {
+    private List<RestaurantDetailsResponse.MenuCategory> mapCategories(Map<String, List<MenuItem>> itemsByCategory, Set<Long> favoriteMenuItemIds) {
         return itemsByCategory.entrySet().stream()
                 .map(entry -> new RestaurantDetailsResponse.MenuCategory(
                         entry.getKey(),
                         entry.getValue().stream()
-                                .map(this::toDetails)
+                                .map(item -> toDetails(item, favoriteMenuItemIds))
                                 .toList()
                 ))
                 .toList();
     }
 
-    private RestaurantDetailsResponse.MenuItemDetails toDetails(MenuItem item) {
+    private RestaurantDetailsResponse.MenuItemDetails toDetails(MenuItem item, Set<Long> favoriteMenuItemIds) {
         boolean promotionActive = Boolean.TRUE.equals(item.getPromotionActive());
         return new RestaurantDetailsResponse.MenuItemDetails(
                 item.getId(),
@@ -148,6 +158,7 @@ public class RestaurantDetailsService {
                 item.getPromotionPrice(),
                 item.getPromotionLabel(),
                 promotionActive,
+                favoriteMenuItemIds.contains(item.getId()),
                 item.getOptionGroups() == null ? List.of() : item.getOptionGroups().stream()
                         .map(this::toOptionGroup)
                         .toList()
@@ -187,7 +198,9 @@ public class RestaurantDetailsService {
         if (promotionActive) {
             tags.add("Promo");
         }
-        tags.add(item.getRestaurant().getName());
+        if (item.getRestaurant() != null && item.getRestaurant().getName() != null) {
+            tags.add(item.getRestaurant().getName());
+        }
         return new ArrayList<>(tags);
     }
 

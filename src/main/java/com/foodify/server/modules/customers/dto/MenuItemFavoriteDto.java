@@ -10,6 +10,7 @@ public record MenuItemFavoriteDto(
         Double promotionPrice,
         String promotionLabel,
         boolean promotionActive,
+        boolean favorite,
         Long restaurantId,
         String restaurantName
 ) {}
