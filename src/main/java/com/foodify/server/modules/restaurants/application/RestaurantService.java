@@ -18,6 +18,8 @@ import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.restaurants.domain.MenuOptionGroup;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
 import com.foodify.server.modules.restaurants.dto.MenuItemRequestDTO;
+import com.foodify.server.modules.restaurants.dto.OptionGroupDTO;
+import com.foodify.server.modules.restaurants.dto.ExtraDTO;
 import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import lombok.RequiredArgsConstructor;
@@ -35,8 +37,10 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -180,62 +184,123 @@ public class RestaurantService {
     }
 
     public MenuItem addMenu(MenuItemRequestDTO menuDto, List<MultipartFile> files) throws IOException {
+        MenuItem item = new MenuItem();
 
-        // 1. Handle image uploads
-        List<String> imageFilenames = new ArrayList<>();
+        Restaurant restaurant = restaurantRepository.findById(menuDto.getRestaurantId())
+                .orElseThrow(() -> new RuntimeException("Restaurant not found"));
+        item.setRestaurant(restaurant);
+
+        populateMenuItemFromDto(item, menuDto, files);
+        return menuItemRepository.save(item);
+    }
+
+    public MenuItem updateMenu(Long menuId, MenuItemRequestDTO menuDto, List<MultipartFile> files) throws IOException {
+        MenuItem menuItem = menuItemRepository.findById(menuId)
+                .orElseThrow(() -> new RuntimeException("Menu item not found"));
+
+        if (menuItem.getRestaurant() == null || !menuItem.getRestaurant().getId().equals(menuDto.getRestaurantId())) {
+            throw new RuntimeException("Menu item does not belong to restaurant");
+        }
+
+        populateMenuItemFromDto(menuItem, menuDto, files);
+        return menuItemRepository.save(menuItem);
+    }
+
+    private void populateMenuItemFromDto(MenuItem item, MenuItemRequestDTO menuDto, List<MultipartFile> files) throws IOException {
+        item.setName(menuDto.getName());
+        item.setDescription(menuDto.getDescription());
+        item.setPrice(menuDto.getPrice());
+        item.setCategory(menuDto.getCategory());
+        item.setPopular(menuDto.isPopular());
+        item.setPromotionLabel(menuDto.getPromotionLabel());
+        item.setPromotionPrice(menuDto.getPromotionPrice());
+        item.setPromotionActive(menuDto.isPromotionActive());
+
+        List<String> imageUrls = new ArrayList<>();
+        if (menuDto.getImageUrls() != null) {
+            imageUrls.addAll(menuDto.getImageUrls());
+        }
+        imageUrls.addAll(storeFiles(files));
+        item.setImageUrls(imageUrls);
+
+        syncOptionGroups(item, menuDto.getOptionGroups());
+    }
+
+    private List<String> storeFiles(List<MultipartFile> files) throws IOException {
+        List<String> storedFiles = new ArrayList<>();
+        if (files == null) {
+            return storedFiles;
+        }
+
         for (MultipartFile file : files) {
             if (file != null && !file.isEmpty()) {
                 String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
                 Path path = Paths.get("uploads").resolve(filename);
                 Files.createDirectories(path.getParent());
                 Files.copy(file.getInputStream(), path, StandardCopyOption.REPLACE_EXISTING);
-                imageFilenames.add(filename);
+                storedFiles.add(filename);
+            }
+        }
+        return storedFiles;
+    }
+
+    private void syncOptionGroups(MenuItem item, List<OptionGroupDTO> optionGroupDtos) {
+        Map<Long, MenuOptionGroup> existingGroups = item.getOptionGroups().stream()
+                .filter(group -> group.getId() != null)
+                .collect(Collectors.toMap(MenuOptionGroup::getId, group -> group, (g1, g2) -> g1, HashMap::new));
+
+        List<MenuOptionGroup> updatedGroups = new ArrayList<>();
+        if (optionGroupDtos != null) {
+            for (OptionGroupDTO groupDto : optionGroupDtos) {
+                MenuOptionGroup group = null;
+                if (groupDto.getId() != null) {
+                    group = existingGroups.remove(groupDto.getId());
+                }
+                if (group == null) {
+                    group = new MenuOptionGroup();
+                }
+
+                group.setName(groupDto.getName());
+                group.setMinSelect(groupDto.getMinSelect());
+                group.setMaxSelect(groupDto.getMaxSelect());
+                group.setRequired(groupDto.isRequired());
+                group.setMenuItem(item);
+
+                syncExtras(group, groupDto.getExtras());
+                updatedGroups.add(group);
             }
         }
 
-        // 2. Create MenuItem
-        MenuItem item = new MenuItem();
-        item.setName(menuDto.getName());
-        item.setDescription(menuDto.getDescription());
-        item.setPrice(menuDto.getPrice());
-        item.setCategory(menuDto.getCategory());
-        item.setPopular(menuDto.isPopular());
-        item.setImageUrls(imageFilenames);
-        item.setPromotionLabel(menuDto.getPromotionLabel());
-        item.setPromotionPrice(menuDto.getPromotionPrice());
-        item.setPromotionActive(menuDto.isPromotionActive());
+        item.getOptionGroups().clear();
+        item.getOptionGroups().addAll(updatedGroups);
+    }
 
-        Restaurant restaurant = restaurantRepository.findById(menuDto.getRestaurantId())
-                .orElseThrow(() -> new RuntimeException("Restaurant not found"));
-        item.setRestaurant(restaurant);
+    private void syncExtras(MenuOptionGroup group, List<ExtraDTO> extraDtos) {
+        Map<Long, MenuItemExtra> existingExtras = group.getExtras().stream()
+                .filter(extra -> extra.getId() != null)
+                .collect(Collectors.toMap(MenuItemExtra::getId, extra -> extra, (e1, e2) -> e1, HashMap::new));
 
-        // 3. Map option groups
-        List<MenuOptionGroup> optionGroups = menuDto.getOptionGroups().stream().map(groupDto -> {
-            MenuOptionGroup group = new MenuOptionGroup();
-            group.setName(groupDto.getName());
-            group.setMinSelect(groupDto.getMinSelect());
-            group.setMaxSelect(groupDto.getMaxSelect());
-            group.setRequired(groupDto.isRequired());
-            group.setMenuItem(item); // bidirectional
+        List<MenuItemExtra> updatedExtras = new ArrayList<>();
+        if (extraDtos != null) {
+            for (ExtraDTO extraDto : extraDtos) {
+                MenuItemExtra extra = null;
+                if (extraDto.getId() != null) {
+                    extra = existingExtras.remove(extraDto.getId());
+                }
+                if (extra == null) {
+                    extra = new MenuItemExtra();
+                }
 
-            // 4. Map extras inside group
-            List<MenuItemExtra> extras = groupDto.getExtras().stream().map(extraDto -> {
-                MenuItemExtra extra = new MenuItemExtra();
                 extra.setName(extraDto.getName());
                 extra.setPrice(extraDto.getPrice());
                 extra.setDefault(extraDto.isDefault());
-                extra.setOptionGroup(group); // bidirectional
-                return extra;
-            }).collect(Collectors.toList());
+                extra.setOptionGroup(group);
+                updatedExtras.add(extra);
+            }
+        }
 
-            group.setExtras(extras);
-            return group;
-        }).collect(Collectors.toList());
-
-        item.setOptionGroups(optionGroups);
-
-        // 5. Save and return
-        return menuItemRepository.save(item);
+        group.getExtras().clear();
+        group.getExtras().addAll(updatedExtras);
     }
 
 

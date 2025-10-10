@@ -1,13 +1,14 @@
 package com.foodify.server.modules.restaurants.api;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.foodify.server.modules.restaurants.dto.MenuItemRequestDTO;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
+import com.foodify.server.modules.restaurants.dto.MenuItemRequestDTO;
 import com.foodify.server.modules.identity.domain.RestaurantAdmin;
 import com.foodify.server.modules.identity.repository.RestaurantAdminRepository;
 import com.foodify.server.modules.restaurants.application.RestaurantService;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,7 +26,6 @@ import java.util.List;
 public class RestaurantController {
     private final RestaurantService restaurantService;
     private final RestaurantAdminRepository restaurantAdminRepository;
-    private final ObjectMapper objectMapper;
     @GetMapping("/my-orders")
     @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
     public List<OrderDto> getMyOrders(Authentication authentication) {
@@ -40,7 +40,12 @@ public class RestaurantController {
     @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
     public MenuItem addMenuItem(
             Authentication authentication,
-            @RequestPart("menu") String menuJson,
+            @Parameter(
+                    description = "Menu details payload",
+                    required = true,
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = MenuItemRequestDTO.class))
+            )
+            @RequestPart("menu") MenuItemRequestDTO menuDto,
             @RequestPart(value = "files", required = false) List<MultipartFile> files) throws IOException {
 
         // 1. Get restaurant admin from authentication
@@ -48,12 +53,34 @@ public class RestaurantController {
                 Long.parseLong((String) authentication.getPrincipal())
         ).orElseThrow(() -> new RuntimeException("Restaurant admin not found"));
 
-        // 2. Parse DTO
-        MenuItemRequestDTO menuDto = objectMapper.readValue(menuJson, MenuItemRequestDTO.class);
+        // 2. Enrich DTO with restaurant context
         menuDto.setRestaurantId(restaurantAdmin.getRestaurant().getId());
 
         // 3. Call service (empty list if no files provided)
         return restaurantService.addMenu(menuDto, files != null ? files : new ArrayList<>());
+    }
+
+    @PutMapping(value = "/menu/{menuId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    public MenuItem updateMenuItem(
+            Authentication authentication,
+            @PathVariable Long menuId,
+            @Parameter(
+                    description = "Menu details payload",
+                    required = true,
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = MenuItemRequestDTO.class))
+            )
+            @RequestPart("menu") MenuItemRequestDTO menuDto,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files) throws IOException {
+
+        RestaurantAdmin restaurantAdmin = restaurantAdminRepository.findById(
+                Long.parseLong((String) authentication.getPrincipal())
+        ).orElseThrow(() -> new RuntimeException("Restaurant admin not found"));
+
+        menuDto.setId(menuId);
+        menuDto.setRestaurantId(restaurantAdmin.getRestaurant().getId());
+
+        return restaurantService.updateMenu(menuId, menuDto, files != null ? files : new ArrayList<>());
     }
 
     @GetMapping("/my-menu")
