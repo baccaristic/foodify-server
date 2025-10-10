@@ -2,9 +2,9 @@ package com.foodify.server.modules.restaurants.api;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.foodify.server.modules.restaurants.dto.MenuItemRequestDTO;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
+import com.foodify.server.modules.restaurants.dto.MenuItemRequestDTO;
 import com.foodify.server.modules.identity.domain.RestaurantAdmin;
 import com.foodify.server.modules.identity.repository.RestaurantAdminRepository;
 import com.foodify.server.modules.restaurants.application.RestaurantService;
@@ -54,6 +54,25 @@ public class RestaurantController {
 
         // 3. Call service (empty list if no files provided)
         return restaurantService.addMenu(menuDto, files != null ? files : new ArrayList<>());
+    }
+
+    @PutMapping(value = "/menu/{menuId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    public MenuItem updateMenuItem(
+            Authentication authentication,
+            @PathVariable Long menuId,
+            @RequestPart("menu") String menuJson,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files) throws IOException {
+
+        RestaurantAdmin restaurantAdmin = restaurantAdminRepository.findById(
+                Long.parseLong((String) authentication.getPrincipal())
+        ).orElseThrow(() -> new RuntimeException("Restaurant admin not found"));
+
+        MenuItemRequestDTO menuDto = objectMapper.readValue(menuJson, MenuItemRequestDTO.class);
+        menuDto.setId(menuId);
+        menuDto.setRestaurantId(restaurantAdmin.getRestaurant().getId());
+
+        return restaurantService.updateMenu(menuId, menuDto, files != null ? files : new ArrayList<>());
     }
 
     @GetMapping("/my-menu")

@@ -8,6 +8,7 @@ import java.util.List;
 @Getter
 @Setter
 public class MenuItemRequestDTO {
+    private Long id;
     private String name;
     private String description;
     private double price;
