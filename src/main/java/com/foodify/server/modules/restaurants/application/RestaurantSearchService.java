@@ -32,6 +32,7 @@ public class RestaurantSearchService {
 
     private final RestaurantRepository restaurantRepository;
     private final MenuItemRepository menuItemRepository;
+    private final DeliveryFeeCalculator deliveryFeeCalculator;
 
     public PageResponse<RestaurantSearchItemDto> search(RestaurantSearchQuery query, Set<Long> favoriteRestaurantIds, Set<Long> favoriteMenuItemIds) {
         Specification<Restaurant> specification = buildSpecification(query);
@@ -45,16 +46,29 @@ public class RestaurantSearchService {
         Map<Long, List<MenuItem>> promotionsByRestaurant = groupPromotedItems(restaurantContent);
         Set<Long> restaurantFavorites = favoriteRestaurantIds == null ? Set.of() : favoriteRestaurantIds;
         Set<Long> menuFavorites = favoriteMenuItemIds == null ? Set.of() : favoriteMenuItemIds;
+        Double clientLatitude = query.clientLatitude();
+        Double clientLongitude = query.clientLongitude();
+
         List<RestaurantSearchItemDto> items = restaurantContent.stream()
                 .map(restaurant -> toDto(
                         restaurant,
                         promotionsByRestaurant.getOrDefault(restaurant.getId(), List.of()),
                         restaurantFavorites,
-                        menuFavorites
+                        menuFavorites,
+                        clientLatitude,
+                        clientLongitude
                 ))
                 .toList();
 
-        return new PageResponse<>(items, page, pageSize, restaurants.getTotalElements());
+        if (query.maxDeliveryFee() != null) {
+            items = items.stream()
+                    .filter(item -> item.deliveryFee() == null || item.deliveryFee() <= query.maxDeliveryFee())
+                    .toList();
+        }
+
+        long totalElements = query.maxDeliveryFee() == null ? restaurants.getTotalElements() : items.size();
+
+        return new PageResponse<>(items, page, pageSize, totalElements);
     }
 
     private Map<Long, List<MenuItem>> groupPromotedItems(List<Restaurant> restaurants) {
@@ -74,10 +88,23 @@ public class RestaurantSearchService {
                 .collect(Collectors.groupingBy(item -> item.getRestaurant().getId()));
     }
 
-    private RestaurantSearchItemDto toDto(Restaurant restaurant, List<MenuItem> promotedItems, Set<Long> favoriteRestaurantIds, Set<Long> favoriteMenuItemIds) {
+    private RestaurantSearchItemDto toDto(
+            Restaurant restaurant,
+            List<MenuItem> promotedItems,
+            Set<Long> favoriteRestaurantIds,
+            Set<Long> favoriteMenuItemIds,
+            Double clientLatitude,
+            Double clientLongitude
+    ) {
         List<MenuItemPromotionDto> promotedMenuItems = promotedItems == null ? List.of() : promotedItems.stream()
                 .map(item -> toPromotionDto(item, favoriteMenuItemIds))
                 .toList();
+        Double deliveryFee = deliveryFeeCalculator.calculateFee(
+                clientLatitude,
+                clientLongitude,
+                restaurant.getLatitude(),
+                restaurant.getLongitude()
+        ).orElse(null);
         return new RestaurantSearchItemDto(
                 restaurant.getId(),
                 restaurant.getName(),
@@ -85,6 +112,7 @@ public class RestaurantSearchService {
                 restaurant.getRating(),
                 Boolean.TRUE.equals(restaurant.getTopChoice()),
                 Boolean.TRUE.equals(restaurant.getFreeDelivery()),
+                deliveryFee,
                 favoriteRestaurantIds.contains(restaurant.getId()),
                 restaurant.getImageUrl(),
                 promotedMenuItems
@@ -149,13 +177,6 @@ public class RestaurantSearchService {
 
         if (Boolean.TRUE.equals(query.topEatOnly())) {
             specification = specification.and((root, cq, cb) -> cb.isTrue(root.get("topEat")));
-        }
-
-        if (query.maxDeliveryFee() != null) {
-            specification = specification.and((root, cq, cb) -> cb.or(
-                    cb.isNull(root.get("deliveryFee")),
-                    cb.lessThanOrEqualTo(root.get("deliveryFee"), query.maxDeliveryFee())
-            ));
         }
 
         return specification;

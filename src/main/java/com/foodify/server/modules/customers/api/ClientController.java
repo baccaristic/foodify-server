@@ -6,6 +6,7 @@ import com.foodify.server.modules.customers.dto.ClientFavoritesResponse;
 import com.foodify.server.modules.identity.repository.ClientRepository;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.dto.OrderDto;
+import com.foodify.server.modules.restaurants.application.DeliveryFeeCalculator;
 import com.foodify.server.modules.restaurants.application.RestaurantDetailsService;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
 import com.foodify.server.modules.restaurants.dto.RestaurantDetailsResponse;
@@ -32,6 +33,7 @@ public class ClientController {
     private final ClientRepository clientRepository;
     private final RestaurantMapper restaurantMapper;
     private final RestaurantDetailsService restaurantDetailsService;
+    private final DeliveryFeeCalculator deliveryFeeCalculator;
 
     private Long extractUserId(Authentication authentication) {
         return Long.parseLong((String) authentication.getPrincipal());
@@ -50,7 +52,11 @@ public class ClientController {
         Set<Long> favoriteRestaurantIds = favoriteIds.restaurantIds();
         List<Restaurant> nearby = restaurantRepository.findNearby(lat, lng, radiusKm);
         List<RestaurantDisplayDto> restaurants = restaurantMapper.toDto(nearby);
-        restaurants.forEach(restaurant -> restaurant.setFavorite(favoriteRestaurantIds.contains(restaurant.getId())));
+        restaurants.forEach(restaurant -> {
+            restaurant.setFavorite(favoriteRestaurantIds.contains(restaurant.getId()));
+            deliveryFeeCalculator.calculateFee(lat, lng, restaurant.getLatitude(), restaurant.getLongitude())
+                    .ifPresent(restaurant::setDeliveryFee);
+        });
         return ResponseEntity.ok(restaurants);
     }
 
@@ -77,10 +83,21 @@ public class ClientController {
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
     @GetMapping("/restaurant/{id}")
-    public RestaurantDetailsResponse getRestaurant(@PathVariable Long id, Authentication authentication) {
+    public RestaurantDetailsResponse getRestaurant(
+            @PathVariable Long id,
+            @RequestParam(required = false) Double lat,
+            @RequestParam(required = false) Double lng,
+            Authentication authentication
+    ) {
         Long userId = extractUserId(authentication);
         ClientFavoriteIds favoriteIds = clientService.getFavoriteIds(userId);
-        return restaurantDetailsService.getRestaurantDetails(id, favoriteIds.restaurantIds(), favoriteIds.menuItemIds());
+        return restaurantDetailsService.getRestaurantDetails(
+                id,
+                lat,
+                lng,
+                favoriteIds.restaurantIds(),
+                favoriteIds.menuItemIds()
+        );
     }
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")

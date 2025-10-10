@@ -25,14 +25,25 @@ import java.util.stream.Collectors;
 public class RestaurantDetailsService {
 
     private final RestaurantRepository restaurantRepository;
+    private final DeliveryFeeCalculator deliveryFeeCalculator;
 
     @Transactional()
     public RestaurantDetailsResponse getRestaurantDetails(Long restaurantId) {
-        return getRestaurantDetails(restaurantId, Set.of(), Set.of());
+        return getRestaurantDetails(restaurantId, null, null, Set.of(), Set.of());
+    }
+
+    @Transactional()
+    public RestaurantDetailsResponse getRestaurantDetails(Long restaurantId, Double clientLatitude, Double clientLongitude) {
+        return getRestaurantDetails(restaurantId, clientLatitude, clientLongitude, Set.of(), Set.of());
     }
 
     @Transactional()
     public RestaurantDetailsResponse getRestaurantDetails(Long restaurantId, Set<Long> favoriteRestaurantIds, Set<Long> favoriteMenuItemIds) {
+        return getRestaurantDetails(restaurantId, null, null, favoriteRestaurantIds, favoriteMenuItemIds);
+    }
+
+    @Transactional()
+    public RestaurantDetailsResponse getRestaurantDetails(Long restaurantId, Double clientLatitude, Double clientLongitude, Set<Long> favoriteRestaurantIds, Set<Long> favoriteMenuItemIds) {
         Restaurant restaurant = restaurantRepository.findById(restaurantId)
                 .orElseThrow(() -> new EntityNotFoundException("Restaurant not found"));
 
@@ -46,6 +57,12 @@ public class RestaurantDetailsService {
         List<String> quickFilters = buildQuickFilters(itemsByCategory);
         List<RestaurantDetailsResponse.MenuItemSummary> topSales = mapTopSales(menuItems, menuItemFavorites);
         List<RestaurantDetailsResponse.MenuCategory> categories = mapCategories(itemsByCategory, menuItemFavorites);
+        Double deliveryFee = deliveryFeeCalculator.calculateFee(
+                clientLatitude,
+                clientLongitude,
+                restaurant.getLatitude(),
+                restaurant.getLongitude()
+        ).orElse(null);
 
         return new RestaurantDetailsResponse(
                 restaurant.getId(),
@@ -60,6 +77,7 @@ public class RestaurantDetailsService {
                 restaurant.getClosingHours(),
                 restaurant.getLatitude(),
                 restaurant.getLongitude(),
+                deliveryFee,
                 restaurantFavorites.contains(restaurant.getId()),
                 highlights,
                 quickFilters,
