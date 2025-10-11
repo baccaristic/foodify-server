@@ -344,8 +344,19 @@ public class DriverService {
     }
 
     private BigDecimal sumDriverShare(Long driverId, LocalDateTime start, LocalDateTime end) {
-        BigDecimal sum = driverShiftBalanceRepository
-                .sumDriverShareByDriverIdAndStartedAtBetween(driverId, start, end);
+        BigDecimal sum;
+        if (start == null && end == null) {
+            sum = driverShiftBalanceRepository.sumDriverShareByDriverId(driverId);
+        } else if (start != null && end == null) {
+            sum = driverShiftBalanceRepository
+                    .sumDriverShareByDriverIdAndStartedAtGreaterThanEqual(driverId, start);
+        } else if (start == null) {
+            sum = driverShiftBalanceRepository
+                    .sumDriverShareByDriverIdAndStartedAtLessThan(driverId, end);
+        } else {
+            sum = driverShiftBalanceRepository
+                    .sumDriverShareByDriverIdAndStartedAtBetween(driverId, start, end);
+        }
         if (sum == null) {
             return ZERO_AMOUNT;
         }

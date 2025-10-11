@@ -17,8 +17,37 @@ public interface DriverShiftBalanceRepository extends JpaRepository<DriverShiftB
             select coalesce(sum(balance.driverShare), 0)
             from DriverShiftBalance balance
             where balance.shift.driver.id = :driverId
-              and (:start is null or balance.shift.startedAt >= :start)
-              and (:end is null or balance.shift.startedAt < :end)
+            """)
+    BigDecimal sumDriverShareByDriverId(@Param("driverId") Long driverId);
+
+    @Query("""
+            select coalesce(sum(balance.driverShare), 0)
+            from DriverShiftBalance balance
+            where balance.shift.driver.id = :driverId
+              and balance.shift.startedAt >= :start
+            """)
+    BigDecimal sumDriverShareByDriverIdAndStartedAtGreaterThanEqual(
+            @Param("driverId") Long driverId,
+            @Param("start") LocalDateTime start
+    );
+
+    @Query("""
+            select coalesce(sum(balance.driverShare), 0)
+            from DriverShiftBalance balance
+            where balance.shift.driver.id = :driverId
+              and balance.shift.startedAt < :end
+            """)
+    BigDecimal sumDriverShareByDriverIdAndStartedAtLessThan(
+            @Param("driverId") Long driverId,
+            @Param("end") LocalDateTime end
+    );
+
+    @Query("""
+            select coalesce(sum(balance.driverShare), 0)
+            from DriverShiftBalance balance
+            where balance.shift.driver.id = :driverId
+              and balance.shift.startedAt >= :start
+              and balance.shift.startedAt < :end
             """)
     BigDecimal sumDriverShareByDriverIdAndStartedAtBetween(
             @Param("driverId") Long driverId,
