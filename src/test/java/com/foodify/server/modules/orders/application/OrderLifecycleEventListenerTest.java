@@ -1,5 +1,6 @@
 package com.foodify.server.modules.orders.application;
 
+import com.foodify.server.modules.notifications.application.NotificationPreferenceService;
 import com.foodify.server.modules.notifications.application.PushNotificationService;
 import com.foodify.server.modules.notifications.application.UserDeviceService;
 import com.foodify.server.modules.notifications.domain.NotificationType;
@@ -43,6 +44,9 @@ class OrderLifecycleEventListenerTest {
     @Mock
     private PushNotificationService pushNotificationService;
 
+    @Mock
+    private NotificationPreferenceService notificationPreferenceService;
+
     private OrderLifecycleEventListener listener;
 
     @BeforeEach
@@ -53,7 +57,8 @@ class OrderLifecycleEventListenerTest {
                 messagingTemplate,
                 webSocketService,
                 userDeviceService,
-                pushNotificationService
+                pushNotificationService,
+                notificationPreferenceService
         );
     }
 
@@ -65,6 +70,7 @@ class OrderLifecycleEventListenerTest {
 
         when(orderRepository.findDetailedById(1L)).thenReturn(Optional.of(order));
         when(userDeviceService.findByUser(5L)).thenReturn(List.of(device));
+        when(notificationPreferenceService.isEnabled(5L, NotificationType.ORDER_UPDATES)).thenReturn(true);
 
         OrderLifecycleEvent event = new OrderLifecycleEvent(1L, OrderStatus.PENDING, OrderStatus.ACCEPTED, "system", null);
 
@@ -76,7 +82,7 @@ class OrderLifecycleEventListenerTest {
                 eq(1L),
                 eq("Order accepted"),
                 eq("The restaurant accepted your order. We'll notify you as it progresses."),
-                eq(NotificationType.ORDER_CLIENT_ORDER_ACCEPTED)
+                eq(NotificationType.ORDER_UPDATES)
         );
     }
 

@@ -81,7 +81,7 @@ public class OrderLifecycleEventListener {
             return;
         }
 
-        if (!notificationPreferenceService.isEnabled(order.getClient().getId(), template.type())) {
+        if (!notificationPreferenceService.isEnabled(order.getClient().getId(), NotificationType.ORDER_UPDATES)) {
             return;
         }
 
@@ -97,7 +97,7 @@ public class OrderLifecycleEventListener {
                         order.getId(),
                         template.title,
                         template.body,
-                        template.type
+                        NotificationType.ORDER_UPDATES
                 );
             } catch (Exception ex) {
                 log.warn("Failed to push notification for order {} to device {}", order.getId(), device.getDeviceToken(), ex);
@@ -109,42 +109,35 @@ public class OrderLifecycleEventListener {
         Map<OrderStatus, NotificationTemplate> templates = new EnumMap<>(OrderStatus.class);
         templates.put(OrderStatus.ACCEPTED, new NotificationTemplate(
                 "Order accepted",
-                "The restaurant accepted your order. We'll notify you as it progresses.",
-                NotificationType.ORDER_CLIENT_ORDER_ACCEPTED
+                "The restaurant accepted your order. We'll notify you as it progresses."
         ));
         templates.put(OrderStatus.PREPARING, new NotificationTemplate(
                 "Driver assigned",
-                "A driver has been assigned to your order.",
-                NotificationType.ORDER_DRIVER_ASSIGNED
+                "A driver has been assigned to your order."
         ));
         templates.put(OrderStatus.READY_FOR_PICK_UP, new NotificationTemplate(
                 "Order ready",
-                "Your order is ready for pickup and will be on its way soon.",
-                NotificationType.ORDER_CLIENT_ORDER_READY
+                "Your order is ready for pickup and will be on its way soon."
         ));
         templates.put(OrderStatus.IN_DELIVERY, new NotificationTemplate(
                 "Order on the way",
-                "Your driver has picked up the order and is heading to you.",
-                NotificationType.ORDER_CLIENT_ORDER_EN_ROUTE
+                "Your driver has picked up the order and is heading to you."
         ));
         templates.put(OrderStatus.DELIVERED, new NotificationTemplate(
                 "Order delivered",
-                "Enjoy your meal! The driver has marked the order as delivered.",
-                NotificationType.ORDER_CLIENT_ORDER_DELIVERED
+                "Enjoy your meal! The driver has marked the order as delivered."
         ));
         templates.put(OrderStatus.CANCELED, new NotificationTemplate(
                 "Order canceled",
-                "This order has been canceled. Contact support if you need assistance.",
-                NotificationType.ORDER_CLIENT_ORDER_CANCELED
+                "This order has been canceled. Contact support if you need assistance."
         ));
         templates.put(OrderStatus.REJECTED, new NotificationTemplate(
                 "Order rejected",
-                "The restaurant couldn't fulfill this order. You won't be charged.",
-                NotificationType.ORDER_CLIENT_ORDER_REJECTED
+                "The restaurant couldn't fulfill this order. You won't be charged."
         ));
         return templates;
     }
 
-    private record NotificationTemplate(String title, String body, NotificationType type) {
+    private record NotificationTemplate(String title, String body) {
     }
 }

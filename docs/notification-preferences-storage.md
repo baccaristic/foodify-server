@@ -1,16 +1,34 @@
 # Notification Preferences Storage Strategy
 
-The Notification Settings screen lets users opt in or out of order-status and marketing alerts. Persisting these preferences on the server (instead of only caching them in the mobile client) delivers better reliability and flexibility for the notification pipeline:
+The Notification Settings screen presents three toggles that mirror the design shared by product:
 
-- **Multi-device consistency** – A user may log in from multiple devices (iOS, Android, web). Keeping the preferences in the database guarantees all clients see the same toggles and the notification service honors the latest choices across sessions.
-- **Stateless push workflows** – Backend workers that send transactional or promotional notifications can query a single source of truth without relying on a specific device being online to report its cached state.
-- **Auditability & compliance** – Storing preference changes (with timestamps/user IDs) enables audit trails and helps satisfy opt-in/opt-out regulations (e.g., GDPR, CAN-SPAM) that may require proof of consent withdrawal.
-- **Server-driven experiments** – Marketing or ops teams can roll out campaigns or feature flags that respect preferences without requiring a mobile release to adjust local defaults.
+1. **Order updates** – a master switch that controls all transactional push notifications related to order progress.
+2. **Marketing via push** – opt in/out of promotional pushes.
+3. **Marketing via email** – opt in/out of promotional emails.
 
-To complement server persistence:
+Persisting these preferences on the server (instead of caching them only on the mobile client) delivers better reliability and flexibility for the notification pipeline:
 
-1. Cache the last-known values client-side so the UI stays responsive offline and during slow network conditions.
-2. On toggle changes, optimistically update the UI, queue a sync to the API, and reconcile on success/failure.
-3. When the app launches or the settings screen opens, refresh from the server to ensure the client-side cache stays aligned with the canonical store.
+- **Multi-device consistency** – users frequently sign in from multiple devices. Storing the toggles in the database ensures every session reflects the same state and transactional senders read the latest choice.
+- **Stateless push workflows** – background workers that deliver order updates or marketing campaigns can check one authoritative store before contacting Firebase or the email provider.
+- **Auditability & compliance** – the persisted timestamps give us an audit trail that helps satisfy opt-in/opt-out regulations (GDPR, CAN-SPAM, etc.).
+- **Server-driven control** – growth and support teams can launch campaigns or temporarily force-enable order updates without shipping a mobile release to patch local defaults.
 
-This hybrid approach keeps the database as the authoritative store while still giving users a responsive experience.
+## API contract
+
+```
+GET  /api/notifications/preferences
+PUT  /api/notifications/preferences
+POST /api/notifications/preferences/enable-all
+```
+
+- `GET` returns all three toggles with their current `enabled` state and last update timestamp (if persisted).
+- `PUT` accepts a list of `{ type, enabled }` updates so the client can submit individual toggle changes.
+- `POST .../enable-all` is used by the "Enable all" button in the UI to flip every toggle on in a single call.
+
+## Client-side considerations
+
+1. Cache the last-known values locally so the settings screen opens instantly, then reconcile with the API in the background.
+2. Optimistically update the UI when the user flips a toggle and roll back if the API call fails.
+3. Refresh from the server when the screen appears so the local cache stays aligned with the canonical store.
+
+This hybrid approach keeps the database as the authoritative store while still giving users a responsive experience that matches the mockups.

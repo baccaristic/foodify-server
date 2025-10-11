@@ -33,6 +33,12 @@ public class NotificationPreferenceController {
         return ResponseEntity.ok(notificationPreferenceService.updatePreferences(userId, request));
     }
 
+    @PostMapping("/enable-all")
+    public ResponseEntity<List<NotificationPreferenceResponse>> enableAll(Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        return ResponseEntity.ok(notificationPreferenceService.enableAll(userId));
+    }
+
     private Long extractUserId(Authentication authentication) {
         if (authentication == null || authentication.getPrincipal() == null) {
             throw new IllegalStateException("Authenticated user not found");

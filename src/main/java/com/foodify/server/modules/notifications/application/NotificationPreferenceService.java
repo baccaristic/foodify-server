@@ -24,7 +24,13 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class NotificationPreferenceService {
 
-    private static final boolean DEFAULT_ENABLED = true;
+    private static final EnumMap<NotificationType, Boolean> DEFAULT_PREFERENCES = new EnumMap<>(NotificationType.class);
+
+    static {
+        DEFAULT_PREFERENCES.put(NotificationType.ORDER_UPDATES, Boolean.TRUE);
+        DEFAULT_PREFERENCES.put(NotificationType.MARKETING_PUSH, Boolean.FALSE);
+        DEFAULT_PREFERENCES.put(NotificationType.MARKETING_EMAIL, Boolean.FALSE);
+    }
 
     private final NotificationPreferenceRepository preferenceRepository;
     private final UserRepository userRepository;
@@ -69,11 +75,35 @@ public class NotificationPreferenceService {
                 .toList();
     }
 
+    @Transactional
+    public List<NotificationPreferenceResponse> enableAll(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+
+        Map<NotificationType, NotificationPreference> existing = new EnumMap<>(loadPreferencesByType(userId));
+
+        for (NotificationType type : NotificationType.values()) {
+            NotificationPreference preference = existing.get(type);
+            if (preference == null) {
+                preference = new NotificationPreference();
+                preference.setUser(user);
+                preference.setNotificationType(type);
+            }
+            preference.setEnabled(Boolean.TRUE);
+            preferenceRepository.save(preference);
+            existing.put(type, preference);
+        }
+
+        return Arrays.stream(NotificationType.values())
+                .map(type -> toResponse(existing.get(type), type))
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public boolean isEnabled(Long userId, NotificationType type) {
         return preferenceRepository.findByUserIdAndNotificationType(userId, type)
                 .map(pref -> Boolean.TRUE.equals(pref.getEnabled()))
-                .orElse(DEFAULT_ENABLED);
+                .orElseGet(() -> defaultEnabled(type));
     }
 
     private Map<NotificationType, NotificationPreference> loadPreferencesByType(Long userId) {
@@ -87,8 +117,12 @@ public class NotificationPreferenceService {
     }
 
     private NotificationPreferenceResponse toResponse(NotificationPreference preference, NotificationType type) {
-        boolean enabled = preference != null ? Boolean.TRUE.equals(preference.getEnabled()) : DEFAULT_ENABLED;
+        boolean enabled = preference != null ? Boolean.TRUE.equals(preference.getEnabled()) : defaultEnabled(type);
         Instant updatedAt = preference != null ? preference.getUpdatedAt() : null;
         return new NotificationPreferenceResponse(type, enabled, updatedAt);
+    }
+
+    private boolean defaultEnabled(NotificationType type) {
+        return DEFAULT_PREFERENCES.getOrDefault(type, Boolean.TRUE);
     }
 }
