@@ -55,9 +55,9 @@ public class ClientController {
         Long userId = extractUserId(authentication);
         ClientFavoriteIds favoriteIds = clientService.getFavoriteIds(userId);
         Set<Long> favoriteRestaurantIds = favoriteIds.restaurantIds();
-        int effectivePage = page != null && page > 0 ? page : 1;
+        int effectivePage = page != null && page >= 0 ? page : 0;
         int effectivePageSize = pageSize != null && pageSize > 0 ? pageSize : 20;
-        PageRequest pageRequest = PageRequest.of(effectivePage - 1, effectivePageSize);
+        PageRequest pageRequest = PageRequest.of(effectivePage, effectivePageSize);
         Page<Restaurant> nearby = restaurantRepository.findNearby(lat, lng, radiusKm, pageRequest);
         List<RestaurantDisplayDto> restaurants = restaurantMapper.toDto(nearby.getContent());
         restaurants.forEach(restaurant -> {
@@ -67,8 +67,8 @@ public class ClientController {
         });
         PageResponse<RestaurantDisplayDto> response = new PageResponse<>(
                 restaurants,
-                effectivePage,
-                effectivePageSize,
+                nearby.getNumber(),
+                nearby.getSize(),
                 nearby.getTotalElements()
         );
         return ResponseEntity.ok(response);
