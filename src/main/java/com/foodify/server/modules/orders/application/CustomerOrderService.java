@@ -35,12 +35,16 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -152,17 +156,46 @@ public class CustomerOrderService {
         order.setOrderTime(LocalDateTime.now());
         order.setDate(LocalDateTime.now());
 
-        List<OrderItem> orderItems = new ArrayList<>();
-        for (OrderItemRequest itemRequest : Optional.ofNullable(request.getItems()).orElse(Collections.emptyList())) {
+        List<OrderItemRequest> itemRequests = Optional.ofNullable(request.getItems()).orElse(Collections.emptyList());
+        if (itemRequests.isEmpty()) {
+            throw new IllegalArgumentException("At least one item is required to place an order");
+        }
+
+        Set<Long> menuItemIds = new HashSet<>();
+        Set<Long> requestedExtraIds = new HashSet<>();
+        for (OrderItemRequest itemRequest : itemRequests) {
             if (itemRequest.getMenuItemId() == null) {
                 throw new IllegalArgumentException("Menu item id is required");
             }
             if (itemRequest.getQuantity() <= 0) {
                 throw new IllegalArgumentException("Quantity must be greater than zero");
             }
+            menuItemIds.add(itemRequest.getMenuItemId());
+            Optional.ofNullable(itemRequest.getExtraIds())
+                    .orElse(Collections.emptyList())
+                    .forEach(requestedExtraIds::add);
+        }
 
-            MenuItem menuItem = menuItemRepository.findById(itemRequest.getMenuItemId())
-                    .orElseThrow(() -> new EntityNotFoundException("Menu item not found"));
+        Map<Long, MenuItem> menuItemsById = menuItemRepository.findAllById(menuItemIds)
+                .stream()
+                .collect(Collectors.toMap(MenuItem::getId, Function.identity()));
+
+        if (menuItemsById.size() != menuItemIds.size()) {
+            throw new EntityNotFoundException("Menu item not found");
+        }
+
+        Map<Long, MenuItemExtra> extrasById = requestedExtraIds.isEmpty()
+                ? Collections.emptyMap()
+                : menuItemExtraRepository.findAllById(requestedExtraIds)
+                        .stream()
+                        .collect(Collectors.toMap(MenuItemExtra::getId, Function.identity(), (existing, replacement) -> existing, HashMap::new));
+
+        List<OrderItem> orderItems = new ArrayList<>();
+        for (OrderItemRequest itemRequest : itemRequests) {
+            MenuItem menuItem = menuItemsById.get(itemRequest.getMenuItemId());
+            if (menuItem == null) {
+                throw new EntityNotFoundException("Menu item not found");
+            }
 
             if (!Objects.equals(menuItem.getRestaurant().getId(), restaurant.getId())) {
                 throw new IllegalArgumentException("Menu item does not belong to the selected restaurant");
@@ -174,10 +207,11 @@ public class CustomerOrderService {
             orderItem.setQuantity(itemRequest.getQuantity());
             orderItem.setSpecialInstructions(itemRequest.getSpecialInstructions());
 
-            List<Long> extraIds = Optional.ofNullable(itemRequest.getExtraIds()).orElse(Collections.emptyList());
-            List<MenuItemExtra> extras = extraIds.isEmpty()
-                    ? Collections.emptyList()
-                    : menuItemExtraRepository.findAllById(extraIds);
+            List<MenuItemExtra> extras = Optional.ofNullable(itemRequest.getExtraIds()).orElse(Collections.emptyList())
+                    .stream()
+                    .map(extrasById::get)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
 
             if (!extras.isEmpty()) {
                 validateExtras(menuItem, extras);
@@ -185,10 +219,6 @@ public class CustomerOrderService {
 
             orderItem.setMenuItemExtras(new ArrayList<>(extras));
             orderItems.add(orderItem);
-        }
-
-        if (orderItems.isEmpty()) {
-            throw new IllegalArgumentException("At least one item is required to place an order");
         }
 
         order.setItems(orderItems);
