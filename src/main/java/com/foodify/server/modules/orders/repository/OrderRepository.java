@@ -4,6 +4,8 @@ import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.identity.domain.Client;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -14,7 +16,7 @@ import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findAllByRestaurantOrderByDateDesc(Restaurant restaurant);
-    List<Order> findAllByClientOrderByDateDesc(Client client);
+    Page<Order> findAllByClient(Client client, Pageable pageable);
     List<Order> findAllByPendingDriverId(Long pendingDriverId);
     @EntityGraph(attributePaths = {
             "client",
