@@ -16,12 +16,13 @@ import com.foodify.server.modules.restaurants.mapper.RestaurantMapper;
 import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityNotFoundException;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -34,8 +35,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ClientService {
 
-    private static final long ORDER_HISTORY_WINDOW_DAYS = 90;
-
     private final ClientRepository clientRepository;
     private final OrderRepository  orderRepository;
     private final RestaurantRepository restaurantRepository;
@@ -44,17 +43,15 @@ public class ClientService {
 
 
     @Transactional(readOnly = true)
-    public List<OrderDto> getMyOrders(Client client) {
+    public Page<OrderDto> getMyOrders(Client client, Pageable pageable) {
+        Pageable effectivePageable = pageable != null ? pageable : Pageable.unpaged();
+
         if (client == null) {
-            return List.of();
+            return Page.empty(effectivePageable);
         }
 
-        LocalDateTime cutoff = LocalDateTime.now().minusDays(ORDER_HISTORY_WINDOW_DAYS);
-
-        return this.orderRepository.findAllByClientAndDateGreaterThanEqualOrderByDateDesc(client, cutoff)
-                .stream()
-                .map(OrderMapper::toDto)
-                .toList();
+        return this.orderRepository.findAllByClient(client, effectivePageable)
+                .map(OrderMapper::toDto);
     }
 
     @Transactional(readOnly = true)

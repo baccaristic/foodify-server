@@ -17,6 +17,7 @@ import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -24,7 +25,6 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.persistence.EntityNotFoundException;
 
-import java.util.List;
 import java.util.Set;
 
 @RestController
@@ -76,9 +76,25 @@ public class ClientController {
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
     @GetMapping("/my-orders")
-    public List<OrderDto> getMyOrders(Authentication authentication) {
+    public PageResponse<OrderDto> getMyOrders(
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int pageSize
+    ) {
         Long userId = extractUserId(authentication);
-        return this.clientService.getMyOrders(clientRepository.findById(userId).orElse(null));
+
+        int effectivePage = Math.max(page, 0);
+        int effectivePageSize = pageSize > 0 ? Math.min(pageSize, 50) : 20;
+
+        PageRequest pageRequest = PageRequest.of(effectivePage, effectivePageSize, Sort.by("date").descending());
+        Page<OrderDto> orders = this.clientService.getMyOrders(clientRepository.findById(userId).orElse(null), pageRequest);
+
+        return new PageResponse<>(
+                orders.getContent(),
+                orders.getNumber(),
+                orders.getSize(),
+                orders.getTotalElements()
+        );
     }
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
