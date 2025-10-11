@@ -470,6 +470,8 @@ public class DriverService {
                 .deliveryFee(resolveDeliveryFee(restaurant))
                 .restaurantName(Optional.ofNullable(restaurant).map(Restaurant::getName).orElse(null))
                 .orderItemsCount(itemsCount)
+                .orderAcceptedAt(formatTime(delivery.getAssignedTime()))
+                .orderDeliveredAt(formatTime(delivery.getDeliveredTime()))
                 .build();
     }
 
