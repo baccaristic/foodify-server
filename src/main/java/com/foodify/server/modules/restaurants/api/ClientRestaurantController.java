@@ -40,6 +40,8 @@ public class ClientRestaurantController {
             @RequestParam(required = false) Double lng,
             Authentication authentication
     ) {
+        int effectivePage = page != null && page > 0 ? page : 1;
+        int effectivePageSize = pageSize != null && pageSize > 0 ? pageSize : 20;
         RestaurantSearchQuery searchQuery = new RestaurantSearchQuery(
                 query,
                 hasPromotion,
@@ -50,8 +52,8 @@ public class ClientRestaurantController {
                 maxDeliveryFee,
                 lat,
                 lng,
-                page,
-                pageSize
+                effectivePage,
+                effectivePageSize
         );
         ClientFavoriteIds favoriteIds = resolveFavoriteIds(authentication);
         return restaurantSearchService.search(searchQuery, favoriteIds.restaurantIds(), favoriteIds.menuItemIds());
