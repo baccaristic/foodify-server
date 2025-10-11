@@ -9,6 +9,8 @@ import com.foodify.server.modules.delivery.dto.PickUpOrderRequest;
 import com.foodify.server.modules.delivery.dto.DriverShiftDto;
 import com.foodify.server.modules.delivery.dto.DriverShiftBalanceDto;
 import com.foodify.server.modules.delivery.dto.DriverEarningsSummaryDto;
+import com.foodify.server.modules.delivery.dto.DriverShiftIncomeDto;
+import com.foodify.server.modules.delivery.dto.DriverShiftIncomeResponseDto;
 import com.foodify.server.modules.delivery.application.QrCodeService;
 import com.foodify.server.modules.delivery.application.GoogleMapsService;
 import com.foodify.server.modules.delivery.location.DriverLocationService;
@@ -36,6 +38,7 @@ import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 
@@ -62,6 +65,7 @@ public class DriverService {
     );
 
     private static final BigDecimal ZERO_AMOUNT = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
 
     public OrderDto acceptOrder(Long driverId, Long orderId) throws Exception {
@@ -328,6 +332,73 @@ public class DriverService {
                 .weekBalance(weekBalance)
                 .monthBalance(monthBalance)
                 .totalEarnings(totalEarnings)
+                .build();
+    }
+
+    public DriverShiftIncomeResponseDto getShiftIncomeDetails(Long driverId, LocalDate dateOn, LocalDate from, LocalDate to) {
+        LocalDate rangeStart = dateOn != null ? dateOn : from;
+        LocalDate rangeEnd = dateOn != null ? dateOn : to;
+
+        if (rangeStart == null && rangeEnd == null) {
+            LocalDate today = LocalDate.now();
+            rangeStart = today;
+            rangeEnd = today;
+        }
+
+        LocalDateTime startDateTime = rangeStart != null ? startOfDay(rangeStart) : null;
+        LocalDateTime endDateTime = rangeEnd != null ? endOfDayExclusive(rangeEnd) : null;
+
+        List<DriverShift> shifts;
+        if (startDateTime != null && endDateTime != null) {
+            shifts = driverShiftRepository
+                    .findAllWithBalanceByDriverIdAndStartedAtBetweenOrderByStartedAtDesc(
+                            driverId, startDateTime, endDateTime);
+        } else if (startDateTime != null) {
+            shifts = driverShiftRepository
+                    .findAllWithBalanceByDriverIdAndStartedAtGreaterThanEqualOrderByStartedAtDesc(
+                            driverId, startDateTime);
+        } else if (endDateTime != null) {
+            shifts = driverShiftRepository
+                    .findAllWithBalanceByDriverIdAndStartedAtLessThanOrderByStartedAtDesc(
+                            driverId, endDateTime);
+        } else {
+            shifts = driverShiftRepository.findAllWithBalanceByDriverIdOrderByStartedAtDesc(driverId);
+        }
+
+        Map<Long, DriverShift> uniqueShifts = new LinkedHashMap<>();
+        for (DriverShift shift : shifts) {
+            if (shift.getId() != null) {
+                uniqueShifts.putIfAbsent(shift.getId(), shift);
+            }
+        }
+
+        BigDecimal total = ZERO_AMOUNT;
+        List<DriverShiftIncomeDto> shiftDtos = new ArrayList<>();
+        for (DriverShift shift : uniqueShifts.values()) {
+            DriverShiftBalance balance = resolveBalance(shift);
+            BigDecimal driverShare = balance != null ? balance.getDriverShare() : ZERO_AMOUNT;
+            total = total.add(driverShare);
+
+            String startTime = Optional.ofNullable(shift.getStartedAt())
+                    .map(time -> time.format(TIME_FORMATTER))
+                    .orElse(null);
+            String endTime = Optional.ofNullable(shift.getEndedAt())
+                    .map(time -> time.format(TIME_FORMATTER))
+                    .orElse(null);
+
+            shiftDtos.add(DriverShiftIncomeDto.builder()
+                    .id(shift.getId())
+                    .startTime(startTime)
+                    .endTime(endTime)
+                    .total(driverShare)
+                    .build());
+        }
+
+        total = total.setScale(2, RoundingMode.HALF_UP);
+
+        return DriverShiftIncomeResponseDto.builder()
+                .total(total)
+                .shifts(shiftDtos)
                 .build();
     }
 
