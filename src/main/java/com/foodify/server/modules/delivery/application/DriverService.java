@@ -1,37 +1,43 @@
 package com.foodify.server.modules.delivery.application;
 
+import com.foodify.server.modules.addresses.domain.SavedAddress;
+import com.foodify.server.modules.delivery.application.DriverAvailabilityService;
+import com.foodify.server.modules.delivery.application.GoogleMapsService;
+import com.foodify.server.modules.delivery.application.QrCodeService;
 import com.foodify.server.modules.delivery.domain.Delivery;
 import com.foodify.server.modules.delivery.domain.DriverShift;
-import com.foodify.server.modules.delivery.domain.DriverShiftStatus;
 import com.foodify.server.modules.delivery.domain.DriverShiftBalance;
+import com.foodify.server.modules.delivery.domain.DriverShiftStatus;
 import com.foodify.server.modules.delivery.dto.DeliverOrderDto;
-import com.foodify.server.modules.delivery.dto.PickUpOrderRequest;
-import com.foodify.server.modules.delivery.dto.DriverShiftDto;
-import com.foodify.server.modules.delivery.dto.DriverShiftBalanceDto;
 import com.foodify.server.modules.delivery.dto.DriverEarningsSummaryDto;
+import com.foodify.server.modules.delivery.dto.DriverShiftBalanceDto;
+import com.foodify.server.modules.delivery.dto.DriverShiftDto;
+import com.foodify.server.modules.delivery.dto.DriverShiftEarningDetailsDto;
 import com.foodify.server.modules.delivery.dto.DriverShiftIncomeDto;
 import com.foodify.server.modules.delivery.dto.DriverShiftIncomeResponseDto;
-import com.foodify.server.modules.delivery.application.QrCodeService;
-import com.foodify.server.modules.delivery.application.GoogleMapsService;
+import com.foodify.server.modules.delivery.dto.DriverShiftOrderEarningDto;
+import com.foodify.server.modules.delivery.dto.PickUpOrderRequest;
 import com.foodify.server.modules.delivery.location.DriverLocationService;
 import com.foodify.server.modules.delivery.repository.DeliveryRepository;
 import com.foodify.server.modules.delivery.repository.DriverShiftBalanceRepository;
 import com.foodify.server.modules.delivery.repository.DriverShiftRepository;
 import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.identity.repository.DriverRepository;
+import com.foodify.server.modules.orders.application.OrderLifecycleService;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.orders.mapper.OrderMapper;
+import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.orders.support.OrderPricingCalculator;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
-import com.foodify.server.modules.orders.application.OrderLifecycleService;
-import com.foodify.server.modules.orders.repository.OrderRepository;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 import org.springframework.data.geo.Point;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -41,6 +47,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -65,8 +72,9 @@ public class DriverService {
     );
 
     private static final BigDecimal ZERO_AMOUNT = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+    private static final BigDecimal DEFAULT_DRIVER_COMMISSION_RATE = new BigDecimal("0.12");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
-
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     public OrderDto acceptOrder(Long driverId, Long orderId) throws Exception {
         Driver driver = driverRepository.findById(driverId).orElse(null);
@@ -400,6 +408,135 @@ public class DriverService {
                 .total(total)
                 .shifts(shiftDtos)
                 .build();
+    }
+
+    public DriverShiftEarningDetailsDto getShiftEarningDetails(Long driverId, Long shiftId) {
+        DriverShift shift = driverShiftRepository
+                .findByIdAndDriverIdWithDetails(shiftId, driverId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Shift not found"));
+
+        DriverShiftBalance balance = resolveBalance(shift);
+        BigDecimal shiftTotal = Optional.ofNullable(balance)
+                .map(DriverShiftBalance::getDriverShare)
+                .orElse(ZERO_AMOUNT)
+                .setScale(2, RoundingMode.HALF_UP);
+
+        Map<Long, Delivery> uniqueDeliveries = new LinkedHashMap<>();
+        for (Delivery delivery : Optional.ofNullable(shift.getDeliveries()).orElse(Collections.emptyList())) {
+            if (delivery == null || delivery.getOrder() == null || delivery.getId() == null) {
+                continue;
+            }
+            uniqueDeliveries.putIfAbsent(delivery.getId(), delivery);
+        }
+
+        List<DriverShiftOrderEarningDto> orders = uniqueDeliveries.values().stream()
+                .sorted(Comparator.comparing(this::resolveDeliverySortTime, Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(this::mapToOrderEarningDto)
+                .collect(Collectors.toList());
+
+        return DriverShiftEarningDetailsDto.builder()
+                .shiftId(shift.getId())
+                .from(formatTime(shift.getStartedAt()))
+                .to(formatTime(resolveShiftEnd(shift)))
+                .total(shiftTotal)
+                .date(formatDate(shift.getStartedAt()))
+                .orders(orders)
+                .build();
+    }
+
+    private DriverShiftOrderEarningDto mapToOrderEarningDto(Delivery delivery) {
+        Order order = delivery.getOrder();
+        BigDecimal orderTotal = OrderPricingCalculator.calculateTotal(order);
+        Restaurant restaurant = order.getRestaurant();
+
+        return DriverShiftOrderEarningDto.builder()
+                .orderId(order.getId())
+                .deliveryId(delivery.getId())
+                .pickUpLocation(Optional.ofNullable(restaurant).map(Restaurant::getAddress).orElse(null))
+                .deliveryLocation(resolveDeliveryLocation(order))
+                .orderTotal(orderTotal)
+                .driverEarningFromOrder(calculateDriverShareForOrder(orderTotal, restaurant))
+                .deliveryFee(resolveDeliveryFee(restaurant))
+                .restaurantName(Optional.ofNullable(restaurant).map(Restaurant::getName).orElse(null))
+                .orderItemsCount(order.getItems() != null ? order.getItems().size() : 0)
+                .build();
+    }
+
+    private BigDecimal calculateDriverShareForOrder(BigDecimal orderTotal, Restaurant restaurant) {
+        BigDecimal safeTotal = Optional.ofNullable(orderTotal).orElse(ZERO_AMOUNT);
+        BigDecimal restaurantShareRate = Optional.ofNullable(restaurant)
+                .map(Restaurant::getRestaurantShareRate)
+                .orElse(null);
+        BigDecimal normalizedRestaurantShare = normalizeRestaurantShareRate(restaurantShareRate);
+        BigDecimal driverRate = BigDecimal.ONE.subtract(normalizedRestaurantShare).setScale(4, RoundingMode.HALF_UP);
+        return safeTotal.multiply(driverRate).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal normalizeRestaurantShareRate(BigDecimal restaurantShareRate) {
+        if (restaurantShareRate == null) {
+            return BigDecimal.ONE.subtract(DEFAULT_DRIVER_COMMISSION_RATE).setScale(4, RoundingMode.HALF_UP);
+        }
+        BigDecimal normalized = restaurantShareRate.setScale(4, RoundingMode.HALF_UP);
+        if (normalized.compareTo(BigDecimal.ZERO) < 0 || normalized.compareTo(BigDecimal.ONE) > 0) {
+            return BigDecimal.ONE.subtract(DEFAULT_DRIVER_COMMISSION_RATE).setScale(4, RoundingMode.HALF_UP);
+        }
+        return normalized;
+    }
+
+    private BigDecimal resolveDeliveryFee(Restaurant restaurant) {
+        if (restaurant == null || restaurant.getDeliveryFee() == null) {
+            return ZERO_AMOUNT;
+        }
+        return BigDecimal.valueOf(restaurant.getDeliveryFee()).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private String resolveDeliveryLocation(Order order) {
+        if (order == null) {
+            return null;
+        }
+        if (order.getDeliveryAddress() != null && !order.getDeliveryAddress().isBlank()) {
+            return order.getDeliveryAddress();
+        }
+        return Optional.ofNullable(order.getSavedAddress())
+                .map(SavedAddress::getFormattedAddress)
+                .orElse(null);
+    }
+
+    private LocalDateTime resolveShiftEnd(DriverShift shift) {
+        if (shift == null) {
+            return null;
+        }
+        if (shift.getEndedAt() != null) {
+            return shift.getEndedAt();
+        }
+        return shift.getFinishableAt();
+    }
+
+    private LocalDateTime resolveDeliverySortTime(Delivery delivery) {
+        if (delivery == null) {
+            return null;
+        }
+        if (delivery.getDeliveredTime() != null) {
+            return delivery.getDeliveredTime();
+        }
+        if (delivery.getPickupTime() != null) {
+            return delivery.getPickupTime();
+        }
+        return delivery.getAssignedTime();
+    }
+
+    private String formatTime(LocalDateTime time) {
+        if (time == null) {
+            return null;
+        }
+        return time.format(TIME_FORMATTER);
+    }
+
+    private String formatDate(LocalDateTime time) {
+        if (time == null) {
+            return null;
+        }
+        return time.format(DATE_FORMATTER);
     }
 
     private DriverShiftBalance resolveBalance(DriverShift shift) {

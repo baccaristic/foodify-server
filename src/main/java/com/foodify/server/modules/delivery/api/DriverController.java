@@ -4,6 +4,7 @@ import com.foodify.server.modules.delivery.dto.DeliverOrderDto;
 import com.foodify.server.modules.delivery.dto.DriverLocationDto;
 import com.foodify.server.modules.delivery.dto.DriverShiftDto;
 import com.foodify.server.modules.delivery.dto.DriverShiftBalanceDto;
+import com.foodify.server.modules.delivery.dto.DriverShiftEarningDetailsDto;
 import com.foodify.server.modules.delivery.dto.PickUpOrderRequest;
 import com.foodify.server.modules.delivery.dto.StatusUpdateRequest;
 import com.foodify.server.modules.delivery.dto.DriverEarningsSummaryDto;
@@ -165,6 +166,16 @@ public class DriverController {
         }
 
         return driverService.getShiftIncomeDetails(userId, dateOnValue, fromValue, toValue);
+    }
+
+    @GetMapping("/earnings/shifts/{shiftId}")
+    @PreAuthorize("hasAuthority('ROLE_DRIVER')")
+    public DriverShiftEarningDetailsDto earningsForShift(
+            Authentication authentication,
+            @PathVariable Long shiftId
+    ) {
+        Long userId = Long.parseLong((String) authentication.getPrincipal());
+        return driverService.getShiftEarningDetails(userId, shiftId);
     }
 
     @PostMapping("/deliver-order")

@@ -67,4 +67,23 @@ public interface DriverShiftRepository extends JpaRepository<DriverShift, Long> 
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end
     );
+
+    @EntityGraph(attributePaths = {
+            "balance",
+            "deliveries",
+            "deliveries.order",
+            "deliveries.order.restaurant",
+            "deliveries.order.items",
+            "deliveries.order.savedAddress"
+    })
+    @Query("""
+            select shift
+            from DriverShift shift
+            where shift.id = :shiftId
+              and shift.driver.id = :driverId
+            """)
+    Optional<DriverShift> findByIdAndDriverIdWithDetails(
+            @Param("shiftId") Long shiftId,
+            @Param("driverId") Long driverId
+    );
 }
