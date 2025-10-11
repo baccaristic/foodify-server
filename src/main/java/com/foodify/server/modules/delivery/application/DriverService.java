@@ -348,8 +348,22 @@ public class DriverService {
         LocalDateTime startDateTime = rangeStart != null ? startOfDay(rangeStart) : null;
         LocalDateTime endDateTime = rangeEnd != null ? endOfDayExclusive(rangeEnd) : null;
 
-        List<DriverShift> shifts = driverShiftRepository
-                .findAllWithBalanceByDriverIdAndStartedAtBetween(driverId, startDateTime, endDateTime);
+        List<DriverShift> shifts;
+        if (startDateTime != null && endDateTime != null) {
+            shifts = driverShiftRepository
+                    .findAllWithBalanceByDriverIdAndStartedAtBetweenOrderByStartedAtDesc(
+                            driverId, startDateTime, endDateTime);
+        } else if (startDateTime != null) {
+            shifts = driverShiftRepository
+                    .findAllWithBalanceByDriverIdAndStartedAtGreaterThanEqualOrderByStartedAtDesc(
+                            driverId, startDateTime);
+        } else if (endDateTime != null) {
+            shifts = driverShiftRepository
+                    .findAllWithBalanceByDriverIdAndStartedAtLessThanOrderByStartedAtDesc(
+                            driverId, endDateTime);
+        } else {
+            shifts = driverShiftRepository.findAllWithBalanceByDriverIdOrderByStartedAtDesc(driverId);
+        }
 
         Map<Long, DriverShift> uniqueShifts = new LinkedHashMap<>();
         for (DriverShift shift : shifts) {
