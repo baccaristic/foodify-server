@@ -2,6 +2,7 @@ package com.foodify.server.modules.restaurants.application;
 
 import com.foodify.server.modules.delivery.application.DriverAssignmentService;
 import com.foodify.server.modules.delivery.location.DriverLocationService;
+import com.foodify.server.modules.notifications.application.NotificationPreferenceService;
 import com.foodify.server.modules.notifications.application.PushNotificationService;
 import com.foodify.server.modules.notifications.application.UserDeviceService;
 import com.foodify.server.modules.notifications.domain.NotificationType;
@@ -62,6 +63,7 @@ public class RestaurantService {
     private final UserDeviceService userDeviceService;
     private final WebSocketService webSocketService;
     private final OrderLifecycleService orderLifecycleService;
+    private final NotificationPreferenceService notificationPreferenceService;
 
     private static final String ORDER_ATTEMPTED_DRIVERS_KEY_PREFIX = "order:drivers:attempted:";
 
@@ -109,6 +111,9 @@ public class RestaurantService {
 
     private void notifyDriverAboutOrder(Order order, Long driverId) {
         webSocketService.notifyDriverUpcoming(driverId, order);
+        if (!notificationPreferenceService.isEnabled(driverId, NotificationType.ORDER_UPDATES)) {
+            return;
+        }
         List<UserDevice> userDevices = userDeviceService.findByUser(driverId);
         userDevices.forEach(userDevice -> {
             try {
@@ -117,7 +122,7 @@ public class RestaurantService {
                         order.getId(),
                         "You have a new delivery request",
                         "You have recieved a new delivery request. You have 2 minutes to accept or decline.",
-                        NotificationType.ORDER_DRIVER_NEW_ORDER
+                        NotificationType.ORDER_UPDATES
                 );
             } catch (Exception e) {
                 throw new RuntimeException(e);
