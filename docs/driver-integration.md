@@ -98,6 +98,26 @@ All endpoints below require a valid driver access token and the `ROLE_DRIVER` au
 - **Endpoint**: `GET /api/driver/history`
 - **Behavior**: Returns a list of delivered orders for the authenticated driver as `OrderDto` instances.
 
+### 2.10 Earnings summary
+- **Endpoint**: `GET /api/driver/earnings`
+- **Query parameters** (all optional):
+  - `dateOn=dd/MM/yyyy` – aggregate earnings for a single calendar day.
+  - `from=dd/MM/yyyy` and/or `to=dd/MM/yyyy` – aggregate earnings for a custom range (inclusive).
+- **Behavior**:
+  - Always returns the driver’s total shift earnings (`avilableBalance`) as well as the totals for the current day, week, and month.
+  - When a date filter is supplied (`dateOn`, `from`, or `to`), the response also includes `totalEarnings` representing the sum of the filtered shifts.
+- **Response**:
+  ```json
+  {
+    "avilableBalance": 245.50,
+    "todayBalance": 40.25,
+    "weekBalance": 140.75,
+    "monthBalance": 620.10,
+    "totalEarnings": 95.00
+  }
+  ```
+- **Errors**: `400 Bad Request` when the date format is invalid, ranges are inverted, or both `dateOn` and `from`/`to` are provided at the same time.
+
 ## 3. Driver Status & Location Semantics
 The location service keeps two pieces of state in Redis:
 - A GEO set (`drivers:geo`) storing `longitude/latitude` pairs for each driver. Updated through `/api/driver/location`.

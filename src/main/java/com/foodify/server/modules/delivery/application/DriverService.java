@@ -8,6 +8,7 @@ import com.foodify.server.modules.delivery.dto.DeliverOrderDto;
 import com.foodify.server.modules.delivery.dto.PickUpOrderRequest;
 import com.foodify.server.modules.delivery.dto.DriverShiftDto;
 import com.foodify.server.modules.delivery.dto.DriverShiftBalanceDto;
+import com.foodify.server.modules.delivery.dto.DriverEarningsSummaryDto;
 import com.foodify.server.modules.delivery.application.QrCodeService;
 import com.foodify.server.modules.delivery.application.GoogleMapsService;
 import com.foodify.server.modules.delivery.location.DriverLocationService;
@@ -32,7 +33,10 @@ import org.springframework.data.geo.Point;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 
 @Service
@@ -297,6 +301,36 @@ public class DriverService {
         return new DriverShiftBalanceDto(driverShare);
     }
 
+    public DriverEarningsSummaryDto getEarningsSummary(Long driverId, LocalDate dateOn, LocalDate from, LocalDate to) {
+        BigDecimal availableBalance = sumDriverShare(driverId, null, null);
+
+        LocalDate today = LocalDate.now();
+        BigDecimal todayBalance = sumDriverShare(driverId, startOfDay(today), endOfDayExclusive(today));
+
+        LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        BigDecimal weekBalance = sumDriverShare(driverId, startOfDay(weekStart), startOfDay(weekStart.plusWeeks(1)));
+
+        LocalDate monthStart = today.withDayOfMonth(1);
+        BigDecimal monthBalance = sumDriverShare(driverId, startOfDay(monthStart), startOfDay(monthStart.plusMonths(1)));
+
+        BigDecimal totalEarnings = null;
+        if (dateOn != null) {
+            totalEarnings = sumDriverShare(driverId, startOfDay(dateOn), endOfDayExclusive(dateOn));
+        } else if (from != null || to != null) {
+            LocalDateTime rangeStart = from != null ? startOfDay(from) : null;
+            LocalDateTime rangeEnd = to != null ? endOfDayExclusive(to) : null;
+            totalEarnings = sumDriverShare(driverId, rangeStart, rangeEnd);
+        }
+
+        return DriverEarningsSummaryDto.builder()
+                .avilableBalance(availableBalance)
+                .todayBalance(todayBalance)
+                .weekBalance(weekBalance)
+                .monthBalance(monthBalance)
+                .totalEarnings(totalEarnings)
+                .build();
+    }
+
     private DriverShiftBalance resolveBalance(DriverShift shift) {
         if (shift == null) {
             return null;
@@ -307,6 +341,34 @@ public class DriverService {
             shift.setBalance(balance);
         }
         return balance;
+    }
+
+    private BigDecimal sumDriverShare(Long driverId, LocalDateTime start, LocalDateTime end) {
+        BigDecimal sum;
+        if (start == null && end == null) {
+            sum = driverShiftBalanceRepository.sumDriverShareByDriverId(driverId);
+        } else if (start != null && end == null) {
+            sum = driverShiftBalanceRepository
+                    .sumDriverShareByDriverIdAndStartedAtGreaterThanEqual(driverId, start);
+        } else if (start == null) {
+            sum = driverShiftBalanceRepository
+                    .sumDriverShareByDriverIdAndStartedAtLessThan(driverId, end);
+        } else {
+            sum = driverShiftBalanceRepository
+                    .sumDriverShareByDriverIdAndStartedAtBetween(driverId, start, end);
+        }
+        if (sum == null) {
+            return ZERO_AMOUNT;
+        }
+        return sum.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private LocalDateTime startOfDay(LocalDate date) {
+        return date.atStartOfDay();
+    }
+
+    private LocalDateTime endOfDayExclusive(LocalDate date) {
+        return date.plusDays(1).atStartOfDay();
     }
 
     private void updateShiftBalance(Driver driver, Order order) {

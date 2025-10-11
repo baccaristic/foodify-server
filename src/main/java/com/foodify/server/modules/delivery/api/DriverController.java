@@ -6,6 +6,7 @@ import com.foodify.server.modules.delivery.dto.DriverShiftDto;
 import com.foodify.server.modules.delivery.dto.DriverShiftBalanceDto;
 import com.foodify.server.modules.delivery.dto.PickUpOrderRequest;
 import com.foodify.server.modules.delivery.dto.StatusUpdateRequest;
+import com.foodify.server.modules.delivery.dto.DriverEarningsSummaryDto;
 import com.foodify.server.modules.delivery.location.DriverLocationService;
 import com.foodify.server.modules.notifications.websocket.WebSocketService;
 import com.foodify.server.modules.orders.dto.OrderDto;
@@ -17,13 +18,19 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/driver")
 @RequiredArgsConstructor
 public class DriverController {
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
     private final DriverLocationService driverLocationService;
     private final DriverService driverService;
     private final WebSocketService webSocketService;
@@ -107,6 +114,32 @@ public class DriverController {
         return driverService.getCurrentShiftBalance(userId);
     }
 
+    @GetMapping("/earnings")
+    @PreAuthorize("hasAuthority('ROLE_DRIVER')")
+    public DriverEarningsSummaryDto earningsSummary(
+            Authentication authentication,
+            @RequestParam(value = "dateOn", required = false) String dateOn,
+            @RequestParam(value = "from", required = false) String from,
+            @RequestParam(value = "to", required = false) String to
+    ) {
+        Long userId = Long.parseLong((String) authentication.getPrincipal());
+        LocalDate dateOnValue = parseDate(dateOn);
+        LocalDate fromValue = parseDate(from);
+        LocalDate toValue = parseDate(to);
+
+        if (dateOnValue != null && (fromValue != null || toValue != null)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Provide either dateOn or from/to parameters, not both.");
+        }
+
+        if (fromValue != null && toValue != null && fromValue.isAfter(toValue)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "\"from\" must be on or before \"to\".");
+        }
+
+        return driverService.getEarningsSummary(userId, dateOnValue, fromValue, toValue);
+    }
+
     @PostMapping("/deliver-order")
     @PreAuthorize("hasAuthority('ROLE_DRIVER')")
     public Boolean deliverOrder(Authentication authentication, @RequestBody DeliverOrderDto request) {
@@ -119,5 +152,17 @@ public class DriverController {
     public List<OrderDto> getHisotry(Authentication authentication) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         return this.driverService.getOrderHistory(userId);
+    }
+
+    private LocalDate parseDate(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(value, DATE_FORMATTER);
+        } catch (DateTimeParseException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Invalid date format. Expected dd/MM/yyyy.");
+        }
     }
 }
