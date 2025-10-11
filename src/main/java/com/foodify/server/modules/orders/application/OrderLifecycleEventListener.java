@@ -1,5 +1,6 @@
 package com.foodify.server.modules.orders.application;
 
+import com.foodify.server.modules.notifications.application.NotificationPreferenceService;
 import com.foodify.server.modules.notifications.application.PushNotificationService;
 import com.foodify.server.modules.notifications.application.UserDeviceService;
 import com.foodify.server.modules.notifications.domain.NotificationType;
@@ -35,6 +36,7 @@ public class OrderLifecycleEventListener {
     private final WebSocketService webSocketService;
     private final UserDeviceService userDeviceService;
     private final PushNotificationService pushNotificationService;
+    private final NotificationPreferenceService notificationPreferenceService;
 
     private static final Map<OrderStatus, NotificationTemplate> CLIENT_NOTIFICATION_TEMPLATES = buildClientTemplates();
 
@@ -76,6 +78,10 @@ public class OrderLifecycleEventListener {
 
         NotificationTemplate template = CLIENT_NOTIFICATION_TEMPLATES.get(event.getNewStatus());
         if (template == null) {
+            return;
+        }
+
+        if (!notificationPreferenceService.isEnabled(order.getClient().getId(), template.type())) {
             return;
         }
 
