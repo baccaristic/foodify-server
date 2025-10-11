@@ -7,6 +7,7 @@ import com.foodify.server.modules.delivery.dto.DriverShiftBalanceDto;
 import com.foodify.server.modules.delivery.dto.PickUpOrderRequest;
 import com.foodify.server.modules.delivery.dto.StatusUpdateRequest;
 import com.foodify.server.modules.delivery.dto.DriverEarningsSummaryDto;
+import com.foodify.server.modules.delivery.dto.DriverShiftIncomeResponseDto;
 import com.foodify.server.modules.delivery.location.DriverLocationService;
 import com.foodify.server.modules.notifications.websocket.WebSocketService;
 import com.foodify.server.modules.orders.dto.OrderDto;
@@ -138,6 +139,32 @@ public class DriverController {
         }
 
         return driverService.getEarningsSummary(userId, dateOnValue, fromValue, toValue);
+    }
+
+    @GetMapping("/earnings/shifts")
+    @PreAuthorize("hasAuthority('ROLE_DRIVER')")
+    public DriverShiftIncomeResponseDto earningsByShift(
+            Authentication authentication,
+            @RequestParam(value = "dateOn", required = false) String dateOn,
+            @RequestParam(value = "from", required = false) String from,
+            @RequestParam(value = "to", required = false) String to
+    ) {
+        Long userId = Long.parseLong((String) authentication.getPrincipal());
+        LocalDate dateOnValue = parseDate(dateOn);
+        LocalDate fromValue = parseDate(from);
+        LocalDate toValue = parseDate(to);
+
+        if (dateOnValue != null && (fromValue != null || toValue != null)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Provide either dateOn or from/to parameters, not both.");
+        }
+
+        if (fromValue != null && toValue != null && fromValue.isAfter(toValue)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "\"from\" must be on or before \"to\".");
+        }
+
+        return driverService.getShiftIncomeDetails(userId, dateOnValue, fromValue, toValue);
     }
 
     @PostMapping("/deliver-order")
