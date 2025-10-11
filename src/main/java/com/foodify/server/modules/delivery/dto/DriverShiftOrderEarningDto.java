@@ -17,4 +17,6 @@ public class DriverShiftOrderEarningDto {
     BigDecimal deliveryFee;
     String restaurantName;
     Integer orderItemsCount;
+    String orderAcceptedAt;
+    String orderDeliveredAt;
 }
