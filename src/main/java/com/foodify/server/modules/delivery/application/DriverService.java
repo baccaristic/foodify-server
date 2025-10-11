@@ -25,9 +25,11 @@ import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.identity.repository.DriverRepository;
 import com.foodify.server.modules.orders.application.OrderLifecycleService;
 import com.foodify.server.modules.orders.domain.Order;
+import com.foodify.server.modules.orders.domain.OrderItem;
 import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.orders.mapper.OrderMapper;
+import com.foodify.server.modules.orders.repository.OrderItemRepository;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.orders.support.OrderPricingCalculator;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
@@ -58,6 +60,7 @@ public class DriverService {
     private final DeliveryRepository deliveryRepository;
     private final DriverShiftRepository driverShiftRepository;
     private final DriverShiftBalanceRepository driverShiftBalanceRepository;
+    private final OrderItemRepository orderItemRepository;
     private final QrCodeService qrCodeService;
     private final GoogleMapsService googleMapsService;
     private final DriverLocationService driverLocationService;
@@ -429,9 +432,12 @@ public class DriverService {
             uniqueDeliveries.putIfAbsent(delivery.getId(), delivery);
         }
 
-        List<DriverShiftOrderEarningDto> orders = uniqueDeliveries.values().stream()
+        Collection<Delivery> deliveries = uniqueDeliveries.values();
+        Map<Long, OrderEarningAggregate> orderAggregates = loadOrderAggregates(deliveries);
+
+        List<DriverShiftOrderEarningDto> orders = deliveries.stream()
                 .sorted(Comparator.comparing(this::resolveDeliverySortTime, Comparator.nullsLast(Comparator.naturalOrder())))
-                .map(this::mapToOrderEarningDto)
+                .map(delivery -> mapToOrderEarningDto(delivery, orderAggregates.get(resolveOrderId(delivery))))
                 .collect(Collectors.toList());
 
         return DriverShiftEarningDetailsDto.builder()
@@ -444,10 +450,15 @@ public class DriverService {
                 .build();
     }
 
-    private DriverShiftOrderEarningDto mapToOrderEarningDto(Delivery delivery) {
+    private DriverShiftOrderEarningDto mapToOrderEarningDto(Delivery delivery, OrderEarningAggregate aggregate) {
         Order order = delivery.getOrder();
-        BigDecimal orderTotal = OrderPricingCalculator.calculateTotal(order);
+        BigDecimal orderTotal = Optional.ofNullable(aggregate)
+                .map(OrderEarningAggregate::orderTotal)
+                .orElse(ZERO_AMOUNT);
         Restaurant restaurant = order.getRestaurant();
+        Integer itemsCount = Optional.ofNullable(aggregate)
+                .map(OrderEarningAggregate::itemCount)
+                .orElse(0);
 
         return DriverShiftOrderEarningDto.builder()
                 .orderId(order.getId())
@@ -458,8 +469,57 @@ public class DriverService {
                 .driverEarningFromOrder(calculateDriverShareForOrder(orderTotal, restaurant))
                 .deliveryFee(resolveDeliveryFee(restaurant))
                 .restaurantName(Optional.ofNullable(restaurant).map(Restaurant::getName).orElse(null))
-                .orderItemsCount(order.getItems() != null ? order.getItems().size() : 0)
+                .orderItemsCount(itemsCount)
                 .build();
+    }
+
+    private Long resolveOrderId(Delivery delivery) {
+        return Optional.ofNullable(delivery)
+                .map(Delivery::getOrder)
+                .map(Order::getId)
+                .orElse(null);
+    }
+
+    private Map<Long, OrderEarningAggregate> loadOrderAggregates(Collection<Delivery> deliveries) {
+        if (deliveries == null || deliveries.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Set<Long> orderIds = deliveries.stream()
+                .map(this::resolveOrderId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        if (orderIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<OrderItem> orderItems = orderItemRepository.findByOrder_IdIn(orderIds);
+        Map<Long, List<OrderItem>> itemsByOrder = new HashMap<>();
+        for (OrderItem item : orderItems) {
+            Long orderId = Optional.ofNullable(item)
+                    .map(OrderItem::getOrder)
+                    .map(Order::getId)
+                    .orElse(null);
+            if (orderId == null) {
+                continue;
+            }
+            itemsByOrder.computeIfAbsent(orderId, ignored -> new ArrayList<>()).add(item);
+        }
+
+        Map<Long, OrderEarningAggregate> aggregates = new HashMap<>();
+        for (Map.Entry<Long, List<OrderItem>> entry : itemsByOrder.entrySet()) {
+            BigDecimal total = OrderPricingCalculator.calculateTotal(entry.getValue());
+            int itemCount = entry.getValue().stream()
+                    .map(OrderItem::getQuantity)
+                    .reduce(0, Integer::sum);
+            aggregates.put(entry.getKey(), new OrderEarningAggregate(total, itemCount));
+        }
+
+        return aggregates;
+    }
+
+    private record OrderEarningAggregate(BigDecimal orderTotal, int itemCount) {
     }
 
     private BigDecimal calculateDriverShareForOrder(BigDecimal orderTotal, Restaurant restaurant) {

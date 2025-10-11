@@ -73,7 +73,6 @@ public interface DriverShiftRepository extends JpaRepository<DriverShift, Long> 
             "deliveries",
             "deliveries.order",
             "deliveries.order.restaurant",
-            "deliveries.order.items",
             "deliveries.order.savedAddress"
     })
     @Query("""

@@ -6,36 +6,32 @@ import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Optional;
 
 public final class OrderPricingCalculator {
+    private static final BigDecimal ZERO_AMOUNT = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+
     private OrderPricingCalculator() {
     }
 
     public static BigDecimal calculateTotal(Order order) {
-        if (order == null || order.getItems() == null) {
-            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        if (order == null) {
+            return ZERO_AMOUNT;
+        }
+
+        return calculateTotal(order.getItems());
+    }
+
+    public static BigDecimal calculateTotal(Collection<OrderItem> orderItems) {
+        if (orderItems == null) {
+            return ZERO_AMOUNT;
         }
 
         BigDecimal total = BigDecimal.ZERO;
-        for (OrderItem item : order.getItems()) {
-            if (item == null) {
-                continue;
-            }
-
-            BigDecimal quantity = BigDecimal.valueOf(item.getQuantity());
-            BigDecimal unitPrice = resolveUnitPrice(item);
-            BigDecimal extrasPerUnit = Optional.ofNullable(item.getMenuItemExtras())
-                    .orElse(Collections.emptyList())
-                    .stream()
-                    .map(MenuItemExtra::getPrice)
-                    .map(BigDecimal::valueOf)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            BigDecimal lineSubtotal = unitPrice.multiply(quantity);
-            BigDecimal lineExtras = extrasPerUnit.multiply(quantity);
-            total = total.add(lineSubtotal).add(lineExtras);
+        for (OrderItem item : orderItems) {
+            total = total.add(calculateLineTotal(item));
         }
 
         return total.setScale(2, RoundingMode.HALF_UP);
@@ -52,6 +48,25 @@ public final class OrderPricingCalculator {
         }
 
         return BigDecimal.valueOf(orderItem.getMenuItem().getPrice());
+    }
+
+    private static BigDecimal calculateLineTotal(OrderItem item) {
+        if (item == null) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal quantity = BigDecimal.valueOf(item.getQuantity());
+        BigDecimal unitPrice = resolveUnitPrice(item);
+        BigDecimal extrasPerUnit = Optional.ofNullable(item.getMenuItemExtras())
+                .orElse(Collections.emptyList())
+                .stream()
+                .map(MenuItemExtra::getPrice)
+                .map(BigDecimal::valueOf)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal lineSubtotal = unitPrice.multiply(quantity);
+        BigDecimal lineExtras = extrasPerUnit.multiply(quantity);
+        return lineSubtotal.add(lineExtras);
     }
 
     public static BigDecimal calculateDriverShare(BigDecimal totalAmount, BigDecimal commissionRate) {
