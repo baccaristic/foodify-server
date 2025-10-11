@@ -9,11 +9,14 @@ import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.restaurants.application.DeliveryFeeCalculator;
 import com.foodify.server.modules.restaurants.application.RestaurantDetailsService;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
+import com.foodify.server.modules.restaurants.dto.PageResponse;
 import com.foodify.server.modules.restaurants.dto.RestaurantDetailsResponse;
 import com.foodify.server.modules.restaurants.dto.RestaurantDisplayDto;
 import com.foodify.server.modules.restaurants.mapper.RestaurantMapper;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -41,23 +44,34 @@ public class ClientController {
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
     @GetMapping("/nearby")
-    public ResponseEntity<List<RestaurantDisplayDto>> getNearbyRestaurants(
+    public ResponseEntity<PageResponse<RestaurantDisplayDto>> getNearbyRestaurants(
             @RequestParam double lat,
             @RequestParam double lng,
             @RequestParam(defaultValue = "1000") double radiusKm,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer pageSize,
             Authentication authentication
     ) {
         Long userId = extractUserId(authentication);
         ClientFavoriteIds favoriteIds = clientService.getFavoriteIds(userId);
         Set<Long> favoriteRestaurantIds = favoriteIds.restaurantIds();
-        List<Restaurant> nearby = restaurantRepository.findNearby(lat, lng, radiusKm);
-        List<RestaurantDisplayDto> restaurants = restaurantMapper.toDto(nearby);
+        int effectivePage = page != null && page > 0 ? page : 1;
+        int effectivePageSize = pageSize != null && pageSize > 0 ? pageSize : 20;
+        PageRequest pageRequest = PageRequest.of(effectivePage - 1, effectivePageSize);
+        Page<Restaurant> nearby = restaurantRepository.findNearby(lat, lng, radiusKm, pageRequest);
+        List<RestaurantDisplayDto> restaurants = restaurantMapper.toDto(nearby.getContent());
         restaurants.forEach(restaurant -> {
             restaurant.setFavorite(favoriteRestaurantIds.contains(restaurant.getId()));
             deliveryFeeCalculator.calculateFee(lat, lng, restaurant.getLatitude(), restaurant.getLongitude())
                     .ifPresent(restaurant::setDeliveryFee);
         });
-        return ResponseEntity.ok(restaurants);
+        PageResponse<RestaurantDisplayDto> response = new PageResponse<>(
+                restaurants,
+                effectivePage,
+                effectivePageSize,
+                nearby.getTotalElements()
+        );
+        return ResponseEntity.ok(response);
     }
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
