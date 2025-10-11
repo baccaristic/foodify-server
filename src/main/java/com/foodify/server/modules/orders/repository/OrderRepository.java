@@ -14,7 +14,7 @@ import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findAllByRestaurantOrderByDateDesc(Restaurant restaurant);
-    List<Order> findAllByClientOrderByDateDesc(Client client);
+    List<Order> findAllByClientAndDateGreaterThanEqualOrderByDateDesc(Client client, LocalDateTime date);
     List<Order> findAllByPendingDriverId(Long pendingDriverId);
     @EntityGraph(attributePaths = {
             "client",

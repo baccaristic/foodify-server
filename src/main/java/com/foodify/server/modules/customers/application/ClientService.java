@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityNotFoundException;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -32,6 +33,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ClientService {
+
+    private static final long ORDER_HISTORY_WINDOW_DAYS = 90;
 
     private final ClientRepository clientRepository;
     private final OrderRepository  orderRepository;
@@ -46,7 +49,9 @@ public class ClientService {
             return List.of();
         }
 
-        return this.orderRepository.findAllByClientOrderByDateDesc(client)
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(ORDER_HISTORY_WINDOW_DAYS);
+
+        return this.orderRepository.findAllByClientAndDateGreaterThanEqualOrderByDateDesc(client, cutoff)
                 .stream()
                 .map(OrderMapper::toDto)
                 .toList();

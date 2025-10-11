@@ -14,10 +14,11 @@ It is meant to serve as a checklist for future hardening work.
   in Redis to avoid the N+1 pattern.【F:src/main/java/com/foodify/server/modules/orders/application/CustomerOrderService.java†L118-L198】
 
 - **Client history endpoints return unbounded result sets.** `ClientService#getMyOrders` and the
-  corresponding repository method return the entire order history as a `List`. In the mobile app this
-  is triggered by `/api/client/my-orders`, meaning an avid customer could easily load hundreds of
-  records in a single request. Introduce pagination or a rolling window (for example "last 90 days")
-  to keep queries fast and payload sizes predictable.【F:src/main/java/com/foodify/server/modules/customers/application/ClientService.java†L43-L58】【F:src/main/java/com/foodify/server/modules/orders/repository/OrderRepository.java†L16-L18】
+  corresponding repository method returned the entire order history as a `List`. In the mobile app this
+  was triggered by `/api/client/my-orders`, meaning an avid customer could easily load hundreds of
+  records in a single request. Introducing pagination or a rolling window (for example "last 90 days")
+  keeps queries fast and payload sizes predictable. **Update:** the service now limits results to the
+  most recent 90 days.【F:src/main/java/com/foodify/server/modules/customers/application/ClientService.java†L43-L135】【F:src/main/java/com/foodify/server/modules/orders/repository/OrderRepository.java†L16-L63】
 
 - **Several repository helpers lack pagination limits.** `OrderRepository` exposes convenience
   methods such as `findAllByRestaurantOrderByDateDesc`, `findAllByPendingDriverId`, and
