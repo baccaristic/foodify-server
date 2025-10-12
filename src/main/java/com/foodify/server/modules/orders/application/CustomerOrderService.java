@@ -300,7 +300,14 @@ public class CustomerOrderService {
         );
 
         SavedAddressSummaryDto savedAddress = SavedAddressSummaryMapper.from(order.getSavedAddress());
-        CreateOrderResponse.DeliverySummary deliverySummary = new CreateOrderResponse.DeliverySummary(
+        OrderNotificationDTO.DeliverySummary deliverySummary = new OrderNotificationDTO.DeliverySummary(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 order.getDeliveryAddress(),
                 new LocationDto(order.getLat(), order.getLng()),
                 savedAddress
