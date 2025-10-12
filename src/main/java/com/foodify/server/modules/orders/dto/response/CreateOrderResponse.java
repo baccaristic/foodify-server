@@ -1,8 +1,7 @@
 package com.foodify.server.modules.orders.dto.response;
 
 import com.foodify.server.modules.orders.domain.OrderStatus;
-import com.foodify.server.modules.orders.dto.LocationDto;
-import com.foodify.server.modules.orders.dto.SavedAddressSummaryDto;
+import com.foodify.server.modules.orders.dto.OrderNotificationDTO;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -11,14 +10,12 @@ public record CreateOrderResponse(
         Long orderId,
         OrderStatus status,
         RestaurantSummary restaurant,
-        DeliverySummary delivery,
+        OrderNotificationDTO.DeliverySummary delivery,
         PaymentSummary payment,
         List<OrderedItem> items,
         List<com.foodify.server.modules.orders.dto.OrderWorkflowStepDto> workflow
 ) {
     public record RestaurantSummary(Long id, String name, String imageUrl) {}
-
-    public record DeliverySummary(String address, LocationDto location, SavedAddressSummaryDto savedAddress) {}
 
     public record PaymentSummary(String method, BigDecimal subtotal, BigDecimal extrasTotal, BigDecimal total) {}
 

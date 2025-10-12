@@ -8,6 +8,7 @@ import com.foodify.server.modules.orders.dto.ClientSummaryDTO;
 import com.foodify.server.modules.orders.dto.LocationDto;
 import com.foodify.server.modules.orders.dto.OrderItemDTO;
 import com.foodify.server.modules.orders.dto.OrderNotificationDTO;
+import com.foodify.server.modules.orders.dto.SavedAddressSummaryDto;
 import com.foodify.server.modules.orders.domain.OrderStatusHistory;
 import com.foodify.server.modules.orders.repository.OrderStatusHistoryRepository;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
@@ -117,6 +118,16 @@ public class OrderNotificationMapper {
             }
         }
 
+        Order order = delivery.getOrder();
+        String address = null;
+        LocationDto deliveryLocation = null;
+        SavedAddressSummaryDto savedAddress = null;
+        if (order != null) {
+            address = order.getDeliveryAddress();
+            deliveryLocation = resolveDeliveryLocation(order);
+            savedAddress = SavedAddressSummaryMapper.from(order.getSavedAddress());
+        }
+
         return new OrderNotificationDTO.DeliverySummary(
                 delivery.getId(),
                 driverSummary,
@@ -124,7 +135,10 @@ public class OrderNotificationMapper {
                 delivery.getDeliveryTime(),
                 delivery.getPickupTime(),
                 delivery.getDeliveredTime(),
-                driverLocation
+                driverLocation,
+                address,
+                deliveryLocation,
+                savedAddress
         );
     }
 
