@@ -9,11 +9,15 @@ import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.restaurants.application.DeliveryFeeCalculator;
 import com.foodify.server.modules.restaurants.application.RestaurantDetailsService;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
-import com.foodify.server.modules.restaurants.dto.PageResponse;
 import com.foodify.server.modules.restaurants.dto.RestaurantDetailsResponse;
 import com.foodify.server.modules.restaurants.dto.RestaurantDisplayDto;
+import com.foodify.server.modules.restaurants.dto.PageResponse;
+import com.foodify.server.modules.restaurants.dto.NearbyRestaurantsResponse;
+import com.foodify.server.modules.restaurants.dto.PaginatedRestaurantSection;
+import com.foodify.server.modules.restaurants.dto.RestaurantSection;
 import com.foodify.server.modules.restaurants.mapper.RestaurantMapper;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
+import com.foodify.server.modules.orders.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -25,6 +29,10 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.persistence.EntityNotFoundException;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -38,6 +46,7 @@ public class ClientController {
     private final RestaurantMapper restaurantMapper;
     private final RestaurantDetailsService restaurantDetailsService;
     private final DeliveryFeeCalculator deliveryFeeCalculator;
+    private final OrderRepository orderRepository;
 
     private Long extractUserId(Authentication authentication) {
         return Long.parseLong((String) authentication.getPrincipal());
@@ -45,7 +54,7 @@ public class ClientController {
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
     @GetMapping("/nearby")
-    public ResponseEntity<PageResponse<RestaurantDisplayDto>> getNearbyRestaurants(
+    public ResponseEntity<NearbyRestaurantsResponse> getNearbyRestaurants(
             @RequestParam double lat,
             @RequestParam double lng,
             @RequestParam(defaultValue = "1000") double radiusKm,
@@ -59,20 +68,125 @@ public class ClientController {
         int effectivePage = page != null && page >= 0 ? page : 0;
         int effectivePageSize = pageSize != null && pageSize > 0 ? pageSize : 20;
         PageRequest pageRequest = PageRequest.of(effectivePage, effectivePageSize);
-        Page<Restaurant> nearby = restaurantRepository.findNearby(lat, lng, radiusKm, pageRequest);
-        List<RestaurantDisplayDto> restaurants = restaurantMapper.toDto(nearby.getContent());
-        restaurants.forEach(restaurant -> {
-            restaurant.setFavorite(favoriteRestaurantIds.contains(restaurant.getId()));
-            deliveryFeeCalculator.calculateFee(lat, lng, restaurant.getLatitude(), restaurant.getLongitude())
-                    .ifPresent(restaurant::setDeliveryFee);
+        List<Restaurant> topPicksEntities = restaurantRepository
+                .findTopChoiceNearby(lat, lng, radiusKm, PageRequest.of(0, 5))
+                .getContent();
+        List<Restaurant> promotionEntities = restaurantRepository
+                .findNearbyWithPromotions(lat, lng, radiusKm, PageRequest.of(0, 5))
+                .getContent();
+
+        Set<Long> excludedFromOthers = new HashSet<>();
+        List<RestaurantDisplayDto> topPicks = mapAndEnrich(topPicksEntities, favoriteRestaurantIds, lat, lng);
+        topPicks.forEach(restaurant -> {
+            if (restaurant.getId() != null) {
+                excludedFromOthers.add(restaurant.getId());
+            }
         });
-        PageResponse<RestaurantDisplayDto> response = new PageResponse<>(
-                restaurants,
-                nearby.getNumber(),
-                nearby.getSize(),
-                nearby.getTotalElements()
+
+        List<RestaurantDisplayDto> promotions = mapAndEnrich(promotionEntities, favoriteRestaurantIds, lat, lng);
+        promotions.forEach(restaurant -> {
+            if (restaurant.getId() != null) {
+                excludedFromOthers.add(restaurant.getId());
+            }
+        });
+
+        List<RestaurantDisplayDto> orderAgain = getOrderAgainRestaurants(userId, lat, lng, radiusKm, favoriteRestaurantIds);
+        orderAgain.forEach(restaurant -> {
+            if (restaurant.getId() != null) {
+                excludedFromOthers.add(restaurant.getId());
+            }
+        });
+
+        Page<Restaurant> othersPage = excludedFromOthers.isEmpty()
+                ? restaurantRepository.findNearby(lat, lng, radiusKm, pageRequest)
+                : restaurantRepository.findNearbyExcluding(lat, lng, radiusKm, excludedFromOthers, pageRequest);
+
+        List<RestaurantDisplayDto> others = mapAndEnrich(othersPage.getContent(), favoriteRestaurantIds, lat, lng);
+
+        NearbyRestaurantsResponse response = new NearbyRestaurantsResponse(
+                new RestaurantSection("carousel", topPicks),
+                new RestaurantSection("carousel", orderAgain),
+                new RestaurantSection("flatList", promotions),
+                new PaginatedRestaurantSection(
+                        "flatList",
+                        others,
+                        othersPage.getNumber(),
+                        othersPage.getSize(),
+                        othersPage.getTotalElements()
+                )
         );
+
         return ResponseEntity.ok(response);
+    }
+
+    private List<RestaurantDisplayDto> mapAndEnrich(List<Restaurant> restaurants,
+                                                    Set<Long> favoriteRestaurantIds,
+                                                    double clientLat,
+                                                    double clientLng) {
+        if (restaurants.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<RestaurantDisplayDto> dtos = restaurantMapper.toDto(restaurants);
+        for (int i = 0; i < restaurants.size(); i++) {
+            Restaurant entity = restaurants.get(i);
+            RestaurantDisplayDto dto = dtos.get(i);
+            if (entity.getId() != null && favoriteRestaurantIds.contains(entity.getId())) {
+                dto.setFavorite(true);
+            }
+            deliveryFeeCalculator.calculateFee(clientLat, clientLng, entity.getLatitude(), entity.getLongitude())
+                    .ifPresent(dto::setDeliveryFee);
+        }
+        return dtos;
+    }
+
+    private List<RestaurantDisplayDto> getOrderAgainRestaurants(Long userId,
+                                                                double lat,
+                                                                double lng,
+                                                                double radiusKm,
+                                                                Set<Long> favoriteRestaurantIds) {
+        return clientRepository.findById(userId)
+                .map(client -> {
+                    Page<Order> recentOrders = orderRepository.findAllByClient(
+                            client,
+                            PageRequest.of(0, 20, Sort.by("date").descending())
+                    );
+
+                    List<Restaurant> restaurants = new ArrayList<>();
+                    Set<Long> seen = new LinkedHashSet<>();
+
+                    for (Order order : recentOrders) {
+                        Restaurant restaurant = order.getRestaurant();
+                        if (restaurant == null) {
+                            continue;
+                        }
+                        Long restaurantId = restaurant.getId();
+                        if (restaurantId == null || !isWithinRadius(restaurant, lat, lng, radiusKm) || !seen.add(restaurantId)) {
+                            continue;
+                        }
+                        restaurants.add(restaurant);
+                        if (restaurants.size() == 5) {
+                            break;
+                        }
+                    }
+
+                    return mapAndEnrich(restaurants, favoriteRestaurantIds, lat, lng);
+                })
+                .orElseGet(Collections::emptyList);
+    }
+
+    private boolean isWithinRadius(Restaurant restaurant, double clientLat, double clientLng, double radiusKm) {
+        double distance = haversine(clientLat, clientLng, restaurant.getLatitude(), restaurant.getLongitude());
+        return distance <= radiusKm;
+    }
+
+    private double haversine(double lat1, double lon1, double lat2, double lon2) {
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return 6371.0 * c;
     }
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")

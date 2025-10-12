@@ -33,5 +33,42 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long>, J
             Pageable pageable
     );
 
+    @Query(
+            value = "SELECT r.* FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.top_choice = TRUE ORDER BY " + DISTANCE_FORMULA,
+            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.top_choice = TRUE",
+            nativeQuery = true
+    )
+    Page<Restaurant> findTopChoiceNearby(
+            @Param("lat") double lat,
+            @Param("lng") double lng,
+            @Param("radius") double radiusInKm,
+            Pageable pageable
+    );
+
+    @Query(
+            value = "SELECT r.* FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.free_delivery = TRUE ORDER BY " + DISTANCE_FORMULA,
+            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.free_delivery = TRUE",
+            nativeQuery = true
+    )
+    Page<Restaurant> findNearbyWithPromotions(
+            @Param("lat") double lat,
+            @Param("lng") double lng,
+            @Param("radius") double radiusInKm,
+            Pageable pageable
+    );
+
+    @Query(
+            value = "SELECT r.* FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.id NOT IN (:excludedIds) ORDER BY " + DISTANCE_FORMULA,
+            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.id NOT IN (:excludedIds)",
+            nativeQuery = true
+    )
+    Page<Restaurant> findNearbyExcluding(
+            @Param("lat") double lat,
+            @Param("lng") double lng,
+            @Param("radius") double radiusInKm,
+            @Param("excludedIds") Iterable<Long> excludedIds,
+            Pageable pageable
+    );
+
     Restaurant getRestaurantByAdmin(RestaurantAdmin admin);
 }
