@@ -24,6 +24,8 @@ public interface RestaurantMapper {
     @Mapping(target = "longitude", source = "longitude")
     @Mapping(target = "imageUrl", source = "imageUrl")
     @Mapping(target = "favorite", constant = "false")
+    @Mapping(target = "hasPromotion", constant = "false")
+    @Mapping(target = "promotionSummary", ignore = true)
     RestaurantDisplayDto toDto(Restaurant entity);
     List<RestaurantDisplayDto> toDto(List<Restaurant> entities);
 }

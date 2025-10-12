@@ -8,6 +8,7 @@ import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.restaurants.application.DeliveryFeeCalculator;
 import com.foodify.server.modules.restaurants.application.RestaurantDetailsService;
+import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
 import com.foodify.server.modules.restaurants.dto.RestaurantDetailsResponse;
 import com.foodify.server.modules.restaurants.dto.RestaurantDisplayDto;
@@ -16,6 +17,7 @@ import com.foodify.server.modules.restaurants.dto.NearbyRestaurantsResponse;
 import com.foodify.server.modules.restaurants.dto.PaginatedRestaurantSection;
 import com.foodify.server.modules.restaurants.dto.RestaurantSection;
 import com.foodify.server.modules.restaurants.mapper.RestaurantMapper;
+import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,12 +31,18 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.persistence.EntityNotFoundException;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/client")
@@ -47,6 +55,7 @@ public class ClientController {
     private final RestaurantDetailsService restaurantDetailsService;
     private final DeliveryFeeCalculator deliveryFeeCalculator;
     private final OrderRepository orderRepository;
+    private final MenuItemRepository menuItemRepository;
 
     private Long extractUserId(Authentication authentication) {
         return Long.parseLong((String) authentication.getPrincipal());
@@ -127,6 +136,7 @@ public class ClientController {
             return Collections.emptyList();
         }
         List<RestaurantDisplayDto> dtos = restaurantMapper.toDto(restaurants);
+        Map<Long, List<MenuItem>> promotionsByRestaurant = groupPromotions(restaurants);
         for (int i = 0; i < restaurants.size(); i++) {
             Restaurant entity = restaurants.get(i);
             RestaurantDisplayDto dto = dtos.get(i);
@@ -135,8 +145,81 @@ public class ClientController {
             }
             deliveryFeeCalculator.calculateFee(clientLat, clientLng, entity.getLatitude(), entity.getLongitude())
                     .ifPresent(dto::setDeliveryFee);
+            applyPromotionInfo(dto, entity, promotionsByRestaurant);
         }
         return dtos;
+    }
+
+    private Map<Long, List<MenuItem>> groupPromotions(List<Restaurant> restaurants) {
+        if (restaurants == null || restaurants.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> ids = restaurants.stream()
+                .map(Restaurant::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        return menuItemRepository.findByRestaurant_IdInAndPromotionActiveTrue(ids).stream()
+                .filter(item -> item.getRestaurant() != null && item.getRestaurant().getId() != null)
+                .collect(Collectors.groupingBy(item -> item.getRestaurant().getId()));
+    }
+
+    private void applyPromotionInfo(RestaurantDisplayDto dto,
+                                    Restaurant entity,
+                                    Map<Long, List<MenuItem>> promotionsByRestaurant) {
+        Long restaurantId = entity.getId();
+        if (restaurantId == null) {
+            dto.setHasPromotion(false);
+            dto.setPromotionSummary(null);
+            return;
+        }
+        List<MenuItem> promotedItems = promotionsByRestaurant.getOrDefault(restaurantId, List.of());
+        List<Double> discounts = promotedItems.stream()
+                .map(this::calculateDiscountPercentage)
+                .flatMap(Optional::stream)
+                .toList();
+        if (discounts.isEmpty()) {
+            dto.setHasPromotion(false);
+            dto.setPromotionSummary(null);
+            return;
+        }
+        dto.setHasPromotion(true);
+        dto.setPromotionSummary(buildPromotionSummary(discounts));
+    }
+
+    private Optional<Double> calculateDiscountPercentage(MenuItem menuItem) {
+        if (!Boolean.TRUE.equals(menuItem.getPromotionActive())) {
+            return Optional.empty();
+        }
+        double price = menuItem.getPrice();
+        Double promotionPrice = menuItem.getPromotionPrice();
+        if (promotionPrice == null || promotionPrice <= 0 || price <= 0 || promotionPrice >= price) {
+            return Optional.empty();
+        }
+        double discount = (price - promotionPrice) / price * 100.0;
+        if (discount <= 0) {
+            return Optional.empty();
+        }
+        return Optional.of(discount);
+    }
+
+    private String buildPromotionSummary(List<Double> discounts) {
+        if (discounts.size() == 1) {
+            return formatPercent(discounts.get(0));
+        }
+        double min = discounts.stream().mapToDouble(Double::doubleValue).min().orElse(0);
+        double max = discounts.stream().mapToDouble(Double::doubleValue).max().orElse(0);
+        if (Double.compare(min, max) == 0) {
+            return formatPercent(max);
+        }
+        return "from %s to %s".formatted(formatPercent(min), formatPercent(max));
+    }
+
+    private String formatPercent(double discount) {
+        BigDecimal value = BigDecimal.valueOf(discount).setScale(0, RoundingMode.HALF_UP);
+        return "-%s%%".formatted(value.stripTrailingZeros().toPlainString());
     }
 
     private List<RestaurantDisplayDto> getOrderAgainRestaurants(Long userId,
