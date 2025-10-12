@@ -21,4 +21,6 @@ public class RestaurantDisplayDto {
     private double longitude;
     private boolean favorite;
     private Double deliveryFee;
+    private boolean hasPromotion;
+    private String promotionSummary;
 }
