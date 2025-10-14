@@ -18,6 +18,7 @@ import com.foodify.server.modules.orders.mapper.OrderNotificationMapper;
 import com.foodify.server.modules.orders.mapper.SavedAddressSummaryMapper;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.orders.support.OrderPricingCalculator;
+import com.foodify.server.modules.orders.support.OrderPricingCalculator.OrderItemPricing;
 import com.foodify.server.modules.orders.support.OrderPricingCalculator.OrderPricingBreakdown;
 import com.foodify.server.modules.restaurants.application.DeliveryFeeCalculator;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
@@ -224,6 +225,17 @@ public class CustomerOrderService {
             }
 
             orderItem.setMenuItemExtras(new ArrayList<>(extras));
+
+            OrderItemPricing itemPricing = OrderPricingCalculator.calculateItemPricing(orderItem);
+            orderItem.setUnitBasePrice(itemPricing.unitBasePrice());
+            orderItem.setUnitPrice(itemPricing.unitPrice());
+            orderItem.setUnitExtrasPrice(itemPricing.unitExtrasPrice());
+            orderItem.setLineSubtotal(itemPricing.lineSubtotal());
+            orderItem.setPromotionDiscount(itemPricing.promotionDiscount());
+            orderItem.setLineItemsTotal(itemPricing.lineItemsTotal());
+            orderItem.setExtrasTotal(itemPricing.extrasTotal());
+            orderItem.setLineTotal(itemPricing.lineTotal());
+
             orderItems.add(orderItem);
         }
 
@@ -287,16 +299,7 @@ public class CustomerOrderService {
         List<CreateOrderResponse.OrderedItem> orderedItems = new ArrayList<>();
 
         for (OrderItem item : Optional.ofNullable(order.getItems()).orElse(Collections.emptyList())) {
-            BigDecimal unitPrice = resolveUnitPrice(item);
-            BigDecimal extrasPerUnit = Optional.ofNullable(item.getMenuItemExtras()).orElse(Collections.emptyList())
-                    .stream()
-                    .map(extra -> BigDecimal.valueOf(extra.getPrice()))
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            BigDecimal quantity = BigDecimal.valueOf(item.getQuantity());
-            BigDecimal lineSubtotal = unitPrice.multiply(quantity);
-            BigDecimal lineExtras = extrasPerUnit.multiply(quantity);
-            BigDecimal lineTotal = lineSubtotal.add(lineExtras);
+            OrderItemPricing pricing = resolveItemPricing(item);
 
             List<CreateOrderResponse.Extra> extras = Optional.ofNullable(item.getMenuItemExtras()).orElse(Collections.emptyList())
                     .stream()
@@ -311,9 +314,14 @@ public class CustomerOrderService {
                     item.getMenuItem().getId(),
                     item.getMenuItem().getName(),
                     item.getQuantity(),
-                    unitPrice,
-                    extrasPerUnit,
-                    lineTotal,
+                    pricing.unitBasePrice(),
+                    pricing.unitPrice(),
+                    pricing.unitExtrasPrice(),
+                    pricing.lineSubtotal(),
+                    pricing.promotionDiscount(),
+                    pricing.lineItemsTotal(),
+                    pricing.extrasTotal(),
+                    pricing.lineTotal(),
                     extras,
                     item.getSpecialInstructions()
             ));
@@ -383,17 +391,44 @@ public class CustomerOrderService {
         );
     }
 
-    private BigDecimal resolveUnitPrice(OrderItem orderItem) {
-        if (orderItem == null || orderItem.getMenuItem() == null) {
-            return BigDecimal.ZERO;
+    private OrderItemPricing resolveItemPricing(OrderItem item) {
+        if (item == null) {
+            return OrderItemPricing.empty();
         }
 
-        if (Boolean.TRUE.equals(orderItem.getMenuItem().getPromotionActive())
-                && orderItem.getMenuItem().getPromotionPrice() != null) {
-            return BigDecimal.valueOf(orderItem.getMenuItem().getPromotionPrice());
+        BigDecimal unitBasePrice = Optional.ofNullable(item.getUnitBasePrice())
+                .orElse(null);
+        BigDecimal unitPrice = Optional.ofNullable(item.getUnitPrice())
+                .orElse(null);
+        BigDecimal unitExtrasPrice = Optional.ofNullable(item.getUnitExtrasPrice())
+                .orElse(null);
+        BigDecimal lineSubtotal = Optional.ofNullable(item.getLineSubtotal())
+                .orElse(null);
+        BigDecimal lineItemsTotal = Optional.ofNullable(item.getLineItemsTotal())
+                .orElse(null);
+        BigDecimal extrasTotal = Optional.ofNullable(item.getExtrasTotal())
+                .orElse(null);
+        BigDecimal promotionDiscount = Optional.ofNullable(item.getPromotionDiscount())
+                .orElse(null);
+        BigDecimal lineTotal = Optional.ofNullable(item.getLineTotal())
+                .orElse(null);
+
+        if (unitBasePrice != null && unitPrice != null && unitExtrasPrice != null
+                && lineSubtotal != null && lineItemsTotal != null && extrasTotal != null
+                && promotionDiscount != null && lineTotal != null) {
+            return new OrderItemPricing(
+                    unitBasePrice.setScale(2, RoundingMode.HALF_UP),
+                    unitPrice.setScale(2, RoundingMode.HALF_UP),
+                    unitExtrasPrice.setScale(2, RoundingMode.HALF_UP),
+                    lineSubtotal.setScale(2, RoundingMode.HALF_UP),
+                    lineItemsTotal.setScale(2, RoundingMode.HALF_UP),
+                    extrasTotal.setScale(2, RoundingMode.HALF_UP),
+                    promotionDiscount.setScale(2, RoundingMode.HALF_UP),
+                    lineTotal.setScale(2, RoundingMode.HALF_UP)
+            );
         }
 
-        return BigDecimal.valueOf(orderItem.getMenuItem().getPrice());
+        return OrderPricingCalculator.calculateItemPricing(item);
     }
 
     private SavedAddress resolveSavedAddress(Long clientId, UUID savedAddressId) {

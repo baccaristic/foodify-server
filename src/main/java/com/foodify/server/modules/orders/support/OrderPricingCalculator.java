@@ -40,14 +40,10 @@ public final class OrderPricingCalculator {
         BigDecimal extrasTotal = BigDecimal.ZERO;
 
         for (OrderItem item : orderItems) {
-            BigDecimal quantity = BigDecimal.valueOf(item.getQuantity());
-            BigDecimal basePrice = resolveBasePrice(item);
-            BigDecimal promotionalPrice = resolvePromotionalPrice(item, basePrice);
-            BigDecimal extrasPerUnit = resolveExtrasPerUnit(item);
-
-            subtotal = subtotal.add(basePrice.multiply(quantity));
-            promotionalSubtotal = promotionalSubtotal.add(promotionalPrice.multiply(quantity));
-            extrasTotal = extrasTotal.add(extrasPerUnit.multiply(quantity));
+            OrderItemPricing itemPricing = calculateItemPricing(item);
+            subtotal = subtotal.add(itemPricing.lineSubtotal());
+            promotionalSubtotal = promotionalSubtotal.add(itemPricing.lineItemsTotal());
+            extrasTotal = extrasTotal.add(itemPricing.extrasTotal());
         }
 
         BigDecimal promotionDiscount = subtotal.subtract(promotionalSubtotal);
@@ -62,6 +58,39 @@ public final class OrderPricingCalculator {
                 extrasTotal.setScale(2, RoundingMode.HALF_UP),
                 promotionDiscount.setScale(2, RoundingMode.HALF_UP),
                 itemsTotal.setScale(2, RoundingMode.HALF_UP)
+        );
+    }
+
+    public static OrderItemPricing calculateItemPricing(OrderItem orderItem) {
+        if (orderItem == null) {
+            return OrderItemPricing.empty();
+        }
+
+        BigDecimal quantity = BigDecimal.valueOf(orderItem.getQuantity());
+        BigDecimal basePrice = resolveBasePrice(orderItem);
+        BigDecimal promotionalPrice = resolvePromotionalPrice(orderItem, basePrice);
+        BigDecimal extrasPerUnit = resolveExtrasPerUnit(orderItem);
+
+        BigDecimal lineSubtotal = basePrice.multiply(quantity);
+        BigDecimal promotionalSubtotal = promotionalPrice.multiply(quantity);
+        BigDecimal extrasTotal = extrasPerUnit.multiply(quantity);
+
+        BigDecimal promotionDiscount = lineSubtotal.subtract(promotionalSubtotal);
+        if (promotionDiscount.compareTo(BigDecimal.ZERO) < 0) {
+            promotionDiscount = BigDecimal.ZERO;
+        }
+
+        BigDecimal lineTotal = promotionalSubtotal.add(extrasTotal);
+
+        return new OrderItemPricing(
+                basePrice.setScale(2, RoundingMode.HALF_UP),
+                promotionalPrice.setScale(2, RoundingMode.HALF_UP),
+                extrasPerUnit.setScale(2, RoundingMode.HALF_UP),
+                lineSubtotal.setScale(2, RoundingMode.HALF_UP),
+                promotionalSubtotal.setScale(2, RoundingMode.HALF_UP),
+                extrasTotal.setScale(2, RoundingMode.HALF_UP),
+                promotionDiscount.setScale(2, RoundingMode.HALF_UP),
+                lineTotal.setScale(2, RoundingMode.HALF_UP)
         );
     }
 
@@ -126,6 +155,22 @@ public final class OrderPricingCalculator {
 
         public BigDecimal subtotalBeforeDiscount() {
             return itemsSubtotal.add(extrasTotal).setScale(2, RoundingMode.HALF_UP);
+        }
+    }
+
+    public record OrderItemPricing(
+            BigDecimal unitBasePrice,
+            BigDecimal unitPrice,
+            BigDecimal unitExtrasPrice,
+            BigDecimal lineSubtotal,
+            BigDecimal lineItemsTotal,
+            BigDecimal extrasTotal,
+            BigDecimal promotionDiscount,
+            BigDecimal lineTotal
+    ) {
+        public static OrderItemPricing empty() {
+            BigDecimal zero = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+            return new OrderItemPricing(zero, zero, zero, zero, zero, zero, zero, zero);
         }
     }
 }
