@@ -1,12 +1,21 @@
 package com.foodify.server.modules.orders.mapper;
 
 import com.foodify.server.modules.delivery.domain.Delivery;
+import com.foodify.server.modules.orders.domain.OrderItem;
 import com.foodify.server.modules.orders.dto.LocationDto;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.orders.dto.OrderItemDTO;
 import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.support.OrderPricingCalculator;
+import com.foodify.server.modules.orders.support.OrderPricingCalculator.OrderItemPricing;
+import com.foodify.server.modules.orders.support.OrderPricingCalculator.OrderPricingBreakdown;
+import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.List;
+import java.util.Optional;
 
 public class OrderMapper {
 
@@ -45,15 +54,8 @@ public class OrderMapper {
         // Order Items
         if (order.getItems() != null) {
             dto.setItems(order.getItems().stream()
-                    .map(item -> new OrderItemDTO(
-                            item.getMenuItem().getId(),
-                            item.getMenuItem().getName(),
-                            item.getQuantity(),
-                            item.getMenuItemExtras().stream().map(extra -> extra.getName()).toList(),
-                            item.getSpecialInstructions()
-                    ))
-                    .toList()
-            );
+                    .map(OrderMapper::toOrderItemDto)
+                    .toList());
         }
 
         // Delivery / Driver
@@ -84,12 +86,89 @@ public class OrderMapper {
         // Other fields
         dto.setStatus(order.getStatus());
         dto.setCreatedAt(order.getOrderTime());
-        dto.setTotal(calculateTotal(order)); // Implement based on items/payment
+
+        OrderPricingBreakdown pricing = OrderPricingCalculator.calculatePricing(order);
+
+        BigDecimal itemsSubtotal = Optional.ofNullable(order.getItemsSubtotal()).orElse(pricing.itemsSubtotal());
+        BigDecimal extrasTotal = Optional.ofNullable(order.getExtrasTotal()).orElse(pricing.extrasTotal());
+        BigDecimal promotionDiscount = Optional.ofNullable(order.getPromotionDiscount()).orElse(pricing.promotionDiscount());
+        BigDecimal itemsTotal = Optional.ofNullable(order.getItemsTotal()).orElse(pricing.itemsTotal());
+        BigDecimal deliveryFee = Optional.ofNullable(order.getDeliveryFee())
+                .map(amount -> amount.setScale(2, RoundingMode.HALF_UP))
+                .orElse(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+        BigDecimal total = Optional.ofNullable(order.getTotal())
+                .map(amount -> amount.setScale(2, RoundingMode.HALF_UP))
+                .orElse(itemsTotal.add(deliveryFee).setScale(2, RoundingMode.HALF_UP));
+
+        dto.setItemsSubtotal(itemsSubtotal);
+        dto.setExtrasTotal(extrasTotal);
+        dto.setPromotionDiscount(promotionDiscount);
+        dto.setItemsTotal(itemsTotal);
+        dto.setDeliveryFee(deliveryFee);
+        dto.setTotal(total);
 
         return dto;
     }
 
-    private static Long calculateTotal(Order order) {
-        return OrderPricingCalculator.calculateTotal(order).longValue();
+    private static OrderItemDTO toOrderItemDto(OrderItem item) {
+        if (item == null || item.getMenuItem() == null) {
+            return null;
+        }
+
+        OrderItemPricing pricing = resolveItemPricing(item);
+
+        var extras = Optional.ofNullable(item.getMenuItemExtras())
+                .orElseGet(List::of)
+                .stream()
+                .map(MenuItemExtra::getName)
+                .toList();
+
+        return new OrderItemDTO(
+                item.getMenuItem().getId(),
+                item.getMenuItem().getName(),
+                item.getQuantity(),
+                extras,
+                item.getSpecialInstructions(),
+                pricing.unitBasePrice(),
+                pricing.unitPrice(),
+                pricing.unitExtrasPrice(),
+                pricing.lineSubtotal(),
+                pricing.promotionDiscount(),
+                pricing.lineItemsTotal(),
+                pricing.extrasTotal(),
+                pricing.lineTotal()
+        );
+    }
+
+    private static OrderItemPricing resolveItemPricing(OrderItem item) {
+        if (item == null) {
+            return OrderItemPricing.empty();
+        }
+
+        BigDecimal unitBasePrice = item.getUnitBasePrice();
+        BigDecimal unitPrice = item.getUnitPrice();
+        BigDecimal unitExtrasPrice = item.getUnitExtrasPrice();
+        BigDecimal lineSubtotal = item.getLineSubtotal();
+        BigDecimal lineItemsTotal = item.getLineItemsTotal();
+        BigDecimal extrasTotal = item.getExtrasTotal();
+        BigDecimal promotionDiscount = item.getPromotionDiscount();
+        BigDecimal lineTotal = item.getLineTotal();
+
+        if (unitBasePrice != null && unitPrice != null && unitExtrasPrice != null
+                && lineSubtotal != null && lineItemsTotal != null && extrasTotal != null
+                && promotionDiscount != null && lineTotal != null) {
+            return new OrderItemPricing(
+                    unitBasePrice.setScale(2, RoundingMode.HALF_UP),
+                    unitPrice.setScale(2, RoundingMode.HALF_UP),
+                    unitExtrasPrice.setScale(2, RoundingMode.HALF_UP),
+                    lineSubtotal.setScale(2, RoundingMode.HALF_UP),
+                    lineItemsTotal.setScale(2, RoundingMode.HALF_UP),
+                    extrasTotal.setScale(2, RoundingMode.HALF_UP),
+                    promotionDiscount.setScale(2, RoundingMode.HALF_UP),
+                    lineTotal.setScale(2, RoundingMode.HALF_UP)
+            );
+        }
+
+        return OrderPricingCalculator.calculateItemPricing(item);
     }
 }

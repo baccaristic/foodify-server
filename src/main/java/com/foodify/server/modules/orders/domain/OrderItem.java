@@ -9,6 +9,7 @@ import org.hibernate.annotations.OnDeleteAction;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Entity
@@ -39,4 +40,28 @@ public class OrderItem {
     @JoinColumn(name = "order_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Order order;
+
+    @Column(name = "unit_base_price", precision = 12, scale = 2)
+    private BigDecimal unitBasePrice;
+
+    @Column(name = "unit_price", precision = 12, scale = 2)
+    private BigDecimal unitPrice;
+
+    @Column(name = "unit_extras_price", precision = 12, scale = 2)
+    private BigDecimal unitExtrasPrice;
+
+    @Column(name = "line_subtotal", precision = 12, scale = 2)
+    private BigDecimal lineSubtotal;
+
+    @Column(name = "promotion_discount", precision = 12, scale = 2)
+    private BigDecimal promotionDiscount;
+
+    @Column(name = "line_items_total", precision = 12, scale = 2)
+    private BigDecimal lineItemsTotal;
+
+    @Column(name = "extras_total", precision = 12, scale = 2)
+    private BigDecimal extrasTotal;
+
+    @Column(name = "line_total", precision = 12, scale = 2)
+    private BigDecimal lineTotal;
 }

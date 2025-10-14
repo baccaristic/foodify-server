@@ -10,6 +10,8 @@ import com.foodify.server.modules.restaurants.domain.Restaurant;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -69,4 +71,22 @@ public class Order  {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
     private List<OrderStatusHistory> statusHistory = new ArrayList<>();
+
+    @Column(name = "items_subtotal", precision = 12, scale = 2)
+    private BigDecimal itemsSubtotal;
+
+    @Column(name = "extras_total", precision = 12, scale = 2)
+    private BigDecimal extrasTotal;
+
+    @Column(name = "promotion_discount", precision = 12, scale = 2)
+    private BigDecimal promotionDiscount;
+
+    @Column(name = "items_total", precision = 12, scale = 2)
+    private BigDecimal itemsTotal;
+
+    @Column(name = "delivery_fee", precision = 12, scale = 2)
+    private BigDecimal deliveryFee;
+
+    @Column(name = "order_total", precision = 12, scale = 2)
+    private BigDecimal total;
 }

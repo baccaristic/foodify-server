@@ -1,6 +1,6 @@
 package com.foodify.server.modules.orders.dto;
 
-
+import java.math.BigDecimal;
 import java.util.List;
 
 public record OrderItemDTO(
@@ -8,5 +8,13 @@ public record OrderItemDTO(
         String menuItemName,
         int quantity,
         List<String> extras,
-        String specialInstructions
+        String specialInstructions,
+        BigDecimal unitBasePrice,
+        BigDecimal unitPrice,
+        BigDecimal unitExtrasPrice,
+        BigDecimal lineSubtotal,
+        BigDecimal promotionDiscount,
+        BigDecimal lineItemsTotal,
+        BigDecimal extrasTotal,
+        BigDecimal lineTotal
 ) {}

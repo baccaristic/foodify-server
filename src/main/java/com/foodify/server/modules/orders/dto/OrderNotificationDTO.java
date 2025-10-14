@@ -3,6 +3,7 @@ package com.foodify.server.modules.orders.dto;
 import com.foodify.server.modules.orders.domain.OrderLifecycleAction;
 import com.foodify.server.modules.orders.domain.OrderStatus;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -18,6 +19,7 @@ public record OrderNotificationDTO(
         LocationDto deliveryLocation,
         RestaurantSummary restaurant,
         DeliverySummary delivery,
+        PaymentSummary payment,
         List<OrderStatusHistoryDTO> statusHistory
 ) {
 
@@ -47,6 +49,16 @@ public record OrderNotificationDTO(
             Long id,
             String name,
             String phone
+    ) {}
+
+    public record PaymentSummary(
+            BigDecimal subtotal,
+            BigDecimal extrasTotal,
+            BigDecimal total,
+            BigDecimal itemsSubtotal,
+            BigDecimal promotionDiscount,
+            BigDecimal itemsTotal,
+            BigDecimal deliveryFee
     ) {}
 
     public record OrderStatusHistoryDTO(
