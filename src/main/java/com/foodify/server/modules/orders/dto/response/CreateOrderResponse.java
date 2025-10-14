@@ -17,7 +17,16 @@ public record CreateOrderResponse(
 ) {
     public record RestaurantSummary(Long id, String name, String imageUrl) {}
 
-    public record PaymentSummary(String method, BigDecimal subtotal, BigDecimal extrasTotal, BigDecimal total) {}
+    public record PaymentSummary(
+            String method,
+            BigDecimal subtotal,
+            BigDecimal extrasTotal,
+            BigDecimal total,
+            BigDecimal itemsSubtotal,
+            BigDecimal promotionDiscount,
+            BigDecimal itemsTotal,
+            BigDecimal deliveryFee
+    ) {}
 
     public record OrderedItem(
             Long menuItemId,

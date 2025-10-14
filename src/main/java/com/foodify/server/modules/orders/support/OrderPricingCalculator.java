@@ -11,33 +11,68 @@ import java.util.Collections;
 import java.util.Optional;
 
 public final class OrderPricingCalculator {
-    private static final BigDecimal ZERO_AMOUNT = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 
     private OrderPricingCalculator() {
     }
 
     public static BigDecimal calculateTotal(Order order) {
-        if (order == null) {
-            return ZERO_AMOUNT;
-        }
-
-        return calculateTotal(order.getItems());
+        return calculatePricing(order).itemsTotal();
     }
 
     public static BigDecimal calculateTotal(Collection<OrderItem> orderItems) {
-        if (orderItems == null) {
-            return ZERO_AMOUNT;
-        }
-
-        BigDecimal total = BigDecimal.ZERO;
-        for (OrderItem item : orderItems) {
-            total = total.add(calculateLineTotal(item));
-        }
-
-        return total.setScale(2, RoundingMode.HALF_UP);
+        return calculatePricing(orderItems).itemsTotal();
     }
 
-    private static BigDecimal resolveUnitPrice(OrderItem orderItem) {
+    public static OrderPricingBreakdown calculatePricing(Order order) {
+        if (order == null) {
+            return OrderPricingBreakdown.empty();
+        }
+        return calculatePricing(order.getItems());
+    }
+
+    public static OrderPricingBreakdown calculatePricing(Collection<OrderItem> orderItems) {
+        if (orderItems == null || orderItems.isEmpty()) {
+            return OrderPricingBreakdown.empty();
+        }
+
+        BigDecimal subtotal = BigDecimal.ZERO;
+        BigDecimal promotionalSubtotal = BigDecimal.ZERO;
+        BigDecimal extrasTotal = BigDecimal.ZERO;
+
+        for (OrderItem item : orderItems) {
+            BigDecimal quantity = BigDecimal.valueOf(item.getQuantity());
+            BigDecimal basePrice = resolveBasePrice(item);
+            BigDecimal promotionalPrice = resolvePromotionalPrice(item, basePrice);
+            BigDecimal extrasPerUnit = resolveExtrasPerUnit(item);
+
+            subtotal = subtotal.add(basePrice.multiply(quantity));
+            promotionalSubtotal = promotionalSubtotal.add(promotionalPrice.multiply(quantity));
+            extrasTotal = extrasTotal.add(extrasPerUnit.multiply(quantity));
+        }
+
+        BigDecimal promotionDiscount = subtotal.subtract(promotionalSubtotal);
+        if (promotionDiscount.compareTo(BigDecimal.ZERO) < 0) {
+            promotionDiscount = BigDecimal.ZERO;
+        }
+
+        BigDecimal itemsTotal = promotionalSubtotal.add(extrasTotal);
+
+        return new OrderPricingBreakdown(
+                subtotal.setScale(2, RoundingMode.HALF_UP),
+                extrasTotal.setScale(2, RoundingMode.HALF_UP),
+                promotionDiscount.setScale(2, RoundingMode.HALF_UP),
+                itemsTotal.setScale(2, RoundingMode.HALF_UP)
+        );
+    }
+
+    private static BigDecimal resolveBasePrice(OrderItem orderItem) {
+        if (orderItem == null || orderItem.getMenuItem() == null) {
+            return BigDecimal.ZERO;
+        }
+        return BigDecimal.valueOf(orderItem.getMenuItem().getPrice());
+    }
+
+    private static BigDecimal resolvePromotionalPrice(OrderItem orderItem, BigDecimal fallback) {
         if (orderItem == null || orderItem.getMenuItem() == null) {
             return BigDecimal.ZERO;
         }
@@ -47,26 +82,17 @@ public final class OrderPricingCalculator {
             return BigDecimal.valueOf(orderItem.getMenuItem().getPromotionPrice());
         }
 
-        return BigDecimal.valueOf(orderItem.getMenuItem().getPrice());
+        return fallback;
     }
 
-    private static BigDecimal calculateLineTotal(OrderItem item) {
-        if (item == null) {
-            return BigDecimal.ZERO;
-        }
-
-        BigDecimal quantity = BigDecimal.valueOf(item.getQuantity());
-        BigDecimal unitPrice = resolveUnitPrice(item);
-        BigDecimal extrasPerUnit = Optional.ofNullable(item.getMenuItemExtras())
+    private static BigDecimal resolveExtrasPerUnit(OrderItem item) {
+        return Optional.ofNullable(item)
+                .map(OrderItem::getMenuItemExtras)
                 .orElse(Collections.emptyList())
                 .stream()
                 .map(MenuItemExtra::getPrice)
                 .map(BigDecimal::valueOf)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal lineSubtotal = unitPrice.multiply(quantity);
-        BigDecimal lineExtras = extrasPerUnit.multiply(quantity);
-        return lineSubtotal.add(lineExtras);
     }
 
     public static BigDecimal calculateDriverShare(BigDecimal totalAmount, BigDecimal commissionRate) {
@@ -85,5 +111,21 @@ public final class OrderPricingCalculator {
                 .orElse(BigDecimal.ZERO);
         return safeTotal.subtract(safeDriverShare)
                 .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    public record OrderPricingBreakdown(
+            BigDecimal itemsSubtotal,
+            BigDecimal extrasTotal,
+            BigDecimal promotionDiscount,
+            BigDecimal itemsTotal
+    ) {
+        public static OrderPricingBreakdown empty() {
+            BigDecimal zero = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+            return new OrderPricingBreakdown(zero, zero, zero, zero);
+        }
+
+        public BigDecimal subtotalBeforeDiscount() {
+            return itemsSubtotal.add(extrasTotal).setScale(2, RoundingMode.HALF_UP);
+        }
     }
 }

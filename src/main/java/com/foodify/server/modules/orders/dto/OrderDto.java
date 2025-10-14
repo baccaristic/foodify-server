@@ -3,6 +3,7 @@ package com.foodify.server.modules.orders.dto;
 import com.foodify.server.modules.orders.domain.OrderStatus;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,7 +24,12 @@ public class OrderDto {
     private LocationDto clientLocation;
     private SavedAddressSummaryDto savedAddress;
 
-    private Long total;
+    private BigDecimal itemsSubtotal;
+    private BigDecimal extrasTotal;
+    private BigDecimal promotionDiscount;
+    private BigDecimal itemsTotal;
+    private BigDecimal deliveryFee;
+    private BigDecimal total;
     private OrderStatus status;
     private LocalDateTime createdAt;
     private List<OrderItemDTO> items = new ArrayList<>();

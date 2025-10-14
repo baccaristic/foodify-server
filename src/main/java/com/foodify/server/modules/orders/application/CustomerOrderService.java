@@ -17,6 +17,9 @@ import com.foodify.server.modules.orders.dto.response.CreateOrderResponse;
 import com.foodify.server.modules.orders.mapper.OrderNotificationMapper;
 import com.foodify.server.modules.orders.mapper.SavedAddressSummaryMapper;
 import com.foodify.server.modules.orders.repository.OrderRepository;
+import com.foodify.server.modules.orders.support.OrderPricingCalculator;
+import com.foodify.server.modules.orders.support.OrderPricingCalculator.OrderPricingBreakdown;
+import com.foodify.server.modules.restaurants.application.DeliveryFeeCalculator;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
@@ -46,6 +49,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import java.math.RoundingMode;
 
 @Service
 @RequiredArgsConstructor
@@ -98,6 +103,7 @@ public class CustomerOrderService {
     private final OrderLifecycleService orderLifecycleService;
     private final SavedAddressRepository savedAddressRepository;
     private final OrderNotificationMapper orderNotificationMapper;
+    private final DeliveryFeeCalculator deliveryFeeCalculator;
 
     @Transactional
     public CreateOrderResponse placeOrder(Long clientId, OrderRequest request) {
@@ -222,6 +228,33 @@ public class CustomerOrderService {
         }
 
         order.setItems(orderItems);
+
+        OrderPricingBreakdown pricing = OrderPricingCalculator.calculatePricing(orderItems);
+        order.setItemsSubtotal(pricing.itemsSubtotal());
+        order.setExtrasTotal(pricing.extrasTotal());
+        order.setPromotionDiscount(pricing.promotionDiscount());
+        order.setItemsTotal(pricing.itemsTotal());
+
+        Double clientLatitude = order.getLat();
+        Double clientLongitude = order.getLng();
+        if (clientLatitude != null && clientLongitude != null
+                && clientLatitude == 0.0 && clientLongitude == 0.0) {
+            clientLatitude = null;
+            clientLongitude = null;
+        }
+
+        BigDecimal deliveryFee = deliveryFeeCalculator.calculateFee(
+                        clientLatitude,
+                        clientLongitude,
+                        restaurant.getLatitude(),
+                        restaurant.getLongitude())
+                .map(BigDecimal::valueOf)
+                .map(amount -> amount.setScale(2, RoundingMode.HALF_UP))
+                .orElse(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+
+        order.setDeliveryFee(deliveryFee);
+        order.setTotal(pricing.itemsTotal().add(deliveryFee).setScale(2, RoundingMode.HALF_UP));
+
         Order savedOrder = orderRepository.save(order);
 
         orderLifecycleService.registerCreation(savedOrder, "client:" + clientId);
@@ -252,8 +285,6 @@ public class CustomerOrderService {
 
     private CreateOrderResponse mapToResponse(Order order) {
         List<CreateOrderResponse.OrderedItem> orderedItems = new ArrayList<>();
-        BigDecimal subtotal = BigDecimal.ZERO;
-        BigDecimal extrasTotal = BigDecimal.ZERO;
 
         for (OrderItem item : Optional.ofNullable(order.getItems()).orElse(Collections.emptyList())) {
             BigDecimal unitPrice = resolveUnitPrice(item);
@@ -266,9 +297,6 @@ public class CustomerOrderService {
             BigDecimal lineSubtotal = unitPrice.multiply(quantity);
             BigDecimal lineExtras = extrasPerUnit.multiply(quantity);
             BigDecimal lineTotal = lineSubtotal.add(lineExtras);
-
-            subtotal = subtotal.add(lineSubtotal);
-            extrasTotal = extrasTotal.add(lineExtras);
 
             List<CreateOrderResponse.Extra> extras = Optional.ofNullable(item.getMenuItemExtras()).orElse(Collections.emptyList())
                     .stream()
@@ -291,7 +319,27 @@ public class CustomerOrderService {
             ));
         }
 
-        BigDecimal total = subtotal.add(extrasTotal);
+        OrderPricingBreakdown pricing = OrderPricingCalculator.calculatePricing(order);
+        BigDecimal itemsSubtotal = Optional.ofNullable(order.getItemsSubtotal()).orElse(pricing.itemsSubtotal())
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal extrasTotal = Optional.ofNullable(order.getExtrasTotal()).orElse(pricing.extrasTotal())
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal promotionDiscount = Optional.ofNullable(order.getPromotionDiscount()).orElse(pricing.promotionDiscount())
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal itemsTotal = Optional.ofNullable(order.getItemsTotal()).orElse(pricing.itemsTotal())
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal deliveryFee = Optional.ofNullable(order.getDeliveryFee())
+                .orElse(BigDecimal.ZERO)
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal orderTotal = Optional.ofNullable(order.getTotal())
+                .orElse(itemsTotal.add(deliveryFee))
+                .setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal promotionalSubtotal = itemsSubtotal.subtract(promotionDiscount);
+        if (promotionalSubtotal.compareTo(BigDecimal.ZERO) < 0) {
+            promotionalSubtotal = BigDecimal.ZERO;
+        }
+        promotionalSubtotal = promotionalSubtotal.setScale(2, RoundingMode.HALF_UP);
 
         CreateOrderResponse.RestaurantSummary restaurantSummary = new CreateOrderResponse.RestaurantSummary(
                 order.getRestaurant().getId(),
@@ -315,9 +363,13 @@ public class CustomerOrderService {
 
         CreateOrderResponse.PaymentSummary paymentSummary = new CreateOrderResponse.PaymentSummary(
                 order.getPaymentMethod(),
-                subtotal,
+                promotionalSubtotal,
                 extrasTotal,
-                total
+                orderTotal,
+                itemsSubtotal,
+                promotionDiscount,
+                itemsTotal,
+                deliveryFee
         );
 
         return new CreateOrderResponse(

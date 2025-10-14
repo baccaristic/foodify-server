@@ -10,14 +10,19 @@ import com.foodify.server.modules.orders.dto.OrderItemDTO;
 import com.foodify.server.modules.orders.dto.OrderNotificationDTO;
 import com.foodify.server.modules.orders.dto.SavedAddressSummaryDto;
 import com.foodify.server.modules.orders.domain.OrderStatusHistory;
+import com.foodify.server.modules.orders.support.OrderPricingCalculator;
+import com.foodify.server.modules.orders.support.OrderPricingCalculator.OrderPricingBreakdown;
 import com.foodify.server.modules.orders.repository.OrderStatusHistoryRepository;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 @Component
 public class OrderNotificationMapper {
@@ -44,6 +49,38 @@ public class OrderNotificationMapper {
                 item.getSpecialInstructions()
         )).toList();
 
+        OrderPricingBreakdown pricing = OrderPricingCalculator.calculatePricing(order);
+        BigDecimal itemsSubtotal = Optional.ofNullable(order.getItemsSubtotal()).orElse(pricing.itemsSubtotal())
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal extrasTotal = Optional.ofNullable(order.getExtrasTotal()).orElse(pricing.extrasTotal())
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal promotionDiscount = Optional.ofNullable(order.getPromotionDiscount()).orElse(pricing.promotionDiscount())
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal itemsTotal = Optional.ofNullable(order.getItemsTotal()).orElse(pricing.itemsTotal())
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal deliveryFee = Optional.ofNullable(order.getDeliveryFee())
+                .orElse(BigDecimal.ZERO)
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal orderTotal = Optional.ofNullable(order.getTotal())
+                .orElse(itemsTotal.add(deliveryFee))
+                .setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal promotionalSubtotal = itemsSubtotal.subtract(promotionDiscount);
+        if (promotionalSubtotal.compareTo(BigDecimal.ZERO) < 0) {
+            promotionalSubtotal = BigDecimal.ZERO;
+        }
+        promotionalSubtotal = promotionalSubtotal.setScale(2, RoundingMode.HALF_UP);
+
+        OrderNotificationDTO.PaymentSummary paymentSummary = new OrderNotificationDTO.PaymentSummary(
+                promotionalSubtotal,
+                extrasTotal,
+                orderTotal,
+                itemsSubtotal,
+                promotionDiscount,
+                itemsTotal,
+                deliveryFee
+        );
+
         return new OrderNotificationDTO(
                 order.getId(),
                 order.getDeliveryAddress(),
@@ -59,6 +96,7 @@ public class OrderNotificationMapper {
                 deliveryLocation,
                 restaurantSummary,
                 deliverySummary,
+                paymentSummary,
                 buildStatusHistory(order)
         );
     }

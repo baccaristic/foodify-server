@@ -7,6 +7,11 @@ import com.foodify.server.modules.orders.dto.OrderItemDTO;
 import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.support.OrderPricingCalculator;
+import com.foodify.server.modules.orders.support.OrderPricingCalculator.OrderPricingBreakdown;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.Optional;
 
 public class OrderMapper {
 
@@ -84,12 +89,27 @@ public class OrderMapper {
         // Other fields
         dto.setStatus(order.getStatus());
         dto.setCreatedAt(order.getOrderTime());
-        dto.setTotal(calculateTotal(order)); // Implement based on items/payment
+
+        OrderPricingBreakdown pricing = OrderPricingCalculator.calculatePricing(order);
+
+        BigDecimal itemsSubtotal = Optional.ofNullable(order.getItemsSubtotal()).orElse(pricing.itemsSubtotal());
+        BigDecimal extrasTotal = Optional.ofNullable(order.getExtrasTotal()).orElse(pricing.extrasTotal());
+        BigDecimal promotionDiscount = Optional.ofNullable(order.getPromotionDiscount()).orElse(pricing.promotionDiscount());
+        BigDecimal itemsTotal = Optional.ofNullable(order.getItemsTotal()).orElse(pricing.itemsTotal());
+        BigDecimal deliveryFee = Optional.ofNullable(order.getDeliveryFee())
+                .map(amount -> amount.setScale(2, RoundingMode.HALF_UP))
+                .orElse(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+        BigDecimal total = Optional.ofNullable(order.getTotal())
+                .map(amount -> amount.setScale(2, RoundingMode.HALF_UP))
+                .orElse(itemsTotal.add(deliveryFee).setScale(2, RoundingMode.HALF_UP));
+
+        dto.setItemsSubtotal(itemsSubtotal);
+        dto.setExtrasTotal(extrasTotal);
+        dto.setPromotionDiscount(promotionDiscount);
+        dto.setItemsTotal(itemsTotal);
+        dto.setDeliveryFee(deliveryFee);
+        dto.setTotal(total);
 
         return dto;
-    }
-
-    private static Long calculateTotal(Order order) {
-        return OrderPricingCalculator.calculateTotal(order).longValue();
     }
 }
