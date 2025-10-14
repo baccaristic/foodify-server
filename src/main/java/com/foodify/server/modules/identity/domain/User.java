@@ -19,7 +19,8 @@ import java.util.List;
 @Table(name = "app_users")
 public class User {
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "app_users_seq")
+    @SequenceGenerator(name = "app_users_seq", sequenceName = "app_users_seq", allocationSize = 1)
     private Long id;
 
     private String email;
