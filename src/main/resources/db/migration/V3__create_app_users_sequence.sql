@@ -1,25 +1,25 @@
 DO $$
 DECLARE
+seq_name TEXT;
     current_max BIGINT;
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.sequences WHERE sequence_schema = 'public' AND sequence_name = 'app_users_seq'
-    ) THEN
-        EXECUTE 'CREATE SEQUENCE app_users_seq START WITH 1 INCREMENT BY 1';
-    END IF;
-
     IF EXISTS (
-        SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'app_users'
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'app_users'
     ) THEN
-        SELECT COALESCE(MAX(id), 0) INTO current_max FROM app_users;
+SELECT pg_get_serial_sequence('app_users', 'id') INTO seq_name;
 
-        IF current_max = 0 THEN
-            PERFORM setval('app_users_seq', 1, false);
-        ELSE
-            PERFORM setval('app_users_seq', current_max, true);
-        END IF;
+IF seq_name IS NOT NULL THEN
+SELECT COALESCE(MAX(id), 0) INTO current_max FROM app_users;
 
-        EXECUTE 'ALTER TABLE app_users ALTER COLUMN id SET DEFAULT nextval(''app_users_seq'')';
-    END IF;
+IF current_max = 0 THEN
+                EXECUTE format('SELECT setval(''%s'', 1, false)', seq_name);
+ELSE
+                EXECUTE format('SELECT setval(''%s'', %s, true)', seq_name, current_max);
+END IF;
+END IF;
+END IF;
 END
 $$;
