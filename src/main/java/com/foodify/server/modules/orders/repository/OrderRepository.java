@@ -43,6 +43,19 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             "savedAddress"
     })
     Optional<Order> findFirstByClient_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(Long clientId, List<OrderStatus> statuses);
+
+    @EntityGraph(attributePaths = {
+            "client",
+            "restaurant",
+            "restaurant.admin",
+            "delivery",
+            "delivery.driver",
+            "items",
+            "items.menuItem",
+            "pendingDriver",
+            "savedAddress"
+    })
+    List<Order> findAllByRestaurant_Admin_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(Long adminId, List<OrderStatus> statuses);
     @Query("""
     SELECT o
     FROM Order o

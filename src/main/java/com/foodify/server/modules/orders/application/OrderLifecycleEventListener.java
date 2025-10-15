@@ -9,12 +9,10 @@ import com.foodify.server.modules.notifications.websocket.WebSocketService;
 import com.foodify.server.modules.orders.application.event.OrderLifecycleEvent;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderStatus;
-import com.foodify.server.modules.orders.mapper.OrderNotificationMapper;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,8 +29,6 @@ import java.util.Map;
 public class OrderLifecycleEventListener {
 
     private final OrderRepository orderRepository;
-    private final OrderNotificationMapper orderNotificationMapper;
-    private final SimpMessagingTemplate messagingTemplate;
     private final WebSocketService webSocketService;
     private final UserDeviceService userDeviceService;
     private final PushNotificationService pushNotificationService;
@@ -55,10 +51,7 @@ public class OrderLifecycleEventListener {
         if (order.getRestaurant() == null || order.getRestaurant().getAdmin() == null) {
             return;
         }
-        messagingTemplate.convertAndSend(
-                "/topic/orders/" + order.getRestaurant().getAdmin().getId(),
-                orderNotificationMapper.toDto(order)
-        );
+        webSocketService.notifyRestaurant(order.getRestaurant().getAdmin().getId(), order);
     }
 
     private void notifyDriver(Order order) {

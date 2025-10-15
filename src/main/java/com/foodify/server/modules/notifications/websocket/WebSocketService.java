@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class WebSocketService {
@@ -31,6 +33,25 @@ public class WebSocketService {
                 clientId.toString(),
                 "/queue/orders",
                 orderNotificationMapper.toDto(order)
+        );
+    }
+
+    public void notifyRestaurant(Long adminId, Order order) {
+        messagingTemplate.convertAndSendToUser(
+                adminId.toString(),
+                "/queue/restaurant/orders",
+                orderNotificationMapper.toDto(order)
+        );
+    }
+
+    public void sendRestaurantSnapshot(Long adminId, List<Order> orders) {
+        List<Order> safeOrders = orders == null ? List.of() : orders;
+        messagingTemplate.convertAndSendToUser(
+                adminId.toString(),
+                "/queue/restaurant/orders/snapshot",
+                safeOrders.stream()
+                        .map(orderNotificationMapper::toDto)
+                        .toList()
         );
     }
 

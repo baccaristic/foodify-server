@@ -10,8 +10,8 @@ import com.foodify.server.modules.notifications.domain.UserDevice;
 import com.foodify.server.modules.notifications.websocket.WebSocketService;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderStatus;
-import com.foodify.server.modules.orders.dto.OrderDto;
-import com.foodify.server.modules.orders.mapper.OrderMapper;
+import com.foodify.server.modules.orders.dto.OrderNotificationDTO;
+import com.foodify.server.modules.orders.mapper.OrderNotificationMapper;
 import com.foodify.server.modules.orders.application.OrderLifecycleService;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
@@ -63,21 +63,22 @@ public class RestaurantService {
     private final UserDeviceService userDeviceService;
     private final WebSocketService webSocketService;
     private final OrderLifecycleService orderLifecycleService;
+    private final OrderNotificationMapper orderNotificationMapper;
     private final NotificationPreferenceService notificationPreferenceService;
 
     private static final String ORDER_ATTEMPTED_DRIVERS_KEY_PREFIX = "order:drivers:attempted:";
 
 
     @Transactional(readOnly = true)
-    public List<OrderDto> getAllOrders(Restaurant restaurant) {
+    public List<OrderNotificationDTO> getAllOrders(Restaurant restaurant) {
         return this.orderRepository.findAllByRestaurantOrderByDateDesc(restaurant)
                 .stream()
-                .map(OrderMapper::toDto)
+                .map(orderNotificationMapper::toDto)
                 .toList();
     }
 
     @Transactional
-    public OrderDto acceptOrder(Long id, Long userId) {
+    public OrderNotificationDTO acceptOrder(Long id, Long userId) {
         return orderRepository.findById(id).map(order -> {
             if (!order.getRestaurant().getAdmin().getId().equals(userId)) {
                 throw new RuntimeException("Unauthorized");
@@ -87,7 +88,7 @@ public class RestaurantService {
                     "restaurant:" + userId,
                     "Restaurant accepted order");
             assignDriver(savedOrder);
-            return loadOrderDto(savedOrder.getId());
+            return loadOrderNotification(savedOrder.getId());
         }).orElseThrow(() -> new RuntimeException("Order not found"));
     }
 
@@ -181,10 +182,10 @@ public class RestaurantService {
 
 
     @Transactional(readOnly = true)
-    public OrderDto getOrderForRestaurant(Long orderId, Long restaurantId) {
+    public OrderNotificationDTO getOrderForRestaurant(Long orderId, Long restaurantId) {
         return orderRepository.findDetailedById(orderId)
                 .filter(order -> order.getRestaurant() != null && order.getRestaurant().getId().equals(restaurantId))
-                .map(OrderMapper::toDto)
+                .map(orderNotificationMapper::toDto)
                 .orElse(null);
     }
 
@@ -310,7 +311,7 @@ public class RestaurantService {
 
 
     @Transactional
-    public OrderDto markOrderReady(Long orderId, Long userId) {
+    public OrderNotificationDTO markOrderReady(Long orderId, Long userId) {
         return orderRepository.findById(orderId).map(order -> {
             if (!order.getRestaurant().getAdmin().getId().equals(userId)) {
                 throw new RuntimeException("Unauthorized");
@@ -318,13 +319,13 @@ public class RestaurantService {
             var updated = orderLifecycleService.transition(order, OrderStatus.READY_FOR_PICK_UP,
                     "restaurant:" + userId,
                     "Order ready for pickup");
-            return loadOrderDto(updated.getId());
+            return loadOrderNotification(updated.getId());
         }).orElseThrow(() -> new RuntimeException("Order not found"));
     }
 
-    private OrderDto loadOrderDto(Long orderId) {
+    private OrderNotificationDTO loadOrderNotification(Long orderId) {
         return orderRepository.findDetailedById(orderId)
-                .map(OrderMapper::toDto)
+                .map(orderNotificationMapper::toDto)
                 .orElseThrow(() -> new EntityNotFoundException("Order not found"));
     }
 }

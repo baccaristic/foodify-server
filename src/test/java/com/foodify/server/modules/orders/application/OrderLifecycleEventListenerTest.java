@@ -10,14 +10,14 @@ import com.foodify.server.modules.orders.application.event.OrderLifecycleEvent;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.identity.domain.Client;
-import com.foodify.server.modules.orders.mapper.OrderNotificationMapper;
 import com.foodify.server.modules.orders.repository.OrderRepository;
+import com.foodify.server.modules.restaurants.domain.Restaurant;
+import com.foodify.server.modules.identity.domain.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,9 +31,6 @@ class OrderLifecycleEventListenerTest {
 
     @Mock
     private OrderRepository orderRepository;
-
-    @Mock
-    private SimpMessagingTemplate messagingTemplate;
 
     @Mock
     private WebSocketService webSocketService;
@@ -53,8 +50,6 @@ class OrderLifecycleEventListenerTest {
     void setUp() {
         listener = new OrderLifecycleEventListener(
                 orderRepository,
-                new OrderNotificationMapper(),
-                messagingTemplate,
                 webSocketService,
                 userDeviceService,
                 pushNotificationService,
@@ -101,12 +96,38 @@ class OrderLifecycleEventListenerTest {
         verifyNoInteractions(pushNotificationService);
     }
 
+    @Test
+    void shouldNotifyRestaurantWhenAdminExists() {
+        Order order = buildOrderWithRestaurant(3L, 11L);
+
+        when(orderRepository.findDetailedById(3L)).thenReturn(Optional.of(order));
+
+        OrderLifecycleEvent event = new OrderLifecycleEvent(3L, OrderStatus.PENDING, OrderStatus.PREPARING, "system", null);
+
+        listener.handleOrderLifecycleEvent(event);
+
+        verify(webSocketService).notifyRestaurant(11L, order);
+    }
+
     private Order buildOrderWithClient(Long orderId, Long clientId) {
         Order order = new Order();
         order.setId(orderId);
         Client client = new Client();
         client.setId(clientId);
         order.setClient(client);
+        order.setStatus(OrderStatus.PENDING);
+        order.setItems(List.of());
+        return order;
+    }
+
+    private Order buildOrderWithRestaurant(Long orderId, Long adminId) {
+        Order order = new Order();
+        order.setId(orderId);
+        Restaurant restaurant = new Restaurant();
+        User admin = new User();
+        admin.setId(adminId);
+        restaurant.setAdmin(admin);
+        order.setRestaurant(restaurant);
         order.setStatus(OrderStatus.PENDING);
         order.setItems(List.of());
         return order;
