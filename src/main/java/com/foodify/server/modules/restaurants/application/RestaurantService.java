@@ -14,6 +14,7 @@ import com.foodify.server.modules.orders.dto.OrderNotificationDTO;
 import com.foodify.server.modules.orders.mapper.OrderNotificationMapper;
 import com.foodify.server.modules.orders.application.OrderLifecycleService;
 import com.foodify.server.modules.orders.repository.OrderRepository;
+import com.foodify.server.modules.orders.support.OrderStatusGroups;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.restaurants.domain.MenuOptionGroup;
@@ -72,6 +73,15 @@ public class RestaurantService {
     @Transactional(readOnly = true)
     public List<OrderNotificationDTO> getAllOrders(Restaurant restaurant) {
         return this.orderRepository.findAllByRestaurantOrderByDateDesc(restaurant)
+                .stream()
+                .map(orderNotificationMapper::toDto)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderNotificationDTO> getActiveOrders(Long adminId) {
+        return this.orderRepository
+                .findAllByRestaurant_Admin_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(adminId, OrderStatusGroups.RESTAURANT_ACTIVE_STATUSES)
                 .stream()
                 .map(orderNotificationMapper::toDto)
                 .toList();

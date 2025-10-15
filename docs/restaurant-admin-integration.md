@@ -23,7 +23,7 @@ This document enumerates every REST endpoint and realtime channel exposed by the
 
 ### 1.3 Authorizing Requests
 - Every REST call must include the `Authorization: Bearer <accessToken>` header.
-- STOMP WebSocket connections also require the same header in the CONNECT frame. The server extracts the `role` and JWT subject to resolve the admin id before streaming order data.【F:src/main/java/com/foodify/server/modules/notifications/websocket/WebSocketEventListener.java†L34-L72】
+- STOMP WebSocket connections also require the same header in the CONNECT frame. The server extracts the `role` and JWT subject to resolve the admin id before streaming order data.【F:src/main/java/com/foodify/server/modules/notifications/websocket/WebSocketEventListener.java†L26-L76】
 
 ## 2. WebSocket Connectivity
 
@@ -39,7 +39,7 @@ All destinations use Spring’s user queues, so clients must subscribe to the `/
 
 | Purpose | Subscription | Payload | Trigger |
 | --- | --- | --- | --- |
-| Initial backlog | `/user/queue/restaurant/orders/snapshot` | Array of `OrderNotificationDTO` objects | Emitted automatically when the WebSocket session is established for a restaurant admin.【F:src/main/java/com/foodify/server/modules/notifications/websocket/WebSocketEventListener.java†L24-L71】【F:src/main/java/com/foodify/server/modules/notifications/websocket/WebSocketService.java†L45-L54】 |
+| Initial backlog | `/user/queue/restaurant/orders/snapshot` | Array of `OrderNotificationDTO` objects | Emitted automatically when the WebSocket session is established for a restaurant admin.【F:src/main/java/com/foodify/server/modules/notifications/websocket/WebSocketEventListener.java†L26-L75】【F:src/main/java/com/foodify/server/modules/notifications/websocket/WebSocketService.java†L55-L63】 |
 | New order alert | `/user/queue/restaurant/orders/new` | Single `OrderNotificationDTO` | Fired exactly once right after an order is created so restaurants can surface prominent “new order” UI states.【F:src/main/java/com/foodify/server/modules/notifications/websocket/WebSocketService.java†L39-L52】【F:src/main/java/com/foodify/server/modules/orders/application/OrderLifecycleEventListener.java†L45-L59】 |
 | Realtime updates | `/user/queue/restaurant/orders` | Single `OrderNotificationDTO` | Sent whenever an order owned by the restaurant changes status (accepted, preparing, ready, etc.).【F:src/main/java/com/foodify/server/modules/notifications/websocket/WebSocketService.java†L39-L44】【F:src/main/java/com/foodify/server/modules/orders/application/OrderLifecycleEventListener.java†L45-L59】 |
 
@@ -56,31 +56,35 @@ Each realtime message uses the `OrderNotificationDTO` record. Important fields i
 > 📄 A complete JSON-ready description of every DTO referenced in this guide (including `OrderNotificationDTO`, menu payloads, and their nested records) now lives in [`docs/restaurant-admin-dtos.md`](./restaurant-admin-dtos.md). Share that appendix with the restaurant app team for implementation details.
 
 ## 3. Restaurant Order Management REST APIs
-Every endpoint under `/api/restaurant` requires a valid restaurant admin access token (`ROLE_RESTAURANT_ADMIN`).【F:src/main/java/com/foodify/server/modules/restaurants/api/RestaurantController.java†L25-L96】
+Every endpoint under `/api/restaurant` requires a valid restaurant admin access token (`ROLE_RESTAURANT_ADMIN`).【F:src/main/java/com/foodify/server/modules/restaurants/api/RestaurantController.java†L29-L114】
 
 ### 3.1 Fetch current orders
 - **Endpoint**: `GET /api/restaurant/my-orders`
-- **Response**: List of `OrderNotificationDTO`, sorted by newest first. Includes customer profile, delivery estimates, line items, and totals.【F:src/main/java/com/foodify/server/modules/restaurants/application/RestaurantService.java†L70-L83】【F:src/main/java/com/foodify/server/modules/orders/dto/OrderNotificationDTO.java†L11-L45】
+- **Response**: List of `OrderNotificationDTO`, sorted by newest first. Includes customer profile, delivery estimates, line items, and totals.【F:src/main/java/com/foodify/server/modules/restaurants/application/RestaurantService.java†L73-L79】【F:src/main/java/com/foodify/server/modules/orders/dto/OrderNotificationDTO.java†L11-L45】
 
-### 3.2 Fetch a single order
+### 3.2 Fetch active orders only
+- **Endpoint**: `GET /api/restaurant/my-active-orders`
+- **Response**: List of `OrderNotificationDTO` entries restricted to active lifecycle states (`PENDING` through `IN_DELIVERY`) and excluding archived records. Sorted by newest first for dashboard convenience.【F:src/main/java/com/foodify/server/modules/restaurants/application/RestaurantService.java†L81-L88】【F:src/main/java/com/foodify/server/modules/orders/support/OrderStatusGroups.java†L9-L18】
+
+### 3.3 Fetch a single order
 - **Endpoint**: `GET /api/restaurant/order/{orderId}`
-- **Behavior**: Returns an `OrderNotificationDTO` only when the order belongs to the authenticated restaurant. Otherwise `null` is returned.【F:src/main/java/com/foodify/server/modules/restaurants/application/RestaurantService.java†L146-L155】
+- **Behavior**: Returns an `OrderNotificationDTO` only when the order belongs to the authenticated restaurant. Otherwise `null` is returned.【F:src/main/java/com/foodify/server/modules/restaurants/application/RestaurantService.java†L194-L200】
 
-### 3.3 Accept an order
+### 3.4 Accept an order
 - **Endpoint**: `POST /api/restaurant/accept-order/{orderId}`
 - **Behavior**:
   - Ensures the authenticated admin owns the order.
   - Transitions the order to `ACCEPTED` and records the lifecycle event.
-  - Kicks off driver assignment (WebSocket and push notifications to drivers happen automatically inside `RestaurantService`).【F:src/main/java/com/foodify/server/modules/restaurants/application/RestaurantService.java†L86-L135】
+  - Kicks off driver assignment (WebSocket and push notifications to drivers happen automatically inside `RestaurantService`).【F:src/main/java/com/foodify/server/modules/restaurants/application/RestaurantService.java†L91-L134】
 - **Response**: Fresh `OrderNotificationDTO` snapshot.
 
-### 3.4 Mark an order ready for pickup
+### 3.5 Mark an order ready for pickup
 - **Endpoint**: `POST /api/restaurant/order/ready/{orderId}`
 - **Behavior**: Validates restaurant ownership and transitions the order to `READY_FOR_PICK_UP`. Downstream notifications (driver, client, restaurant WebSocket) are emitted by the lifecycle listener.
 
-### 3.5 Retrieve menu catalog
+### 3.6 Retrieve menu catalog
 - **Endpoint**: `GET /api/restaurant/my-menu`
-- **Behavior**: Returns all `MenuItem` entities belonging to the admin’s restaurant. Useful for editing experiences.【F:src/main/java/com/foodify/server/modules/restaurants/api/RestaurantController.java†L61-L73】
+- **Behavior**: Returns all `MenuItem` entities belonging to the admin’s restaurant. Useful for editing experiences.【F:src/main/java/com/foodify/server/modules/restaurants/api/RestaurantController.java†L86-L90】
 
 ## 4. Menu Management APIs
 Both menu write endpoints accept multipart payloads so images can be attached alongside JSON metadata.
@@ -90,15 +94,15 @@ Both menu write endpoints accept multipart payloads so images can be attached al
 - **Payload**: `multipart/form-data` with parts:
   - `menu`: JSON serialized `MenuItemRequestDTO` containing name, description, price, category, flags, and optional extras.
   - `files`: Optional list of images.
-- **Behavior**: Injects the authenticated restaurant id into the DTO, persists the menu item, and stores uploaded images. Returns the saved `MenuItem` entity.【F:src/main/java/com/foodify/server/modules/restaurants/api/RestaurantController.java†L37-L57】【F:src/main/java/com/foodify/server/modules/restaurants/application/RestaurantService.java†L157-L205】
+- **Behavior**: Injects the authenticated restaurant id into the DTO, persists the menu item, and stores uploaded images. Returns the saved `MenuItem` entity.【F:src/main/java/com/foodify/server/modules/restaurants/api/RestaurantController.java†L43-L63】【F:src/main/java/com/foodify/server/modules/restaurants/application/RestaurantService.java†L202-L211】
 
 ### 4.2 Update menu item
 - **Endpoint**: `PUT /api/restaurant/menu/{menuId}`
 - **Payload**: Same structure as the add endpoint (multipart with `menu` and optional `files`).
-- **Behavior**: Validates restaurant ownership of the targeted menu item, updates persisted fields, and returns the updated entity.【F:src/main/java/com/foodify/server/modules/restaurants/api/RestaurantController.java†L59-L87】【F:src/main/java/com/foodify/server/modules/restaurants/application/RestaurantService.java†L205-L236】
+- **Behavior**: Validates restaurant ownership of the targeted menu item, updates persisted fields, and returns the updated entity.【F:src/main/java/com/foodify/server/modules/restaurants/api/RestaurantController.java†L65-L83】【F:src/main/java/com/foodify/server/modules/restaurants/application/RestaurantService.java†L213-L223】
 
 ## 5. Order Lifecycle & Status Reference
-Restaurant dashboards should support the server’s canonical order statuses. These values appear in both REST and realtime payloads and represent the full lifecycle handled by the listener and repository filters.【F:src/main/java/com/foodify/server/modules/orders/domain/OrderStatus.java†L5-L19】【F:src/main/java/com/foodify/server/modules/notifications/websocket/WebSocketEventListener.java†L25-L32】
+Restaurant dashboards should support the server’s canonical order statuses. These values appear in both REST and realtime payloads and represent the full lifecycle handled by the listener and repository filters.【F:src/main/java/com/foodify/server/modules/orders/domain/OrderStatus.java†L5-L19】【F:src/main/java/com/foodify/server/modules/orders/support/OrderStatusGroups.java†L12-L18】【F:src/main/java/com/foodify/server/modules/notifications/websocket/WebSocketEventListener.java†L26-L75】
 
 | Status | Description | Typical Restaurant Action |
 | --- | --- | --- |
@@ -110,10 +114,10 @@ Restaurant dashboards should support the server’s canonical order statuses. Th
 | `DELIVERED` | Driver confirmed delivery to customer. | No action required.
 | `CANCELED` / `REJECTED` | Order canceled by system or rejected by restaurant. | Communicate with support if needed.
 
-Only non-archived orders with statuses through `IN_DELIVERY` are included in the websocket snapshot for admins; once delivered or archived they disappear unless explicitly fetched via REST.【F:src/main/java/com/foodify/server/modules/notifications/websocket/WebSocketEventListener.java†L24-L52】
+Only non-archived orders with statuses through `IN_DELIVERY` are included in the websocket snapshot for admins; once delivered or archived they disappear unless explicitly fetched via REST.【F:src/main/java/com/foodify/server/modules/orders/support/OrderStatusGroups.java†L12-L18】【F:src/main/java/com/foodify/server/modules/notifications/websocket/WebSocketEventListener.java†L26-L75】
 
 ## 6. Notifications Triggered by Restaurant Actions
-- When an admin accepts an order, `RestaurantService` transitions the status and triggers driver assignment. Drivers receive both WebSocket updates (`notifyDriverUpcoming`) and push notifications if they have opted in.【F:src/main/java/com/foodify/server/modules/restaurants/application/RestaurantService.java†L90-L134】
+- When an admin accepts an order, `RestaurantService` transitions the status and triggers driver assignment. Drivers receive both WebSocket updates (`notifyDriverUpcoming`) and push notifications if they have opted in.【F:src/main/java/com/foodify/server/modules/restaurants/application/RestaurantService.java†L91-L134】
 - Order status changes (accept, ready, etc.) automatically propagate to:
   - Restaurant WebSocket queue (`notifyRestaurant`).
   - Assigned driver or pending driver queue.
