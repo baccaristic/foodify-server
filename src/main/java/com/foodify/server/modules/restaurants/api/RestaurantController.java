@@ -1,6 +1,6 @@
 package com.foodify.server.modules.restaurants.api;
 
-import com.foodify.server.modules.orders.dto.OrderDto;
+import com.foodify.server.modules.orders.dto.OrderNotificationDTO;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.dto.MenuItemRequestDTO;
 import com.foodify.server.modules.identity.domain.RestaurantAdmin;
@@ -28,7 +28,7 @@ public class RestaurantController {
     private final RestaurantAdminRepository restaurantAdminRepository;
     @GetMapping("/my-orders")
     @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
-    public List<OrderDto> getMyOrders(Authentication authentication) {
+    public List<OrderNotificationDTO> getMyOrders(Authentication authentication) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         RestaurantAdmin admin = restaurantAdminRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Restaurant admin not found"));
@@ -93,7 +93,7 @@ public class RestaurantController {
 
     @GetMapping("/order/{id}")
     @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
-    public OrderDto getOrder(@PathVariable Long id, Authentication authentication) {
+    public OrderNotificationDTO getOrder(@PathVariable Long id, Authentication authentication) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         Long restaurantId = restaurantAdminRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Restaurant admin not found"))
@@ -104,7 +104,7 @@ public class RestaurantController {
 
     @PostMapping("/accept-order/{id}")
     @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
-    public OrderDto acceptOrder(Authentication authentication, @PathVariable Long id) {
+    public OrderNotificationDTO acceptOrder(Authentication authentication, @PathVariable Long id) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         return this.restaurantService.acceptOrder(id, userId);
 
@@ -112,7 +112,7 @@ public class RestaurantController {
 
     @PostMapping("/order/ready/{id}")
     @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
-    public OrderDto readyOrder(Authentication authentication, @PathVariable Long id) {
+    public OrderNotificationDTO readyOrder(Authentication authentication, @PathVariable Long id) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         return this.restaurantService.markOrderReady(id, userId);
     }
