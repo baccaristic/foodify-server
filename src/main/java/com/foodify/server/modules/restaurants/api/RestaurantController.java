@@ -29,11 +29,15 @@ public class RestaurantController {
     @GetMapping("/my-orders")
     @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
     public List<OrderNotificationDTO> getMyOrders(Authentication authentication) {
-        Long userId = Long.parseLong((String) authentication.getPrincipal());
-        RestaurantAdmin admin = restaurantAdminRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Restaurant admin not found"));
+        RestaurantAdmin admin = loadAdmin(authentication);
         return this.restaurantService.getAllOrders(admin.getRestaurant());
+    }
 
+    @GetMapping("/my-active-orders")
+    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    public List<OrderNotificationDTO> getMyActiveOrders(Authentication authentication) {
+        RestaurantAdmin admin = loadAdmin(authentication);
+        return this.restaurantService.getActiveOrders(admin.getId());
     }
 
     @PostMapping(value = "/addMenu", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -49,9 +53,7 @@ public class RestaurantController {
             @RequestPart(value = "files", required = false) List<MultipartFile> files) throws IOException {
 
         // 1. Get restaurant admin from authentication
-        RestaurantAdmin restaurantAdmin = restaurantAdminRepository.findById(
-                Long.parseLong((String) authentication.getPrincipal())
-        ).orElseThrow(() -> new RuntimeException("Restaurant admin not found"));
+        RestaurantAdmin restaurantAdmin = loadAdmin(authentication);
 
         // 2. Enrich DTO with restaurant context
         menuDto.setRestaurantId(restaurantAdmin.getRestaurant().getId());
@@ -73,9 +75,7 @@ public class RestaurantController {
             @RequestPart("menu") MenuItemRequestDTO menuDto,
             @RequestPart(value = "files", required = false) List<MultipartFile> files) throws IOException {
 
-        RestaurantAdmin restaurantAdmin = restaurantAdminRepository.findById(
-                Long.parseLong((String) authentication.getPrincipal())
-        ).orElseThrow(() -> new RuntimeException("Restaurant admin not found"));
+        RestaurantAdmin restaurantAdmin = loadAdmin(authentication);
 
         menuDto.setId(menuId);
         menuDto.setRestaurantId(restaurantAdmin.getRestaurant().getId());
@@ -86,19 +86,15 @@ public class RestaurantController {
     @GetMapping("/my-menu")
     @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
     public List<MenuItem> getMyMenu(Authentication authentication) {
-        RestaurantAdmin restaurantAdmin = this.restaurantAdminRepository.findById(Long.parseLong((String) authentication.getPrincipal()))
-                .orElseThrow(() -> new RuntimeException("Restaurant admin not found"));
+        RestaurantAdmin restaurantAdmin = loadAdmin(authentication);
         return restaurantAdmin.getRestaurant().getMenu();
     }
 
     @GetMapping("/order/{id}")
     @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
     public OrderNotificationDTO getOrder(@PathVariable Long id, Authentication authentication) {
-        Long userId = Long.parseLong((String) authentication.getPrincipal());
-        Long restaurantId = restaurantAdminRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Restaurant admin not found"))
-                .getRestaurant()
-                .getId();
+        RestaurantAdmin admin = loadAdmin(authentication);
+        Long restaurantId = admin.getRestaurant().getId();
         return this.restaurantService.getOrderForRestaurant(id, restaurantId);
     }
 
@@ -117,5 +113,9 @@ public class RestaurantController {
         return this.restaurantService.markOrderReady(id, userId);
     }
 
-
+    private RestaurantAdmin loadAdmin(Authentication authentication) {
+        Long userId = Long.parseLong((String) authentication.getPrincipal());
+        return restaurantAdminRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Restaurant admin not found"));
+    }
 }

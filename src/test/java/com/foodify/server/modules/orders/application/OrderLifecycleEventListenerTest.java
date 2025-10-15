@@ -22,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 import java.util.Optional;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -107,6 +108,21 @@ class OrderLifecycleEventListenerTest {
         listener.handleOrderLifecycleEvent(event);
 
         verify(webSocketService).notifyRestaurant(11L, order);
+        verify(webSocketService, never()).notifyRestaurantNewOrder(anyLong(), any());
+    }
+
+    @Test
+    void shouldNotifyRestaurantOfNewOrderWhenPreviousStatusIsNull() {
+        Order order = buildOrderWithRestaurant(4L, 15L);
+
+        when(orderRepository.findDetailedById(4L)).thenReturn(Optional.of(order));
+
+        OrderLifecycleEvent event = new OrderLifecycleEvent(4L, null, OrderStatus.PENDING, "system", "Order created");
+
+        listener.handleOrderLifecycleEvent(event);
+
+        verify(webSocketService).notifyRestaurant(15L, order);
+        verify(webSocketService).notifyRestaurantNewOrder(15L, order);
     }
 
     private Order buildOrderWithClient(Long orderId, Long clientId) {

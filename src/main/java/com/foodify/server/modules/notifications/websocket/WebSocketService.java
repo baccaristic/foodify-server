@@ -44,6 +44,14 @@ public class WebSocketService {
         );
     }
 
+    public void notifyRestaurantNewOrder(Long adminId, Order order) {
+        messagingTemplate.convertAndSendToUser(
+                adminId.toString(),
+                "/queue/restaurant/orders/new",
+                orderNotificationMapper.toDto(order)
+        );
+    }
+
     public void sendRestaurantSnapshot(Long adminId, List<Order> orders) {
         List<Order> safeOrders = orders == null ? List.of() : orders;
         messagingTemplate.convertAndSendToUser(

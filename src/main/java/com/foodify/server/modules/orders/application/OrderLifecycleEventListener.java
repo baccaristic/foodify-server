@@ -42,16 +42,21 @@ public class OrderLifecycleEventListener {
         Order order = orderRepository.findDetailedById(event.getOrderId())
                 .orElseThrow(() -> new EntityNotFoundException("Order not found for notification"));
 
-        notifyRestaurant(order);
+        notifyRestaurant(order, event);
         notifyDriver(order);
         notifyClient(order, event);
     }
 
-    private void notifyRestaurant(Order order) {
+    private void notifyRestaurant(Order order, OrderLifecycleEvent event) {
         if (order.getRestaurant() == null || order.getRestaurant().getAdmin() == null) {
             return;
         }
-        webSocketService.notifyRestaurant(order.getRestaurant().getAdmin().getId(), order);
+        Long adminId = order.getRestaurant().getAdmin().getId();
+        webSocketService.notifyRestaurant(adminId, order);
+
+        if (event.getPreviousStatus() == null) {
+            webSocketService.notifyRestaurantNewOrder(adminId, order);
+        }
     }
 
     private void notifyDriver(Order order) {
