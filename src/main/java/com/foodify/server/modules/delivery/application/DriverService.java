@@ -2,6 +2,7 @@ package com.foodify.server.modules.delivery.application;
 
 import com.foodify.server.modules.addresses.domain.SavedAddress;
 import com.foodify.server.modules.delivery.application.DriverAvailabilityService;
+import com.foodify.server.modules.delivery.application.DriverDispatchService;
 import com.foodify.server.modules.delivery.application.GoogleMapsService;
 import com.foodify.server.modules.delivery.application.QrCodeService;
 import com.foodify.server.modules.delivery.domain.Delivery;
@@ -33,6 +34,7 @@ import com.foodify.server.modules.orders.repository.OrderItemRepository;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.orders.support.OrderPricingCalculator;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -65,6 +67,7 @@ public class DriverService {
     private final GoogleMapsService googleMapsService;
     private final DriverLocationService driverLocationService;
     private final DriverAvailabilityService driverAvailabilityService;
+    private final DriverDispatchService driverDispatchService;
     private final OrderLifecycleService orderLifecycleService;
 
     private static final List<OrderStatus> ACTIVE_DRIVER_STATUSES = List.of(
@@ -137,8 +140,28 @@ public class DriverService {
         Order updatedOrder = orderLifecycleService.transition(order, OrderStatus.PREPARING,
                 "driver:" + driverId,
                 "Driver accepted order");
+        driverDispatchService.markDriverAccepted(order.getId());
         driverLocationService.markBusy(String.valueOf(driverId), orderId);
         return OrderMapper.toDto(updatedOrder);
+    }
+
+    @Transactional
+    public void declineOrder(Long driverId, Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found"));
+
+        if (order.getDelivery() != null) {
+            throw new IllegalStateException("Order already has a driver assigned.");
+        }
+
+        if (order.getPendingDriver() == null || !Objects.equals(order.getPendingDriver().getId(), driverId)) {
+            throw new IllegalStateException("Driver is not assigned to this order.");
+        }
+
+        order.setPendingDriver(null);
+        orderRepository.save(order);
+        driverLocationService.markAvailable(String.valueOf(driverId));
+        driverDispatchService.handleDriverDecline(orderId, driverId);
     }
 
     public Driver findById(Long driverId) {
