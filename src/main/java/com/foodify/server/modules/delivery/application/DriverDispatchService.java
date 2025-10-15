@@ -34,6 +34,7 @@ import java.util.concurrent.ScheduledFuture;
 public class DriverDispatchService {
 
     private static final Duration PENDING_DRIVER_TIMEOUT = Duration.ofSeconds(30);
+    private static final Duration DRIVER_REATTEMPT_COOLDOWN = Duration.ofMinutes(2);
     private static final Duration[] RETRY_DELAYS = {
             Duration.ofSeconds(5),
             Duration.ofSeconds(15),
@@ -113,6 +114,7 @@ public class DriverDispatchService {
                 order.setPendingDriver(null);
                 orderRepository.save(order);
                 driverLocationService.markAvailable(String.valueOf(driverId));
+                rememberAttemptedDriver(orderId, driverId);
                 DispatchState state = states.computeIfAbsent(orderId, id -> new DispatchState());
                 state.clearPendingTimeout();
                 log.info("Driver {} declined order {}. Searching for a new driver", driverId, orderId);
@@ -216,6 +218,7 @@ public class DriverDispatchService {
             order.setPendingDriver(null);
             orderRepository.save(order);
             driverLocationService.markAvailable(String.valueOf(driverId));
+            rememberAttemptedDriver(orderId, driverId);
             DispatchState state = states.computeIfAbsent(orderId, id -> new DispatchState());
             scheduleRetry(orderId, state);
         }, () -> clearState(orderId));
@@ -233,11 +236,14 @@ public class DriverDispatchService {
 
     private Set<Long> loadAttemptedDrivers(Long orderId) {
         String key = ORDER_ATTEMPTED_DRIVERS_KEY_PREFIX + orderId;
-        Set<String> rawValues = redisTemplate.opsForSet().members(key);
+        long now = Instant.now().toEpochMilli();
+        long freshnessThreshold = now - DRIVER_REATTEMPT_COOLDOWN.toMillis();
+        redisTemplate.opsForZSet().removeRangeByScore(key, Double.NEGATIVE_INFINITY, freshnessThreshold - 1);
+        Set<String> rawValues = redisTemplate.opsForZSet().rangeByScore(key, freshnessThreshold, Double.POSITIVE_INFINITY);
         if (rawValues == null || rawValues.isEmpty()) {
             return Collections.emptySet();
         }
-        Set<Long> result = new HashSet<>();
+        Set<Long> result = new HashSet<>(rawValues.size());
         for (String value : rawValues) {
             if (value == null) {
                 continue;
@@ -253,7 +259,7 @@ public class DriverDispatchService {
 
     private void rememberAttemptedDriver(Long orderId, Long driverId) {
         String key = ORDER_ATTEMPTED_DRIVERS_KEY_PREFIX + orderId;
-        redisTemplate.opsForSet().add(key, String.valueOf(driverId));
+        redisTemplate.opsForZSet().add(key, String.valueOf(driverId), Instant.now().toEpochMilli());
         redisTemplate.expire(key, Duration.ofHours(6));
     }
 
