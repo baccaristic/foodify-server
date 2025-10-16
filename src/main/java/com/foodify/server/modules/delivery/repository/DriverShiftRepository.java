@@ -8,11 +8,24 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 public interface DriverShiftRepository extends JpaRepository<DriverShift, Long> {
     Optional<DriverShift> findTopByDriverIdAndStatusOrderByStartedAtDesc(Long driverId, DriverShiftStatus status);
+
+    @Query("""
+            select shift
+            from DriverShift shift
+            where shift.driver.id in :driverIds
+              and shift.status = :status
+            order by shift.driver.id asc, shift.startedAt desc
+            """)
+    List<DriverShift> findAllByDriverIdInAndStatusOrderByStartedAtDesc(
+            @Param("driverIds") Collection<Long> driverIds,
+            @Param("status") DriverShiftStatus status
+    );
 
     @EntityGraph(attributePaths = "balance")
     @Query("""
