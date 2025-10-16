@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS driver_sessions (
     id BIGSERIAL PRIMARY KEY,
-    driver_id BIGINT NOT NULL REFERENCES driver(id) ON DELETE CASCADE,
+    driver_id BIGINT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
     session_token VARCHAR(64) NOT NULL UNIQUE,
     device_id VARCHAR(255),
     status VARCHAR(32) NOT NULL,
