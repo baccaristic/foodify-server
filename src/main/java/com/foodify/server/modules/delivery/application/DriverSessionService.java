@@ -82,7 +82,7 @@ public class DriverSessionService {
         driverLocationService.markUnavailable(String.valueOf(session.getDriver().getId()));
     }
 
-    @Scheduled(fixedDelayString = "#{@driverSessionSettings.heartbeatCheckIntervalMs}")
+    @Scheduled(fixedDelayString = "${driver.session.heartbeat-check-interval-ms:30000}")
     @Transactional
     public void expireInactiveSessions() {
         Instant cutoff = Instant.now()
