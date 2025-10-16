@@ -2,11 +2,15 @@ package com.foodify.server.modules.auth.api;
 
 import com.foodify.server.modules.auth.application.PhoneNumberUtils;
 import com.foodify.server.modules.auth.dto.*;
+import com.foodify.server.modules.delivery.application.DriverSessionService;
+import com.foodify.server.modules.delivery.domain.DriverSession;
 import com.foodify.server.modules.identity.domain.AuthProvider;
 import com.foodify.server.modules.identity.domain.Client;
+import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.identity.domain.Role;
 import com.foodify.server.modules.identity.domain.User;
 import com.foodify.server.modules.identity.repository.ClientRepository;
+import com.foodify.server.modules.identity.repository.DriverRepository;
 import com.foodify.server.modules.identity.repository.UserRepository;
 import com.foodify.server.modules.auth.security.JwtService;
 import io.jsonwebtoken.Claims;
@@ -35,6 +39,8 @@ public class AuthController {
     private final ClientRepository clientRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final DriverRepository driverRepository;
+    private final DriverSessionService driverSessionService;
 
     @PostMapping("/google")
     public ResponseEntity<?> registerWithGoogle(@RequestBody GoogleRegisterRequest request) {
@@ -140,7 +146,13 @@ public class AuthController {
                     .body(Map.of("success", false, "message", "Invalid email or password"));
         }
 
-        String accessToken = jwtService.generateAccessToken(user);
+        Driver driver = driverRepository.findById(user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                        "Driver profile not found"));
+
+        DriverSession session = driverSessionService.startSession(driver, request.getDeviceId());
+
+        String accessToken = jwtService.generateAccessToken(user, session.getSessionToken());
         String refreshToken = jwtService.generateRefreshToken(user);
 
         return ResponseEntity.ok(Map.of(

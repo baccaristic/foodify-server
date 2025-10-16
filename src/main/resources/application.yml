@@ -58,3 +58,8 @@ logging:
         kafka: ERROR
       springframework:
         kafka: ERROR
+
+driver:
+  session:
+    heartbeat-timeout-seconds: 120
+    heartbeat-check-interval-ms: 30000
