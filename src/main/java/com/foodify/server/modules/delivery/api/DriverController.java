@@ -14,6 +14,7 @@ import com.foodify.server.modules.notifications.websocket.WebSocketService;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.delivery.application.DriverService;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -59,6 +60,20 @@ public class DriverController {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         return this.driverService.acceptOrder(userId, id);
 
+    }
+
+    @PostMapping("/decline-order/{id}")
+    @PreAuthorize("hasAuthority('ROLE_DRIVER')")
+    public ResponseEntity<?> declineOrder(Authentication authentication, @PathVariable Long id) {
+        Long userId = Long.parseLong((String) authentication.getPrincipal());
+        try {
+            driverService.declineOrder(userId, id);
+            return ResponseEntity.noContent().build();
+        } catch (EntityNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+        }
     }
     @PostMapping("/updateStatus")
     @PreAuthorize("hasAuthority('ROLE_DRIVER')")
