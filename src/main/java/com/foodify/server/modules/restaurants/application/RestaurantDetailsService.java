@@ -6,6 +6,7 @@ import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.restaurants.domain.MenuOptionGroup;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
 import com.foodify.server.modules.restaurants.dto.RestaurantDetailsResponse;
+import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
@@ -28,6 +29,7 @@ import java.util.stream.Collectors;
 public class RestaurantDetailsService {
 
     private final RestaurantRepository restaurantRepository;
+    private final MenuItemRepository menuItemRepository;
     private final DeliveryFeeCalculator deliveryFeeCalculator;
 
     @Transactional()
@@ -53,9 +55,7 @@ public class RestaurantDetailsService {
         Set<Long> restaurantFavorites = favoriteRestaurantIds == null ? Set.of() : favoriteRestaurantIds;
         Set<Long> menuItemFavorites = favoriteMenuItemIds == null ? Set.of() : favoriteMenuItemIds;
 
-        List<MenuItem> menuItems = restaurant.getMenu() != null
-                ? restaurant.getMenu().stream().filter(MenuItem::isAvailable).toList()
-                : List.of();
+        List<MenuItem> menuItems = menuItemRepository.findByRestaurant_IdAndAvailableTrue(restaurantId);
 
         List<RestaurantDetailsResponse.RestaurantBadge> highlights = buildHighlights(restaurant);
         Map<String, List<MenuItem>> itemsByCategory = groupByCategory(menuItems);
