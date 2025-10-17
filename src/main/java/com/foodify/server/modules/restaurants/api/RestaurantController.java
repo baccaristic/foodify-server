@@ -1,7 +1,9 @@
 package com.foodify.server.modules.restaurants.api;
 
 import com.foodify.server.modules.orders.dto.OrderNotificationDTO;
+import com.foodify.server.modules.restaurants.domain.MenuCategory;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
+import com.foodify.server.modules.restaurants.dto.MenuCategoryRequestDTO;
 import com.foodify.server.modules.restaurants.dto.MenuItemRequestDTO;
 import com.foodify.server.modules.identity.domain.RestaurantAdmin;
 import com.foodify.server.modules.identity.repository.RestaurantAdminRepository;
@@ -31,6 +33,20 @@ public class RestaurantController {
     public List<OrderNotificationDTO> getMyOrders(Authentication authentication) {
         RestaurantAdmin admin = loadAdmin(authentication);
         return this.restaurantService.getAllOrders(admin.getRestaurant());
+    }
+
+    @GetMapping("/categories")
+    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    public List<MenuCategory> getCategories(Authentication authentication) {
+        RestaurantAdmin restaurantAdmin = loadAdmin(authentication);
+        return restaurantService.getCategoriesForRestaurant(restaurantAdmin.getRestaurant().getId());
+    }
+
+    @PostMapping("/categories")
+    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    public MenuCategory createCategory(Authentication authentication, @RequestBody MenuCategoryRequestDTO request) {
+        RestaurantAdmin restaurantAdmin = loadAdmin(authentication);
+        return restaurantService.createCategory(restaurantAdmin.getRestaurant().getId(), request);
     }
 
     @GetMapping("/my-active-orders")

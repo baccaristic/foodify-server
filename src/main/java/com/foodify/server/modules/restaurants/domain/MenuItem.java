@@ -6,7 +6,9 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Getter
@@ -18,7 +20,6 @@ public class MenuItem {
 
     private String name;
     private String description;
-    private String category;
     private boolean isPopular;
     private double price;
 
@@ -41,6 +42,14 @@ public class MenuItem {
     @ManyToOne
     @JoinColumn(name = "restaurant_id")
     private Restaurant restaurant;
+
+    @ManyToMany
+    @JoinTable(
+            name = "menu_item_categories",
+            joinColumns = @JoinColumn(name = "menu_item_id"),
+            inverseJoinColumns = @JoinColumn(name = "category_id")
+    )
+    private Set<MenuCategory> categories = new HashSet<>();
 
     // Now a menu item has option groups (toppings, meat, supplements, etc.)
     @OneToMany(mappedBy = "menuItem", cascade = CascadeType.ALL, orphanRemoval = true)

@@ -12,7 +12,7 @@ public class MenuItemRequestDTO {
     private String name;
     private String description;
     private double price;
-    private String category;
+    private List<Long> categoryIds;
     private boolean popular;
     private Long restaurantId;
 

@@ -8,6 +8,7 @@ import com.foodify.server.modules.orders.mapper.OrderNotificationMapper;
 import com.foodify.server.modules.orders.application.OrderLifecycleService;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.orders.support.OrderStatusGroups;
+import com.foodify.server.modules.restaurants.domain.MenuCategory;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.restaurants.domain.MenuOptionGroup;
@@ -15,6 +16,8 @@ import com.foodify.server.modules.restaurants.domain.Restaurant;
 import com.foodify.server.modules.restaurants.dto.MenuItemRequestDTO;
 import com.foodify.server.modules.restaurants.dto.OptionGroupDTO;
 import com.foodify.server.modules.restaurants.dto.ExtraDTO;
+import com.foodify.server.modules.restaurants.dto.MenuCategoryRequestDTO;
+import com.foodify.server.modules.restaurants.repository.MenuCategoryRepository;
 import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import lombok.RequiredArgsConstructor;
@@ -31,8 +34,11 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -44,6 +50,7 @@ public class RestaurantService {
     private final OrderRepository orderRepository;
     private final RestaurantRepository restaurantRepository;
     private final MenuItemRepository menuItemRepository;
+    private final MenuCategoryRepository menuCategoryRepository;
     private final DriverDispatchService driverDispatchService;
     private final OrderLifecycleService orderLifecycleService;
     private final OrderNotificationMapper orderNotificationMapper;
@@ -94,7 +101,7 @@ public class RestaurantService {
                 .orElseThrow(() -> new RuntimeException("Restaurant not found"));
         item.setRestaurant(restaurant);
 
-        populateMenuItemFromDto(item, menuDto, files);
+        populateMenuItemFromDto(item, menuDto, files, restaurant);
         return menuItemRepository.save(item);
     }
 
@@ -106,19 +113,19 @@ public class RestaurantService {
             throw new RuntimeException("Menu item does not belong to restaurant");
         }
 
-        populateMenuItemFromDto(menuItem, menuDto, files);
+        populateMenuItemFromDto(menuItem, menuDto, files, menuItem.getRestaurant());
         return menuItemRepository.save(menuItem);
     }
 
-    private void populateMenuItemFromDto(MenuItem item, MenuItemRequestDTO menuDto, List<MultipartFile> files) throws IOException {
+    private void populateMenuItemFromDto(MenuItem item, MenuItemRequestDTO menuDto, List<MultipartFile> files, Restaurant restaurant) throws IOException {
         item.setName(menuDto.getName());
         item.setDescription(menuDto.getDescription());
         item.setPrice(menuDto.getPrice());
-        item.setCategory(menuDto.getCategory());
         item.setPopular(menuDto.isPopular());
         item.setPromotionLabel(menuDto.getPromotionLabel());
         item.setPromotionPrice(menuDto.getPromotionPrice());
         item.setPromotionActive(menuDto.isPromotionActive());
+        syncCategories(item, menuDto.getCategoryIds(), restaurant);
 
         List<String> imageUrls = new ArrayList<>();
         if (menuDto.getImageUrls() != null) {
@@ -128,6 +135,40 @@ public class RestaurantService {
         item.setImageUrls(imageUrls);
 
         syncOptionGroups(item, menuDto.getOptionGroups());
+    }
+
+    private void syncCategories(MenuItem item, List<Long> categoryIds, Restaurant restaurant) {
+        item.getCategories().clear();
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            return;
+        }
+
+        List<Long> sanitizedIds = categoryIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        if (sanitizedIds.isEmpty()) {
+            return;
+        }
+
+        List<MenuCategory> categories = menuCategoryRepository.findAllById(sanitizedIds);
+        Set<Long> foundIds = categories.stream().map(MenuCategory::getId).collect(Collectors.toSet());
+        Set<Long> missing = sanitizedIds.stream()
+                .filter(id -> !foundIds.contains(id))
+                .collect(Collectors.toCollection(HashSet::new));
+
+        if (!missing.isEmpty()) {
+            throw new EntityNotFoundException("Some categories were not found: " + missing);
+        }
+
+        for (MenuCategory category : categories) {
+            if (category.getRestaurant() == null || !category.getRestaurant().getId().equals(restaurant.getId())) {
+                throw new RuntimeException("Category does not belong to restaurant");
+            }
+        }
+
+        item.getCategories().addAll(categories);
     }
 
     private List<String> storeFiles(List<MultipartFile> files) throws IOException {
@@ -205,6 +246,31 @@ public class RestaurantService {
 
         group.getExtras().clear();
         group.getExtras().addAll(updatedExtras);
+    }
+
+    @Transactional(readOnly = true)
+    public List<MenuCategory> getCategoriesForRestaurant(Long restaurantId) {
+        return menuCategoryRepository.findByRestaurant_IdOrderByNameAsc(restaurantId);
+    }
+
+    @Transactional
+    public MenuCategory createCategory(Long restaurantId, MenuCategoryRequestDTO request) {
+        if (request.getName() == null || request.getName().isBlank()) {
+            throw new IllegalArgumentException("Category name is required");
+        }
+
+        Restaurant restaurant = restaurantRepository.findById(restaurantId)
+                .orElseThrow(() -> new RuntimeException("Restaurant not found"));
+
+        menuCategoryRepository.findByRestaurant_IdAndNameIgnoreCase(restaurantId, request.getName().trim())
+                .ifPresent(existing -> {
+                    throw new IllegalArgumentException("Category already exists");
+                });
+
+        MenuCategory category = new MenuCategory();
+        category.setName(request.getName().trim());
+        category.setRestaurant(restaurant);
+        return menuCategoryRepository.save(category);
     }
 
 

@@ -10,6 +10,7 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Getter
@@ -51,6 +52,9 @@ public class Restaurant {
 
     @OneToMany(mappedBy = "restaurant")
     private List<MenuItem> menu;
+
+    @OneToMany(mappedBy = "restaurant", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<MenuCategory> categories;
 
     @OneToMany(mappedBy = "restaurant")
     private List<Order> orders;
