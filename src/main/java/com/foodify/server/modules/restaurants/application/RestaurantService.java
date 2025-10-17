@@ -34,7 +34,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -62,8 +64,8 @@ public class RestaurantService {
     public Page<OrderNotificationDTO> getAllOrders(
             Restaurant restaurant,
             Pageable pageable,
-            LocalDateTime fromDate,
-            LocalDateTime toDate
+            LocalDate fromDate,
+            LocalDate toDate
     ) {
         Pageable effectivePageable = pageable != null ? pageable : Pageable.unpaged();
 
@@ -71,10 +73,13 @@ public class RestaurantService {
             return Page.empty(effectivePageable);
         }
 
+        LocalDateTime fromDateTime = fromDate != null ? fromDate.atStartOfDay() : null;
+        LocalDateTime toDateTime = toDate != null ? toDate.atTime(LocalTime.MAX) : null;
+
         return this.orderRepository.findAllByRestaurantAndDateRange(
                         restaurant,
-                        fromDate,
-                        toDate,
+                        fromDateTime,
+                        toDateTime,
                         effectivePageable
                 )
                 .map(orderNotificationMapper::toRestaurantDto);
