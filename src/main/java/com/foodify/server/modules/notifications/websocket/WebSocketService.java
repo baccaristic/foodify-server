@@ -32,7 +32,7 @@ public class WebSocketService {
         messagingTemplate.convertAndSendToUser(
                 clientId.toString(),
                 "/queue/orders",
-                orderNotificationMapper.toDto(order)
+                orderNotificationMapper.toClientDto(order)
         );
     }
 
@@ -40,7 +40,7 @@ public class WebSocketService {
         messagingTemplate.convertAndSendToUser(
                 adminId.toString(),
                 "/queue/restaurant/orders",
-                orderNotificationMapper.toDto(order)
+                orderNotificationMapper.toRestaurantDto(order)
         );
     }
 
@@ -48,7 +48,7 @@ public class WebSocketService {
         messagingTemplate.convertAndSendToUser(
                 adminId.toString(),
                 "/queue/restaurant/orders/new",
-                orderNotificationMapper.toDto(order)
+                orderNotificationMapper.toRestaurantDto(order)
         );
     }
 
@@ -58,7 +58,7 @@ public class WebSocketService {
                 adminId.toString(),
                 "/queue/restaurant/orders/snapshot",
                 safeOrders.stream()
-                        .map(orderNotificationMapper::toDto)
+                        .map(orderNotificationMapper::toRestaurantDto)
                         .toList()
         );
     }

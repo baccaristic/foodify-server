@@ -20,7 +20,9 @@ public record OrderNotificationDTO(
         RestaurantSummary restaurant,
         DeliverySummary delivery,
         PaymentSummary payment,
-        List<OrderStatusHistoryDTO> statusHistory
+        List<OrderStatusHistoryDTO> statusHistory,
+        String deliveryToken,
+        String pickupToken
 ) {
 
     public record RestaurantSummary(
