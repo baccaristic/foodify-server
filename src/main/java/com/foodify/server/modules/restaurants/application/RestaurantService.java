@@ -125,6 +125,7 @@ public class RestaurantService {
         item.setPromotionLabel(menuDto.getPromotionLabel());
         item.setPromotionPrice(menuDto.getPromotionPrice());
         item.setPromotionActive(menuDto.isPromotionActive());
+        applyAvailability(item, menuDto.getAvailable());
         syncCategories(item, menuDto.getCategoryIds(), restaurant);
 
         List<String> imageUrls = new ArrayList<>();
@@ -135,6 +136,14 @@ public class RestaurantService {
         item.setImageUrls(imageUrls);
 
         syncOptionGroups(item, menuDto.getOptionGroups());
+    }
+
+    private void applyAvailability(MenuItem item, Boolean available) {
+        if (available != null) {
+            item.setAvailable(available);
+        } else if (item.getId() == null) {
+            item.setAvailable(true);
+        }
     }
 
     private void syncCategories(MenuItem item, List<Long> categoryIds, Restaurant restaurant) {
@@ -271,6 +280,20 @@ public class RestaurantService {
         category.setName(request.getName().trim());
         category.setRestaurant(restaurant);
         return menuCategoryRepository.save(category);
+    }
+
+
+    @Transactional
+    public MenuItem updateMenuAvailability(Long menuId, Long restaurantId, boolean available) {
+        MenuItem menuItem = menuItemRepository.findById(menuId)
+                .orElseThrow(() -> new EntityNotFoundException("Menu item not found"));
+
+        if (menuItem.getRestaurant() == null || !Objects.equals(menuItem.getRestaurant().getId(), restaurantId)) {
+            throw new RuntimeException("Menu item does not belong to restaurant");
+        }
+
+        menuItem.setAvailable(available);
+        return menuItemRepository.save(menuItem);
     }
 
 

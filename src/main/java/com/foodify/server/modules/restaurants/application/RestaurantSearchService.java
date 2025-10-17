@@ -82,7 +82,7 @@ public class RestaurantSearchService {
         if (restaurantIds.isEmpty()) {
             return Map.of();
         }
-        return menuItemRepository.findByRestaurant_IdInAndPromotionActiveTrue(restaurantIds).stream()
+        return menuItemRepository.findByRestaurant_IdInAndPromotionActiveTrueAndAvailableTrue(restaurantIds).stream()
                 .filter(item -> Boolean.TRUE.equals(item.getPromotionActive()))
                 .filter(item -> item.getRestaurant() != null && item.getRestaurant().getId() != null)
                 .collect(Collectors.groupingBy(item -> item.getRestaurant().getId()));

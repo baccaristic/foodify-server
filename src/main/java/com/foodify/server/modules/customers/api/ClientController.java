@@ -161,7 +161,7 @@ public class ClientController {
         if (ids.isEmpty()) {
             return Map.of();
         }
-        return menuItemRepository.findByRestaurant_IdInAndPromotionActiveTrue(ids).stream()
+        return menuItemRepository.findByRestaurant_IdInAndPromotionActiveTrueAndAvailableTrue(ids).stream()
                 .filter(item -> item.getRestaurant() != null && item.getRestaurant().getId() != null)
                 .collect(Collectors.groupingBy(item -> item.getRestaurant().getId()));
     }

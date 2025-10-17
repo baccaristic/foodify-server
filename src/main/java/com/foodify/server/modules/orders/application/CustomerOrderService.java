@@ -208,6 +208,10 @@ public class CustomerOrderService {
                 throw new IllegalArgumentException("Menu item does not belong to the selected restaurant");
             }
 
+            if (!menuItem.isAvailable()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "One or more menu items are unavailable");
+            }
+
             OrderItem orderItem = new OrderItem();
             orderItem.setOrder(order);
             orderItem.setMenuItem(menuItem);

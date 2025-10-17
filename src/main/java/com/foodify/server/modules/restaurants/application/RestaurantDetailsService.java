@@ -53,7 +53,9 @@ public class RestaurantDetailsService {
         Set<Long> restaurantFavorites = favoriteRestaurantIds == null ? Set.of() : favoriteRestaurantIds;
         Set<Long> menuItemFavorites = favoriteMenuItemIds == null ? Set.of() : favoriteMenuItemIds;
 
-        List<MenuItem> menuItems = restaurant.getMenu() != null ? restaurant.getMenu() : List.of();
+        List<MenuItem> menuItems = restaurant.getMenu() != null
+                ? restaurant.getMenu().stream().filter(MenuItem::isAvailable).toList()
+                : List.of();
 
         List<RestaurantDetailsResponse.RestaurantBadge> highlights = buildHighlights(restaurant);
         Map<String, List<MenuItem>> itemsByCategory = groupByCategory(menuItems);

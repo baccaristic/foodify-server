@@ -15,6 +15,7 @@ public class MenuItemRequestDTO {
     private List<Long> categoryIds;
     private boolean popular;
     private Long restaurantId;
+    private Boolean available;
 
     private String promotionLabel;
     private Double promotionPrice;

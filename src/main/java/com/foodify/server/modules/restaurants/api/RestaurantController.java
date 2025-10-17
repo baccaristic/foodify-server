@@ -4,6 +4,7 @@ import com.foodify.server.modules.orders.dto.OrderNotificationDTO;
 import com.foodify.server.modules.restaurants.domain.MenuCategory;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.dto.MenuCategoryRequestDTO;
+import com.foodify.server.modules.restaurants.dto.MenuItemAvailabilityRequest;
 import com.foodify.server.modules.restaurants.dto.MenuItemRequestDTO;
 import com.foodify.server.modules.identity.domain.RestaurantAdmin;
 import com.foodify.server.modules.identity.repository.RestaurantAdminRepository;
@@ -97,6 +98,21 @@ public class RestaurantController {
         menuDto.setRestaurantId(restaurantAdmin.getRestaurant().getId());
 
         return restaurantService.updateMenu(menuId, menuDto, files != null ? files : new ArrayList<>());
+    }
+
+    @PatchMapping("/menu/{menuId}/availability")
+    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    public MenuItem updateMenuAvailability(
+            Authentication authentication,
+            @PathVariable Long menuId,
+            @RequestBody MenuItemAvailabilityRequest request) {
+
+        RestaurantAdmin restaurantAdmin = loadAdmin(authentication);
+        return restaurantService.updateMenuAvailability(
+                menuId,
+                restaurantAdmin.getRestaurant().getId(),
+                request.available()
+        );
     }
 
     @GetMapping("/my-menu")

@@ -23,6 +23,9 @@ public class MenuItem {
     private boolean isPopular;
     private double price;
 
+    @Column(name = "available")
+    private boolean available = true;
+
     @Column(name = "promotion_label")
     private String promotionLabel;
 
