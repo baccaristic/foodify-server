@@ -1,5 +1,11 @@
 package com.foodify.server.modules.delivery.application;
 
+import com.foodify.server.modules.delivery.application.signals.DriverCapacityService;
+import com.foodify.server.modules.delivery.application.signals.DriverEngagementCache;
+import com.foodify.server.modules.delivery.application.signals.TravelTimeEstimator;
+import com.foodify.server.modules.delivery.config.DriverAssignmentProperties;
+import com.foodify.server.modules.delivery.domain.Delivery;
+import com.foodify.server.modules.delivery.domain.DriverShift;
 import com.foodify.server.modules.delivery.domain.DriverShiftStatus;
 import com.foodify.server.modules.delivery.location.DriverLocationService;
 import com.foodify.server.modules.delivery.repository.DeliveryRepository;
@@ -15,44 +21,40 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
-/**
- * Encapsulates the driver matching heuristic used after a restaurant accepts an order.
- * The algorithm mimics the behaviour of modern delivery platforms by
- * <ul>
- *     <li>expanding the search radius in waves so nearby drivers are prioritised,</li>
- *     <li>filtering out drivers without an active shift or with ongoing deliveries, and</li>
- *     <li>scoring candidates by distance and idle time to balance speed with fairness.</li>
- * </ul>
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class DriverAssignmentService {
 
-    private static final List<OrderStatus> ACTIVE_DRIVER_STATUSES = List.of(
+    private static final EnumSet<OrderStatus> ACTIVE_DRIVER_STATUSES = EnumSet.of(
             OrderStatus.ACCEPTED,
             OrderStatus.PREPARING,
             OrderStatus.READY_FOR_PICK_UP,
             OrderStatus.IN_DELIVERY
     );
 
-    private static final double[] SEARCH_RADII_KM = {2, 4, 6, 8, 12, 18, 25};
-    private static final int CANDIDATE_LIMIT_PER_RADIUS = 10;
-    private static final double DISTANCE_WEIGHT = 0.7;
-    private static final double IDLE_WEIGHT = 0.3;
-
+    private final DriverAssignmentProperties properties;
     private final DriverLocationService driverLocationService;
     private final DriverRepository driverRepository;
     private final DriverShiftRepository driverShiftRepository;
     private final OrderRepository orderRepository;
     private final DeliveryRepository deliveryRepository;
+    private final TravelTimeEstimator travelTimeEstimator;
+    private final DriverCapacityService driverCapacityService;
+    private final DriverEngagementCache driverEngagementCache;
 
     public Optional<DriverMatch> findBestDriver(Order order, Set<Long> excludedDriverIds) {
         if (order.getRestaurant() == null) {
@@ -63,75 +65,221 @@ public class DriverAssignmentService {
         double lat = order.getRestaurant().getLatitude();
         double lon = order.getRestaurant().getLongitude();
 
-        Set<Long> evaluatedDrivers = new HashSet<>(excludedDriverIds);
-        List<DriverMatch> evaluatedMatches = new ArrayList<>();
+        Set<Long> excluded = excludedDriverIds != null ? excludedDriverIds : Set.of();
+        Set<Long> evaluatedDrivers = new HashSet<>(excluded);
+        DriverMatch bestMatch = null;
 
-        for (double radius : SEARCH_RADII_KM) {
+        for (double radius : properties.searchRadiiKm()) {
+            RadiusStats stats = new RadiusStats(radius);
+
             List<DriverLocationService.DriverCandidate> candidates = driverLocationService
-                    .findClosestDrivers(lat, lon, radius, CANDIDATE_LIMIT_PER_RADIUS);
+                    .findClosestDrivers(lat, lon, radius, properties.candidateLimit());
+            stats.recordCandidates(candidates.size());
 
+            LinkedHashMap<Long, Double> candidateDistances = new LinkedHashMap<>();
             for (DriverLocationService.DriverCandidate candidate : candidates) {
                 Long driverId = parseDriverId(candidate.driverId());
-                if (driverId == null || !evaluatedDrivers.add(driverId)) {
+                if (driverId == null) {
+                    stats.incrementInvalidIdentifiers();
                     continue;
                 }
-
-                Optional<DriverMatch> match = evaluateCandidate(driverId, candidate.distanceKm());
-                match.ifPresent(evaluatedMatches::add);
+                if (excluded.contains(driverId)) {
+                    stats.incrementExcludedDrivers();
+                    continue;
+                }
+                if (!evaluatedDrivers.add(driverId)) {
+                    stats.incrementDuplicateCandidates();
+                    continue;
+                }
+                candidateDistances.put(driverId, candidate.distanceKm());
             }
 
-            if (!evaluatedMatches.isEmpty()) {
-                break; // we already found at least one candidate in this radius wave
+            if (candidateDistances.isEmpty()) {
+                stats.logSummary();
+                continue;
+            }
+
+            Map<Long, Driver> fetchedDrivers = StreamSupport
+                    .stream(driverRepository.findAllById(candidateDistances.keySet()).spliterator(), false)
+                    .collect(Collectors.toMap(Driver::getId, driver -> driver));
+
+            Map<Long, Driver> availableDrivers = new HashMap<>();
+            for (Long driverId : candidateDistances.keySet()) {
+                Driver driver = fetchedDrivers.get(driverId);
+                if (driver == null) {
+                    stats.incrementMissingDrivers();
+                    continue;
+                }
+                if (!driver.isAvailable()) {
+                    stats.incrementUnavailableDrivers();
+                    continue;
+                }
+                availableDrivers.put(driverId, driver);
+            }
+
+            if (availableDrivers.isEmpty()) {
+                stats.logSummary();
+                continue;
+            }
+
+            Map<Long, Boolean> cachedShiftFlags = driverEngagementCache.getShiftFlags(availableDrivers.keySet());
+            Set<Long> shiftLookupIds = availableDrivers.keySet().stream()
+                    .filter(id -> !Boolean.FALSE.equals(cachedShiftFlags.get(id)))
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+
+            Map<Long, DriverShift> activeShifts = new HashMap<>();
+            if (!shiftLookupIds.isEmpty()) {
+                driverShiftRepository.findAllByDriverIdInAndStatusOrderByStartedAtDesc(shiftLookupIds, DriverShiftStatus.ACTIVE)
+                        .forEach(shift -> activeShifts.putIfAbsent(shift.getDriver().getId(), shift));
+            }
+
+            Map<Long, Boolean> activeShiftFlags = new HashMap<>();
+            for (Long driverId : availableDrivers.keySet()) {
+                if (Boolean.FALSE.equals(cachedShiftFlags.get(driverId))) {
+                    activeShiftFlags.put(driverId, false);
+                } else {
+                    activeShiftFlags.put(driverId, activeShifts.containsKey(driverId));
+                }
+            }
+            driverEngagementCache.storeShiftFlags(activeShiftFlags);
+
+            Map<Long, Boolean> cachedActiveOrders = driverEngagementCache.getActiveOrderFlags(availableDrivers.keySet());
+            Set<Long> orderLookupIds = availableDrivers.keySet().stream()
+                    .filter(id -> !Boolean.FALSE.equals(cachedActiveOrders.get(id)))
+                    .collect(Collectors.toSet());
+            Set<Long> activeOrderDriverIds = orderLookupIds.isEmpty() ? Set.of() :
+                    orderRepository.findDriverIdsByStatusIn(orderLookupIds, ACTIVE_DRIVER_STATUSES);
+
+            Map<Long, Boolean> activeOrders = new HashMap<>();
+            for (Long driverId : availableDrivers.keySet()) {
+                boolean hasActiveOrder = activeOrderDriverIds.contains(driverId) || Boolean.TRUE.equals(cachedActiveOrders.get(driverId));
+                activeOrders.put(driverId, hasActiveOrder);
+            }
+            driverEngagementCache.storeActiveOrderFlags(activeOrders);
+
+            LinkedHashSet<Long> eligibleDriverIds = new LinkedHashSet<>();
+            for (Long driverId : candidateDistances.keySet()) {
+                if (!availableDrivers.containsKey(driverId)) {
+                    continue;
+                }
+                if (!activeShiftFlags.getOrDefault(driverId, false)) {
+                    stats.incrementNoActiveShift();
+                    continue;
+                }
+                if (activeOrders.getOrDefault(driverId, false)) {
+                    stats.incrementActiveDeliveries();
+                    continue;
+                }
+                eligibleDriverIds.add(driverId);
+            }
+
+            if (eligibleDriverIds.isEmpty()) {
+                stats.logSummary();
+                continue;
+            }
+
+            Map<Long, Delivery> recentDeliveries = loadRecentDeliveries(eligibleDriverIds);
+
+            DriverMatch bestMatchInRadius = null;
+            for (Long driverId : eligibleDriverIds) {
+                Driver driver = availableDrivers.get(driverId);
+                double distanceKm = candidateDistances.get(driverId);
+                Duration idleDuration = resolveIdleDuration(driverId, recentDeliveries, activeShifts);
+                double etaMinutes = travelTimeEstimator.estimateEtaMinutes(driverId, distanceKm);
+                double capacityFactor = driverCapacityService.resolveCapacityFactor(driverId);
+                double score = computeScore(distanceKm, idleDuration, etaMinutes, capacityFactor);
+
+                DriverMatch match = new DriverMatch(driver, score, distanceKm, idleDuration, etaMinutes, capacityFactor);
+                log.debug("Driver {} scored {} for assignment (distance={}km idle={}min eta={}min capacity={})",
+                        driver.getId(), String.format("%.3f", score),
+                        String.format("%.2f", distanceKm), idleDuration.toMinutes(),
+                        String.format("%.1f", etaMinutes), String.format("%.2f", capacityFactor));
+
+                if (bestMatchInRadius == null || match.score() > bestMatchInRadius.score()) {
+                    bestMatchInRadius = match;
+                }
+
+                if (match.score() >= properties.earlyExitScoreThreshold() ||
+                        distanceKm <= properties.earlyExitDistanceKm()) {
+                    log.debug("Early exit triggered for driver {} within radius {} km (score={}, distance={})",
+                            driver.getId(), radius, String.format("%.3f", match.score()), String.format("%.2f", distanceKm));
+                    return Optional.of(match);
+                }
+            }
+
+            if (bestMatchInRadius != null) {
+                bestMatch = bestMatchInRadius;
+                log.debug("Selected driver {} from radius {} km after evaluating {} eligible candidates",
+                        bestMatch.driver().getId(), radius, eligibleDriverIds.size());
+                break;
+            }
+
+            stats.logSummary();
+        }
+
+        return Optional.ofNullable(bestMatch);
+    }
+
+    private Map<Long, Delivery> loadRecentDeliveries(Collection<Long> driverIds) {
+        if (driverIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Delivery> deliveries = deliveryRepository.findRecentForDrivers(driverIds);
+        Map<Long, Delivery> result = new HashMap<>();
+        for (Delivery delivery : deliveries) {
+            if (delivery.getDriver() == null) {
+                continue;
+            }
+            result.putIfAbsent(delivery.getDriver().getId(), delivery);
+        }
+        return result;
+    }
+
+    private Duration resolveIdleDuration(Long driverId, Map<Long, Delivery> recentDeliveries, Map<Long, DriverShift> activeShifts) {
+        LocalDateTime now = LocalDateTime.now();
+        Delivery recentDelivery = recentDeliveries.get(driverId);
+        if (recentDelivery != null) {
+            LocalDateTime lastActivity = Optional.ofNullable(recentDelivery.getDeliveredTime())
+                    .or(() -> Optional.ofNullable(recentDelivery.getPickupTime()))
+                    .orElse(recentDelivery.getAssignedTime());
+            if (lastActivity != null) {
+                Duration duration = Duration.between(lastActivity, now);
+                if (!duration.isNegative()) {
+                    return duration;
+                }
             }
         }
 
-        return evaluatedMatches.stream()
-                .max((left, right) -> Double.compare(left.score(), right.score()));
+        DriverShift shift = activeShifts.get(driverId);
+        if (shift != null && shift.getStartedAt() != null) {
+            Duration sinceShiftStart = Duration.between(shift.getStartedAt(), now);
+            if (!sinceShiftStart.isNegative()) {
+                return sinceShiftStart;
+            }
+        }
+
+        long fallbackMinutes = Math.max(1, Math.round(properties.maxIdleBonusMinutes() / 2));
+        return Duration.ofMinutes(fallbackMinutes);
     }
 
-    private Optional<DriverMatch> evaluateCandidate(Long driverId, double distanceKm) {
-        return driverRepository.findById(driverId)
-                .filter(Driver::isAvailable)
-                .filter(driver -> hasActiveShift(driverId))
-                .filter(driver -> !hasActiveDelivery(driverId))
-                .map(driver -> buildMatch(driver, distanceKm));
-    }
+    private double computeScore(double distanceKm, Duration idleDuration, double etaMinutes, double capacityFactor) {
+        double totalWeight = properties.distanceWeight() + properties.idleWeight()
+                + properties.etaWeight() + properties.capacityWeight();
+        if (totalWeight <= 0) {
+            totalWeight = 1.0;
+        }
 
-    private DriverMatch buildMatch(Driver driver, double distanceKm) {
-        Duration idleDuration = resolveIdleDuration(driver.getId());
-        double score = computeScore(distanceKm, idleDuration);
-        log.debug("Driver {} scored {} for assignment (distance={}km idle={}min)",
-                driver.getId(), String.format("%.3f", score),
-                String.format("%.2f", distanceKm), idleDuration.toMinutes());
-        return new DriverMatch(driver, score, distanceKm, idleDuration);
-    }
+        double normalizedDistance = 1.0 / (1.0 + Math.max(distanceKm, 0.0));
+        double idleMinutes = Math.max(0.0, Math.min(properties.maxIdleBonusMinutes(), idleDuration.toMinutes()));
+        double idleScore = idleMinutes / properties.maxIdleBonusMinutes();
+        double etaRatio = Math.max(0.0, etaMinutes) / Math.max(1.0, properties.targetEtaMinutes());
+        double etaScore = 1.0 / (1.0 + etaRatio);
+        double capacityScore = Math.max(0.0, Math.min(1.0, capacityFactor));
 
-    private boolean hasActiveShift(Long driverId) {
-        return driverShiftRepository
-                .findTopByDriverIdAndStatusOrderByStartedAtDesc(driverId, DriverShiftStatus.ACTIVE)
-                .isPresent();
-    }
-
-    private boolean hasActiveDelivery(Long driverId) {
-        return orderRepository.findByDriverIdAndStatusIn(driverId, ACTIVE_DRIVER_STATUSES).isPresent();
-    }
-
-    private Duration resolveIdleDuration(Long driverId) {
-        LocalDateTime now = LocalDateTime.now();
-        return deliveryRepository
-                .findTopByDriverIdOrderByDeliveredTimeDesc(driverId)
-                .map(delivery -> Optional.ofNullable(delivery.getDeliveredTime())
-                        .or(() -> Optional.ofNullable(delivery.getPickupTime()))
-                        .orElse(delivery.getAssignedTime()))
-                .map(lastActivity -> lastActivity != null ? Duration.between(lastActivity, now) : Duration.ZERO)
-                .filter(duration -> !duration.isNegative())
-                .orElse(Duration.ofHours(6));
-    }
-
-    private double computeScore(double distanceKm, Duration idleDuration) {
-        double distanceScore = 1.0 / (1.0 + Math.max(distanceKm, 0));
-        double idleScore = Math.min(idleDuration.toMinutes() / 30.0, 1.0);
-        return (distanceScore * DISTANCE_WEIGHT) + (idleScore * IDLE_WEIGHT);
+        return (normalizedDistance * properties.distanceWeight()
+                + idleScore * properties.idleWeight()
+                + etaScore * properties.etaWeight()
+                + capacityScore * properties.capacityWeight()) / totalWeight;
     }
 
     private Long parseDriverId(String driverIdValue) {
@@ -143,5 +291,60 @@ public class DriverAssignmentService {
         }
     }
 
-    public record DriverMatch(Driver driver, double score, double distanceKm, Duration idleDuration) { }
+    private class RadiusStats {
+        private final double radiusKm;
+        private int candidateCount;
+        private int invalidIdentifiers;
+        private int excludedDrivers;
+        private int duplicateCandidates;
+        private int missingDrivers;
+        private int unavailableDrivers;
+        private int noActiveShift;
+        private int activeDeliveries;
+
+        private RadiusStats(double radiusKm) {
+            this.radiusKm = radiusKm;
+        }
+
+        void recordCandidates(int count) {
+            this.candidateCount = count;
+        }
+
+        void incrementInvalidIdentifiers() {
+            this.invalidIdentifiers++;
+        }
+
+        void incrementExcludedDrivers() {
+            this.excludedDrivers++;
+        }
+
+        void incrementDuplicateCandidates() {
+            this.duplicateCandidates++;
+        }
+
+        void incrementMissingDrivers() {
+            this.missingDrivers++;
+        }
+
+        void incrementUnavailableDrivers() {
+            this.unavailableDrivers++;
+        }
+
+        void incrementNoActiveShift() {
+            this.noActiveShift++;
+        }
+
+        void incrementActiveDeliveries() {
+            this.activeDeliveries++;
+        }
+
+        void logSummary() {
+            log.info("Radius {}km produced no matches (candidates={}, invalidIds={}, excluded={}, duplicates={}, missing={}, unavailable={}, noShift={}, activeDeliveries={})",
+                    radiusKm, candidateCount, invalidIdentifiers, excludedDrivers, duplicateCandidates,
+                    missingDrivers, unavailableDrivers, noActiveShift, activeDeliveries);
+        }
+    }
+
+    public record DriverMatch(Driver driver, double score, double distanceKm, Duration idleDuration,
+                              double etaMinutes, double capacityFactor) { }
 }

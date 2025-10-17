@@ -1,7 +1,8 @@
 package com.foodify.server.modules.auth.security;
 
+import com.foodify.server.modules.delivery.application.DriverSessionService;
+import com.foodify.server.modules.delivery.domain.DriverSession;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,11 +16,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final DriverSessionService driverSessionService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -51,6 +54,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + role);
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(userId, null, List.of(authority));
+
+            if ("DRIVER".equals(role)) {
+                String sessionToken = claims.get("sessionToken", String.class);
+
+                if (sessionToken == null) {
+                    SecurityContextHolder.clearContext();
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    return;
+                }
+
+                Optional<DriverSession> session = driverSessionService.findActiveByToken(sessionToken);
+
+                if (session.isEmpty()) {
+                    SecurityContextHolder.clearContext();
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    return;
+                }
+
+                authentication.setDetails(new DriverAuthenticationDetails(sessionToken));
+            }
+
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
 

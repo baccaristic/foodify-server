@@ -1,6 +1,9 @@
 package com.foodify.server.modules.delivery.api;
 
 import com.foodify.server.modules.delivery.dto.DeliverOrderDto;
+import com.foodify.server.modules.auth.security.DriverAuthenticationDetails;
+import com.foodify.server.modules.delivery.application.DriverSessionService;
+import com.foodify.server.modules.delivery.dto.DriverHeartbeatRequest;
 import com.foodify.server.modules.delivery.dto.DriverLocationDto;
 import com.foodify.server.modules.delivery.dto.DriverShiftDto;
 import com.foodify.server.modules.delivery.dto.DriverShiftBalanceDto;
@@ -37,6 +40,7 @@ public class DriverController {
     private final DriverLocationService driverLocationService;
     private final DriverService driverService;
     private final WebSocketService webSocketService;
+    private final DriverSessionService driverSessionService;
 
     @PostMapping("/location")
     @PreAuthorize("hasAuthority('ROLE_DRIVER')")
@@ -45,6 +49,29 @@ public class DriverController {
         driverService.getOrderInDelivery(dto.getDriverId())
                 .filter(order -> order.getClient() != null)
                 .ifPresent(order -> webSocketService.notifyClient(order.getClient().getId(), order));
+    }
+
+    @PostMapping("/heartbeat")
+    @PreAuthorize("hasAuthority('ROLE_DRIVER')")
+    public ResponseEntity<?> heartbeat(Authentication authentication,
+                                       @RequestBody(required = false) DriverHeartbeatRequest request) {
+        Object details = authentication.getDetails();
+        if (!(details instanceof DriverAuthenticationDetails driverDetails)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        Long driverId = Long.parseLong((String) authentication.getPrincipal());
+
+        return driverSessionService.findActiveByToken(driverDetails.sessionToken())
+                .map(session -> {
+                    driverSessionService.recordHeartbeat(session);
+                    if (request != null && request.getLatitude() != null && request.getLongitude() != null) {
+                        driverLocationService.updateDriverLocation(driverId,
+                                request.getLatitude(), request.getLongitude());
+                    }
+                    return ResponseEntity.noContent().build();
+                })
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
     }
 
     @GetMapping("/order/{id}")

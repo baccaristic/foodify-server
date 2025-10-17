@@ -18,15 +18,23 @@ public class JwtService {
 
     // === Access Token ===
     public String generateAccessToken(User user) {
+        return generateAccessToken(user, null);
+    }
+
+    public String generateAccessToken(User user, String sessionToken) {
         long expirationTimeMillis = 1000 * 60 * 60 * 24; // 24 hours
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .setSubject(user.getId().toString())
                 .claim("email", user.getEmail())
                 .claim("role", user.getRole())
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + expirationTimeMillis))
-                .signWith(secretKey)
-                .compact();
+                .setExpiration(new Date(System.currentTimeMillis() + expirationTimeMillis));
+
+        if (sessionToken != null) {
+            builder.claim("sessionToken", sessionToken);
+        }
+
+        return builder.signWith(secretKey).compact();
     }
 
     // === Refresh Token ===

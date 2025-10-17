@@ -3,6 +3,7 @@ package com.foodify.server.modules.auth.security;
 import com.foodify.server.modules.auth.application.CustomOAuth2UserService;
 import com.foodify.server.modules.auth.security.JwtAuthenticationFilter;
 import com.foodify.server.modules.auth.security.JwtService;
+import com.foodify.server.modules.delivery.application.DriverSessionService;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -33,6 +34,7 @@ public class SecurityConfig {
     private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
     private final CustomOAuth2UserService customOAuth2UserService;
     private final JwtService jwtService;
+    private final DriverSessionService driverSessionService;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -73,12 +75,17 @@ public class SecurityConfig {
                             response.getWriter().write("{\"error\": \"Forbidden\"}");
                         })
                 )
-                .addFilterBefore(new JwtAuthenticationFilter(jwtService),
+                .addFilterBefore(jwtAuthenticationFilter(),
                         org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
+
+    @Bean
+    public JwtAuthenticationFilter jwtAuthenticationFilter() {
+        return new JwtAuthenticationFilter(jwtService, driverSessionService);
+    }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {

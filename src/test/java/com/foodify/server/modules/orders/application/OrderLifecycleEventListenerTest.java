@@ -12,7 +12,7 @@ import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.identity.domain.Client;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
-import com.foodify.server.modules.identity.domain.User;
+import com.foodify.server.modules.identity.domain.RestaurantAdmin;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -140,7 +140,7 @@ class OrderLifecycleEventListenerTest {
         Order order = new Order();
         order.setId(orderId);
         Restaurant restaurant = new Restaurant();
-        User admin = new User();
+        RestaurantAdmin admin = new RestaurantAdmin();
         admin.setId(adminId);
         restaurant.setAdmin(admin);
         order.setRestaurant(restaurant);
