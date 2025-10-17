@@ -76,13 +76,32 @@ public class RestaurantService {
         LocalDateTime fromDateTime = fromDate != null ? fromDate.atStartOfDay() : null;
         LocalDateTime toDateTime = toDate != null ? toDate.atTime(LocalTime.MAX) : null;
 
-        return this.orderRepository.findAllByRestaurantAndDateRange(
-                        restaurant,
-                        fromDateTime,
-                        toDateTime,
-                        effectivePageable
-                )
-                .map(orderNotificationMapper::toRestaurantDto);
+        Page<Order> orders;
+
+        if (fromDateTime != null && toDateTime != null) {
+            orders = this.orderRepository.findAllByRestaurantAndDateBetween(
+                    restaurant,
+                    fromDateTime,
+                    toDateTime,
+                    effectivePageable
+            );
+        } else if (fromDateTime != null) {
+            orders = this.orderRepository.findAllByRestaurantAndDateGreaterThanEqual(
+                    restaurant,
+                    fromDateTime,
+                    effectivePageable
+            );
+        } else if (toDateTime != null) {
+            orders = this.orderRepository.findAllByRestaurantAndDateLessThanEqual(
+                    restaurant,
+                    toDateTime,
+                    effectivePageable
+            );
+        } else {
+            orders = this.orderRepository.findAllByRestaurant(restaurant, effectivePageable);
+        }
+
+        return orders.map(orderNotificationMapper::toRestaurantDto);
     }
 
     @Transactional(readOnly = true)

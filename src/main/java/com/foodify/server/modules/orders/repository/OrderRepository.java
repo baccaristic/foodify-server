@@ -19,17 +19,24 @@ import java.util.Set;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findAllByRestaurantOrderByDateDesc(Restaurant restaurant);
-    @Query("""
-    SELECT o
-    FROM Order o
-    WHERE o.restaurant = :restaurant
-      AND (:fromDate IS NULL OR o.date >= :fromDate)
-      AND (:toDate IS NULL OR o.date <= :toDate)
-    """)
-    Page<Order> findAllByRestaurantAndDateRange(
-            @Param("restaurant") Restaurant restaurant,
-            @Param("fromDate") LocalDateTime fromDate,
-            @Param("toDate") LocalDateTime toDate,
+    Page<Order> findAllByRestaurant(Restaurant restaurant, Pageable pageable);
+
+    Page<Order> findAllByRestaurantAndDateGreaterThanEqual(
+            Restaurant restaurant,
+            LocalDateTime fromDate,
+            Pageable pageable
+    );
+
+    Page<Order> findAllByRestaurantAndDateLessThanEqual(
+            Restaurant restaurant,
+            LocalDateTime toDate,
+            Pageable pageable
+    );
+
+    Page<Order> findAllByRestaurantAndDateBetween(
+            Restaurant restaurant,
+            LocalDateTime fromDate,
+            LocalDateTime toDate,
             Pageable pageable
     );
     Page<Order> findAllByClient(Client client, Pageable pageable);
