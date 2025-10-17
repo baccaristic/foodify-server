@@ -281,7 +281,7 @@ public class CustomerOrderService {
 
         return orderRepository
                 .findFirstByClient_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(clientId, ONGOING_STATUSES)
-                .map(orderNotificationMapper::toDto)
+                .map(orderNotificationMapper::toClientDto)
                 .orElse(null);
     }
 

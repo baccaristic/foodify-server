@@ -52,7 +52,7 @@ public class RestaurantService {
     public List<OrderNotificationDTO> getAllOrders(Restaurant restaurant) {
         return this.orderRepository.findAllByRestaurantOrderByDateDesc(restaurant)
                 .stream()
-                .map(orderNotificationMapper::toDto)
+                .map(orderNotificationMapper::toRestaurantDto)
                 .toList();
     }
 
@@ -61,7 +61,7 @@ public class RestaurantService {
         return this.orderRepository
                 .findAllByRestaurant_Admin_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(adminId, OrderStatusGroups.RESTAURANT_ACTIVE_STATUSES)
                 .stream()
-                .map(orderNotificationMapper::toDto)
+                .map(orderNotificationMapper::toRestaurantDto)
                 .toList();
     }
 
@@ -83,7 +83,7 @@ public class RestaurantService {
     public OrderNotificationDTO getOrderForRestaurant(Long orderId, Long restaurantId) {
         return orderRepository.findDetailedById(orderId)
                 .filter(order -> order.getRestaurant() != null && order.getRestaurant().getId().equals(restaurantId))
-                .map(orderNotificationMapper::toDto)
+                .map(orderNotificationMapper::toRestaurantDto)
                 .orElse(null);
     }
 
@@ -223,7 +223,7 @@ public class RestaurantService {
 
     private OrderNotificationDTO loadOrderNotification(Long orderId) {
         return orderRepository.findDetailedById(orderId)
-                .map(orderNotificationMapper::toDto)
+                .map(orderNotificationMapper::toRestaurantDto)
                 .orElseThrow(() -> new EntityNotFoundException("Order not found"));
     }
 }

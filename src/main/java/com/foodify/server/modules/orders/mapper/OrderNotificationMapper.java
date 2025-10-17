@@ -39,6 +39,21 @@ public class OrderNotificationMapper {
     }
 
     public OrderNotificationDTO toDto(Order order) {
+        return toDto(order, null, null);
+    }
+
+    public OrderNotificationDTO toClientDto(Order order) {
+        return toDto(order, order != null ? order.getDeliveryToken() : null, null);
+    }
+
+    public OrderNotificationDTO toRestaurantDto(Order order) {
+        return toDto(order, null, order != null ? order.getPickupToken() : null);
+    }
+
+    private OrderNotificationDTO toDto(Order order, String deliveryToken, String pickupToken) {
+        if (order == null) {
+            return null;
+        }
         LocationDto deliveryLocation = resolveDeliveryLocation(order);
         OrderNotificationDTO.RestaurantSummary restaurantSummary = toRestaurantSummary(order.getRestaurant());
         OrderNotificationDTO.DeliverySummary deliverySummary = toDeliverySummary(order.getDelivery());
@@ -96,7 +111,9 @@ public class OrderNotificationMapper {
                 restaurantSummary,
                 deliverySummary,
                 paymentSummary,
-                buildStatusHistory(order)
+                buildStatusHistory(order),
+                deliveryToken,
+                pickupToken
         );
     }
 
