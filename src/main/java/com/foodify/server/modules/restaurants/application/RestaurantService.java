@@ -23,6 +23,8 @@ import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -32,6 +34,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -56,11 +61,47 @@ public class RestaurantService {
     private final OrderNotificationMapper orderNotificationMapper;
 
     @Transactional(readOnly = true)
-    public List<OrderNotificationDTO> getAllOrders(Restaurant restaurant) {
-        return this.orderRepository.findAllByRestaurantOrderByDateDesc(restaurant)
-                .stream()
-                .map(orderNotificationMapper::toRestaurantDto)
-                .toList();
+    public Page<OrderNotificationDTO> getAllOrders(
+            Restaurant restaurant,
+            Pageable pageable,
+            LocalDate fromDate,
+            LocalDate toDate
+    ) {
+        Pageable effectivePageable = pageable != null ? pageable : Pageable.unpaged();
+
+        if (restaurant == null) {
+            return Page.empty(effectivePageable);
+        }
+
+        LocalDateTime fromDateTime = fromDate != null ? fromDate.atStartOfDay() : null;
+        LocalDateTime toDateTime = toDate != null ? toDate.atTime(LocalTime.MAX) : null;
+
+        Page<Order> orders;
+
+        if (fromDateTime != null && toDateTime != null) {
+            orders = this.orderRepository.findAllByRestaurantAndDateBetween(
+                    restaurant,
+                    fromDateTime,
+                    toDateTime,
+                    effectivePageable
+            );
+        } else if (fromDateTime != null) {
+            orders = this.orderRepository.findAllByRestaurantAndDateGreaterThanEqual(
+                    restaurant,
+                    fromDateTime,
+                    effectivePageable
+            );
+        } else if (toDateTime != null) {
+            orders = this.orderRepository.findAllByRestaurantAndDateLessThanEqual(
+                    restaurant,
+                    toDateTime,
+                    effectivePageable
+            );
+        } else {
+            orders = this.orderRepository.findAllByRestaurant(restaurant, effectivePageable);
+        }
+
+        return orders.map(orderNotificationMapper::toRestaurantDto);
     }
 
     @Transactional(readOnly = true)
