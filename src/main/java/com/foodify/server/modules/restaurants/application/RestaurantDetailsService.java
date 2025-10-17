@@ -1,10 +1,12 @@
 package com.foodify.server.modules.restaurants.application;
 
+import com.foodify.server.modules.restaurants.domain.MenuCategory;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.restaurants.domain.MenuOptionGroup;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
 import com.foodify.server.modules.restaurants.dto.RestaurantDetailsResponse;
+import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
@@ -14,9 +16,11 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -25,6 +29,7 @@ import java.util.stream.Collectors;
 public class RestaurantDetailsService {
 
     private final RestaurantRepository restaurantRepository;
+    private final MenuItemRepository menuItemRepository;
     private final DeliveryFeeCalculator deliveryFeeCalculator;
 
     @Transactional()
@@ -50,7 +55,7 @@ public class RestaurantDetailsService {
         Set<Long> restaurantFavorites = favoriteRestaurantIds == null ? Set.of() : favoriteRestaurantIds;
         Set<Long> menuItemFavorites = favoriteMenuItemIds == null ? Set.of() : favoriteMenuItemIds;
 
-        List<MenuItem> menuItems = restaurant.getMenu() != null ? restaurant.getMenu() : List.of();
+        List<MenuItem> menuItems = menuItemRepository.findByRestaurant_IdAndAvailableTrue(restaurantId);
 
         List<RestaurantDetailsResponse.RestaurantBadge> highlights = buildHighlights(restaurant);
         Map<String, List<MenuItem>> itemsByCategory = groupByCategory(menuItems);
@@ -109,12 +114,21 @@ public class RestaurantDetailsService {
     }
 
     private Map<String, List<MenuItem>> groupByCategory(List<MenuItem> menuItems) {
-        return menuItems.stream()
-                .collect(Collectors.groupingBy(
-                        item -> item.getCategory() != null ? item.getCategory() : "Other",
-                        LinkedHashMap::new,
-                        Collectors.toList()
-                ));
+        Map<String, List<MenuItem>> grouped = new LinkedHashMap<>();
+        for (MenuItem item : menuItems) {
+            Set<MenuCategory> categories = item.getCategories();
+            if (categories == null || categories.isEmpty()) {
+                grouped.computeIfAbsent("Other", key -> new ArrayList<>()).add(item);
+                continue;
+            }
+
+            categories.stream()
+                    .map(MenuCategory::getName)
+                    .map(name -> name == null || name.isBlank() ? "Other" : name)
+                    .collect(Collectors.toCollection(LinkedHashSet::new))
+                    .forEach(name -> grouped.computeIfAbsent(name, key -> new ArrayList<>()).add(item));
+        }
+        return grouped;
     }
 
     private List<String> buildQuickFilters(Map<String, List<MenuItem>> itemsByCategory) {
@@ -207,8 +221,12 @@ public class RestaurantDetailsService {
 
     private List<String> buildTags(MenuItem item, boolean promotionActive) {
         Set<String> tags = new java.util.LinkedHashSet<>();
-        if (item.getCategory() != null) {
-            tags.add(item.getCategory());
+        if (item.getCategories() != null) {
+            item.getCategories().stream()
+                    .map(MenuCategory::getName)
+                    .filter(Objects::nonNull)
+                    .filter(name -> !name.isBlank())
+                    .forEach(tags::add);
         }
         if (item.isPopular()) {
             tags.add("Top Sales");
