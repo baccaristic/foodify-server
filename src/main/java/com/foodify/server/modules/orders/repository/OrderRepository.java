@@ -19,6 +19,19 @@ import java.util.Set;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findAllByRestaurantOrderByDateDesc(Restaurant restaurant);
+    @Query("""
+    SELECT o
+    FROM Order o
+    WHERE o.restaurant = :restaurant
+      AND (:fromDate IS NULL OR o.date >= :fromDate)
+      AND (:toDate IS NULL OR o.date <= :toDate)
+    """)
+    Page<Order> findAllByRestaurantAndDateRange(
+            @Param("restaurant") Restaurant restaurant,
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate,
+            Pageable pageable
+    );
     Page<Order> findAllByClient(Client client, Pageable pageable);
     List<Order> findAllByPendingDriverId(Long pendingDriverId);
     @EntityGraph(attributePaths = {

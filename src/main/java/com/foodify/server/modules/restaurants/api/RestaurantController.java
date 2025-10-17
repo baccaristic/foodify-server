@@ -6,6 +6,7 @@ import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.dto.MenuCategoryRequestDTO;
 import com.foodify.server.modules.restaurants.dto.MenuItemAvailabilityRequest;
 import com.foodify.server.modules.restaurants.dto.MenuItemRequestDTO;
+import com.foodify.server.modules.restaurants.dto.PageResponse;
 import com.foodify.server.modules.identity.domain.RestaurantAdmin;
 import com.foodify.server.modules.identity.repository.RestaurantAdminRepository;
 import com.foodify.server.modules.restaurants.application.RestaurantService;
@@ -13,6 +14,10 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -20,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,9 +37,36 @@ public class RestaurantController {
     private final RestaurantAdminRepository restaurantAdminRepository;
     @GetMapping("/my-orders")
     @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
-    public List<OrderNotificationDTO> getMyOrders(Authentication authentication) {
+    public PageResponse<OrderNotificationDTO> getMyOrders(
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int pageSize,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime from,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            LocalDateTime to
+    ) {
         RestaurantAdmin admin = loadAdmin(authentication);
-        return this.restaurantService.getAllOrders(admin.getRestaurant());
+        int effectivePage = Math.max(page, 0);
+        int effectivePageSize = pageSize > 0 ? Math.min(pageSize, 50) : 20;
+
+        PageRequest pageRequest = PageRequest.of(effectivePage, effectivePageSize, Sort.by("date").descending());
+
+        Page<OrderNotificationDTO> orders = this.restaurantService.getAllOrders(
+                admin.getRestaurant(),
+                pageRequest,
+                from,
+                to
+        );
+
+        return new PageResponse<>(
+                orders.getContent(),
+                orders.getNumber(),
+                orders.getSize(),
+                orders.getTotalElements()
+        );
     }
 
     @GetMapping("/categories")
