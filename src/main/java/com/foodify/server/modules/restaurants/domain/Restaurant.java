@@ -9,6 +9,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -58,4 +59,10 @@ public class Restaurant {
 
     @OneToMany(mappedBy = "restaurant")
     private List<Order> orders;
+
+    @OneToMany(mappedBy = "restaurant", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<RestaurantWeeklyOperatingHour> operatingHours = new HashSet<>();
+
+    @OneToMany(mappedBy = "restaurant", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<RestaurantSpecialDay> specialDays = new HashSet<>();
 }

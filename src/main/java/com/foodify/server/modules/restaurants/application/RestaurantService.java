@@ -13,13 +13,20 @@ import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.restaurants.domain.MenuOptionGroup;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
-import com.foodify.server.modules.restaurants.dto.MenuItemRequestDTO;
-import com.foodify.server.modules.restaurants.dto.OptionGroupDTO;
+import com.foodify.server.modules.restaurants.domain.RestaurantSpecialDay;
+import com.foodify.server.modules.restaurants.domain.RestaurantWeeklyOperatingHour;
 import com.foodify.server.modules.restaurants.dto.ExtraDTO;
 import com.foodify.server.modules.restaurants.dto.MenuCategoryRequestDTO;
+import com.foodify.server.modules.restaurants.dto.MenuItemRequestDTO;
+import com.foodify.server.modules.restaurants.dto.OperatingHoursResponse;
+import com.foodify.server.modules.restaurants.dto.OptionGroupDTO;
+import com.foodify.server.modules.restaurants.dto.SaveSpecialDayRequest;
+import com.foodify.server.modules.restaurants.dto.UpdateWeeklyScheduleRequest;
 import com.foodify.server.modules.restaurants.repository.MenuCategoryRepository;
 import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
+import com.foodify.server.modules.restaurants.repository.RestaurantOperatingHourRepository;
+import com.foodify.server.modules.restaurants.repository.RestaurantSpecialDayRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import jakarta.persistence.EntityNotFoundException;
@@ -34,17 +41,22 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -56,6 +68,8 @@ public class RestaurantService {
     private final RestaurantRepository restaurantRepository;
     private final MenuItemRepository menuItemRepository;
     private final MenuCategoryRepository menuCategoryRepository;
+    private final RestaurantOperatingHourRepository restaurantOperatingHourRepository;
+    private final RestaurantSpecialDayRepository restaurantSpecialDayRepository;
     private final DriverDispatchService driverDispatchService;
     private final OrderLifecycleService orderLifecycleService;
     private final OrderNotificationMapper orderNotificationMapper;
@@ -349,6 +363,171 @@ public class RestaurantService {
                     "Order ready for pickup");
             return loadOrderNotification(updated.getId());
         }).orElseThrow(() -> new RuntimeException("Order not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public OperatingHoursResponse getOperatingHours(Long restaurantId) {
+        Map<DayOfWeek, RestaurantWeeklyOperatingHour> weeklyByDay = restaurantOperatingHourRepository
+                .findByRestaurant_IdOrderByDayOfWeekAsc(restaurantId)
+                .stream()
+                .collect(Collectors.toMap(RestaurantWeeklyOperatingHour::getDayOfWeek, Function.identity(), (left, right) -> left));
+
+        List<OperatingHoursResponse.WeeklyScheduleEntry> weeklySchedule = Arrays.stream(DayOfWeek.values())
+                .map(day -> {
+                    RestaurantWeeklyOperatingHour hour = weeklyByDay.get(day);
+                    if (hour == null) {
+                        return new OperatingHoursResponse.WeeklyScheduleEntry(day, false, null, null);
+                    }
+                    return toWeeklyScheduleDto(hour);
+                })
+                .toList();
+
+        List<OperatingHoursResponse.SpecialDay> specialDays = restaurantSpecialDayRepository
+                .findByRestaurant_IdOrderByDateAsc(restaurantId)
+                .stream()
+                .map(this::toSpecialDayDto)
+                .toList();
+
+        return new OperatingHoursResponse(weeklySchedule, specialDays);
+    }
+
+    @Transactional
+    public OperatingHoursResponse updateWeeklySchedule(Long restaurantId, UpdateWeeklyScheduleRequest request) {
+        Restaurant restaurant = restaurantRepository.findById(restaurantId)
+                .orElseThrow(() -> new EntityNotFoundException("Restaurant not found"));
+
+        restaurant.getOperatingHours().clear();
+
+        if (request != null && request.days() != null) {
+            Set<DayOfWeek> seen = new HashSet<>();
+            for (UpdateWeeklyScheduleRequest.DaySchedule daySchedule : request.days()) {
+                if (daySchedule == null || daySchedule.day() == null) {
+                    throw new IllegalArgumentException("Day of week is required for schedule entry");
+                }
+                if (!seen.add(daySchedule.day())) {
+                    throw new IllegalArgumentException("Duplicate day provided in weekly schedule: " + daySchedule.day());
+                }
+
+                RestaurantWeeklyOperatingHour hour = new RestaurantWeeklyOperatingHour();
+                hour.setDayOfWeek(daySchedule.day());
+                hour.setOpen(daySchedule.open());
+                if (daySchedule.open()) {
+                    if (daySchedule.opensAt() == null || daySchedule.closesAt() == null) {
+                        throw new IllegalArgumentException("Open days must include opening and closing times");
+                    }
+                    if (!daySchedule.opensAt().isBefore(daySchedule.closesAt())) {
+                        throw new IllegalArgumentException("Opening time must be before closing time");
+                    }
+                    hour.setOpensAt(daySchedule.opensAt());
+                    hour.setClosesAt(daySchedule.closesAt());
+                } else {
+                    hour.setOpensAt(null);
+                    hour.setClosesAt(null);
+                }
+                hour.setRestaurant(restaurant);
+                restaurant.getOperatingHours().add(hour);
+            }
+        }
+
+        updateRestaurantSummaryHours(restaurant);
+        restaurantRepository.save(restaurant);
+
+        return getOperatingHours(restaurantId);
+    }
+
+    @Transactional
+    public OperatingHoursResponse.SpecialDay addSpecialDay(Long restaurantId, SaveSpecialDayRequest request) {
+        Restaurant restaurant = restaurantRepository.findById(restaurantId)
+                .orElseThrow(() -> new EntityNotFoundException("Restaurant not found"));
+
+        RestaurantSpecialDay specialDay = new RestaurantSpecialDay();
+        specialDay.setRestaurant(restaurant);
+        applySpecialDayData(specialDay, request);
+
+        return toSpecialDayDto(restaurantSpecialDayRepository.save(specialDay));
+    }
+
+    @Transactional
+    public OperatingHoursResponse.SpecialDay updateSpecialDay(Long restaurantId, Long specialDayId, SaveSpecialDayRequest request) {
+        RestaurantSpecialDay specialDay = restaurantSpecialDayRepository.findByIdAndRestaurant_Id(specialDayId, restaurantId)
+                .orElseThrow(() -> new EntityNotFoundException("Special day not found"));
+
+        applySpecialDayData(specialDay, request);
+        return toSpecialDayDto(restaurantSpecialDayRepository.save(specialDay));
+    }
+
+    @Transactional
+    public void deleteSpecialDay(Long restaurantId, Long specialDayId) {
+        RestaurantSpecialDay specialDay = restaurantSpecialDayRepository.findByIdAndRestaurant_Id(specialDayId, restaurantId)
+                .orElseThrow(() -> new EntityNotFoundException("Special day not found"));
+        restaurantSpecialDayRepository.delete(specialDay);
+    }
+
+    private OperatingHoursResponse.SpecialDay toSpecialDayDto(RestaurantSpecialDay specialDay) {
+        return new OperatingHoursResponse.SpecialDay(
+                specialDay.getId(),
+                specialDay.getName(),
+                specialDay.getDate(),
+                specialDay.isOpen(),
+                specialDay.isOpen() ? specialDay.getOpensAt() : null,
+                specialDay.isOpen() ? specialDay.getClosesAt() : null
+        );
+    }
+
+    private OperatingHoursResponse.WeeklyScheduleEntry toWeeklyScheduleDto(RestaurantWeeklyOperatingHour hour) {
+        return new OperatingHoursResponse.WeeklyScheduleEntry(
+                hour.getDayOfWeek(),
+                hour.isOpen(),
+                hour.isOpen() ? hour.getOpensAt() : null,
+                hour.isOpen() ? hour.getClosesAt() : null
+        );
+    }
+
+    private void applySpecialDayData(RestaurantSpecialDay specialDay, SaveSpecialDayRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Request payload is required");
+        }
+        if (request.name() == null || request.name().isBlank()) {
+            throw new IllegalArgumentException("Special day name is required");
+        }
+        if (request.date() == null) {
+            throw new IllegalArgumentException("Special day date is required");
+        }
+
+        specialDay.setName(request.name().trim());
+        specialDay.setDate(request.date());
+        specialDay.setOpen(request.open());
+
+        if (request.open()) {
+            if (request.opensAt() == null || request.closesAt() == null) {
+                throw new IllegalArgumentException("Open special days must include opening and closing times");
+            }
+            if (!request.opensAt().isBefore(request.closesAt())) {
+                throw new IllegalArgumentException("Opening time must be before closing time");
+            }
+            specialDay.setOpensAt(request.opensAt());
+            specialDay.setClosesAt(request.closesAt());
+        } else {
+            specialDay.setOpensAt(null);
+            specialDay.setClosesAt(null);
+        }
+    }
+
+    private void updateRestaurantSummaryHours(Restaurant restaurant) {
+        Optional<RestaurantWeeklyOperatingHour> firstOpen = restaurant.getOperatingHours().stream()
+                .filter(RestaurantWeeklyOperatingHour::isOpen)
+                .sorted(Comparator.comparing(RestaurantWeeklyOperatingHour::getDayOfWeek))
+                .findFirst();
+
+        String opening = firstOpen.map(RestaurantWeeklyOperatingHour::getOpensAt).map(this::formatTime).orElse(null);
+        String closing = firstOpen.map(RestaurantWeeklyOperatingHour::getClosesAt).map(this::formatTime).orElse(null);
+
+        restaurant.setOpeningHours(opening);
+        restaurant.setClosingHours(closing);
+    }
+
+    private String formatTime(LocalTime time) {
+        return time == null ? null : time.toString();
     }
 
     private OrderNotificationDTO loadOrderNotification(Long orderId) {
