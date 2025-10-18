@@ -57,6 +57,7 @@ public class OrderNotificationMapper {
         LocationDto deliveryLocation = resolveDeliveryLocation(order);
         OrderNotificationDTO.RestaurantSummary restaurantSummary = toRestaurantSummary(order.getRestaurant());
         OrderNotificationDTO.DeliverySummary deliverySummary = toDeliverySummary(order.getDelivery());
+        String restaurantImage = order.getRestaurant() != null ? order.getRestaurant().getImageUrl() : null;
 
         List<OrderItemDTO> items = order.getItems() == null ? List.of() : order.getItems().stream()
                 .map(this::toOrderItemDto)
@@ -108,6 +109,7 @@ public class OrderNotificationMapper {
                 ),
                 order.getStatus(),
                 deliveryLocation,
+                restaurantImage,
                 restaurantSummary,
                 deliverySummary,
                 paymentSummary,

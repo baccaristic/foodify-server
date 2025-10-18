@@ -17,6 +17,7 @@ public record OrderNotificationDTO(
         ClientSummaryDTO client,
         OrderStatus status,
         LocationDto deliveryLocation,
+        String restaurantImage,
         RestaurantSummary restaurant,
         DeliverySummary delivery,
         PaymentSummary payment,
