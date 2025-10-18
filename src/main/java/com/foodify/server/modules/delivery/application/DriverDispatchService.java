@@ -21,7 +21,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -44,6 +46,8 @@ public class DriverDispatchService {
     };
     private static final Duration MAX_RETRY_DELAY = Duration.ofMinutes(5);
     private static final String ORDER_ATTEMPTED_DRIVERS_KEY_PREFIX = "order:drivers:attempted:";
+    private static final Set<OrderStatus> PENDING_ORDER_STATUSES =
+            Collections.unmodifiableSet(EnumSet.of(OrderStatus.ACCEPTED));
 
     private final DriverAssignmentService driverAssignmentService;
     private final DriverLocationService driverLocationService;
@@ -122,6 +126,17 @@ public class DriverDispatchService {
             }, () -> clearState(orderId));
             return null;
         });
+    }
+
+    public void triggerSearchForPendingOrders() {
+        List<Long> pendingOrderIds = orderRepository.findIdsNeedingDriver(PENDING_ORDER_STATUSES);
+        if (pendingOrderIds.isEmpty()) {
+            return;
+        }
+
+        for (Long orderId : pendingOrderIds) {
+            scheduleImmediate(orderId);
+        }
     }
 
     public void markDriverAccepted(Long orderId) {
