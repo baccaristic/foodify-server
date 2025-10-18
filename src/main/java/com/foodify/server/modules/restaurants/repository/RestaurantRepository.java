@@ -22,44 +22,69 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long>, J
             """;
 
     @Query(
-            value = "SELECT r.* FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius ORDER BY " + DISTANCE_FORMULA,
-            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius",
+            value = "SELECT r.* FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius " +
+                    "AND (:category IS NULL OR EXISTS (" +
+                    "SELECT 1 FROM menu_category mc WHERE mc.restaurant_id = r.id AND LOWER(mc.name) = LOWER(:category))) " +
+                    "ORDER BY " + DISTANCE_FORMULA,
+            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius " +
+                    "AND (:category IS NULL OR EXISTS (" +
+                    "SELECT 1 FROM menu_category mc WHERE mc.restaurant_id = r.id AND LOWER(mc.name) = LOWER(:category)))",
             nativeQuery = true
     )
     Page<Restaurant> findNearby(
             @Param("lat") double lat,
             @Param("lng") double lng,
             @Param("radius") double radiusInKm,
+            @Param("category") String category,
             Pageable pageable
     );
 
     @Query(
-            value = "SELECT r.* FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.top_choice = TRUE ORDER BY " + DISTANCE_FORMULA,
-            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.top_choice = TRUE",
+            value = "SELECT r.* FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.top_choice = TRUE " +
+                    "AND (:category IS NULL OR EXISTS (" +
+                    "SELECT 1 FROM menu_category mc WHERE mc.restaurant_id = r.id AND LOWER(mc.name) = LOWER(:category))) " +
+                    "ORDER BY " + DISTANCE_FORMULA,
+            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.top_choice = TRUE " +
+                    "AND (:category IS NULL OR EXISTS (" +
+                    "SELECT 1 FROM menu_category mc WHERE mc.restaurant_id = r.id AND LOWER(mc.name) = LOWER(:category)))",
             nativeQuery = true
     )
     Page<Restaurant> findTopChoiceNearby(
             @Param("lat") double lat,
             @Param("lng") double lng,
             @Param("radius") double radiusInKm,
+            @Param("category") String category,
             Pageable pageable
     );
 
     @Query(
-            value = "SELECT r.* FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.free_delivery = TRUE ORDER BY " + DISTANCE_FORMULA,
-            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.free_delivery = TRUE",
+            value = "SELECT r.* FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.free_delivery = TRUE " +
+                    "AND (:category IS NULL OR EXISTS (" +
+                    "SELECT 1 FROM menu_category mc WHERE mc.restaurant_id = r.id AND LOWER(mc.name) = LOWER(:category))) " +
+                    "ORDER BY " + DISTANCE_FORMULA,
+            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.free_delivery = TRUE " +
+                    "AND (:category IS NULL OR EXISTS (" +
+                    "SELECT 1 FROM menu_category mc WHERE mc.restaurant_id = r.id AND LOWER(mc.name) = LOWER(:category)))",
             nativeQuery = true
     )
     Page<Restaurant> findNearbyWithPromotions(
             @Param("lat") double lat,
             @Param("lng") double lng,
             @Param("radius") double radiusInKm,
+            @Param("category") String category,
             Pageable pageable
     );
 
     @Query(
-            value = "SELECT r.* FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.id NOT IN (:excludedIds) ORDER BY " + DISTANCE_FORMULA,
-            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.id NOT IN (:excludedIds)",
+            value = "SELECT r.* FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius " +
+                    "AND r.id NOT IN (:excludedIds) " +
+                    "AND (:category IS NULL OR EXISTS (" +
+                    "SELECT 1 FROM menu_category mc WHERE mc.restaurant_id = r.id AND LOWER(mc.name) = LOWER(:category))) " +
+                    "ORDER BY " + DISTANCE_FORMULA,
+            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius " +
+                    "AND r.id NOT IN (:excludedIds) " +
+                    "AND (:category IS NULL OR EXISTS (" +
+                    "SELECT 1 FROM menu_category mc WHERE mc.restaurant_id = r.id AND LOWER(mc.name) = LOWER(:category)))",
             nativeQuery = true
     )
     Page<Restaurant> findNearbyExcluding(
@@ -67,6 +92,7 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long>, J
             @Param("lng") double lng,
             @Param("radius") double radiusInKm,
             @Param("excludedIds") Iterable<Long> excludedIds,
+            @Param("category") String category,
             Pageable pageable
     );
 
