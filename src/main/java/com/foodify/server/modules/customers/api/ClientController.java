@@ -48,6 +48,8 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/client")
 @RequiredArgsConstructor
 public class ClientController {
+    private static final double CATEGORY_FILTER_RADIUS_KM = 10.0;
+
     private final RestaurantRepository restaurantRepository;
     private final ClientService clientService;
     private final ClientRepository clientRepository;
@@ -123,6 +125,48 @@ public class ClientController {
                         othersPage.getSize(),
                         othersPage.getTotalElements()
                 )
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_CLIENT')")
+    @GetMapping("/filter/categorie")
+    public ResponseEntity<PageResponse<RestaurantDisplayDto>> filterRestaurantsByCategory(
+            @RequestParam double lat,
+            @RequestParam double lng,
+            @RequestParam String category,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int pageSize,
+            Authentication authentication
+    ) {
+        String normalizedCategory = category != null ? category.trim() : "";
+        if (normalizedCategory.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        int effectivePage = Math.max(page, 0);
+        int effectivePageSize = pageSize > 0 ? pageSize : 20;
+        PageRequest pageRequest = PageRequest.of(effectivePage, effectivePageSize);
+
+        Long userId = extractUserId(authentication);
+        Set<Long> favoriteRestaurantIds = clientService.getFavoriteIds(userId).restaurantIds();
+
+        Page<Restaurant> restaurants = restaurantRepository.findNearbyByCategory(
+                lat,
+                lng,
+                CATEGORY_FILTER_RADIUS_KM,
+                normalizedCategory,
+                pageRequest
+        );
+
+        List<RestaurantDisplayDto> items = mapAndEnrich(restaurants.getContent(), favoriteRestaurantIds, lat, lng);
+
+        PageResponse<RestaurantDisplayDto> response = new PageResponse<>(
+                items,
+                restaurants.getNumber(),
+                restaurants.getSize(),
+                restaurants.getTotalElements()
         );
 
         return ResponseEntity.ok(response);
