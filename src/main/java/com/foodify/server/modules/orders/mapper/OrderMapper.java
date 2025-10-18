@@ -33,6 +33,7 @@ public class OrderMapper {
             dto.setRestaurantName(order.getRestaurant().getName());
             dto.setRestaurantAddress(order.getRestaurant().getAddress());
             dto.setRestaurantPhone(order.getRestaurant().getPhone());
+            dto.setRestaurantImage(order.getRestaurant().getImageUrl());
 
             dto.setRestaurantLocation(new LocationDto(
                     order.getRestaurant().getLatitude(),
