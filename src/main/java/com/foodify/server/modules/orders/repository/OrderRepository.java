@@ -109,5 +109,15 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     ORDER BY o.date DESC
 """)
     List<Order> findAllByDriverIdAndStatus(Long driverId, OrderStatus status);
+
+    @Query("""
+    SELECT o.id
+    FROM Order o
+    WHERE o.status IN :statuses
+      AND o.delivery IS NULL
+      AND o.pendingDriver IS NULL
+      AND o.archivedAt IS NULL
+    """)
+    List<Long> findIdsNeedingDriver(@Param("statuses") Collection<OrderStatus> statuses);
     List<Order> findAllByStatusInAndArchivedAtIsNullAndDateBefore(List<OrderStatus> statuses, LocalDateTime date);
 }

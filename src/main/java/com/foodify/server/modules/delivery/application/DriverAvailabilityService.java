@@ -15,6 +15,7 @@ public class DriverAvailabilityService {
 
     private final DriverShiftRepository driverShiftRepository;
     private final DriverLocationService driverLocationService;
+    private final DriverDispatchService driverDispatchService;
 
     @Transactional
     public void refreshAvailability(Long driverId) {
@@ -29,6 +30,7 @@ public class DriverAvailabilityService {
         if (hasActiveShift) {
             log.debug("Marking driver {} as available after order update", driverId);
             driverLocationService.markAvailable(String.valueOf(driverId));
+            driverDispatchService.triggerSearchForPendingOrders();
         } else {
             log.debug("Marking driver {} as unavailable after order update", driverId);
             driverLocationService.markUnavailable(String.valueOf(driverId));
