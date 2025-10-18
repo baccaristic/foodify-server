@@ -17,7 +17,6 @@ import com.foodify.server.modules.restaurants.dto.NearbyRestaurantsResponse;
 import com.foodify.server.modules.restaurants.dto.PaginatedRestaurantSection;
 import com.foodify.server.modules.restaurants.dto.RestaurantSection;
 import com.foodify.server.modules.restaurants.mapper.RestaurantMapper;
-import com.foodify.server.modules.restaurants.repository.MenuCategoryRepository;
 import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import com.foodify.server.modules.orders.repository.OrderRepository;
@@ -49,6 +48,8 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/client")
 @RequiredArgsConstructor
 public class ClientController {
+    private static final double CATEGORY_FILTER_RADIUS_KM = 10.0;
+
     private final RestaurantRepository restaurantRepository;
     private final ClientService clientService;
     private final ClientRepository clientRepository;
@@ -56,7 +57,6 @@ public class ClientController {
     private final RestaurantDetailsService restaurantDetailsService;
     private final DeliveryFeeCalculator deliveryFeeCalculator;
     private final OrderRepository orderRepository;
-    private final MenuCategoryRepository menuCategoryRepository;
     private final MenuItemRepository menuItemRepository;
 
     private Long extractUserId(Authentication authentication) {
@@ -71,7 +71,6 @@ public class ClientController {
             @RequestParam(defaultValue = "1000") double radiusKm,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer pageSize,
-            @RequestParam(required = false) String category,
             Authentication authentication
     ) {
         Long userId = extractUserId(authentication);
@@ -79,17 +78,12 @@ public class ClientController {
         Set<Long> favoriteRestaurantIds = favoriteIds.restaurantIds();
         int effectivePage = page != null && page >= 0 ? page : 0;
         int effectivePageSize = pageSize != null && pageSize > 0 ? pageSize : 20;
-        String normalizedCategory = category != null ? category.trim() : null;
-        if (normalizedCategory != null && normalizedCategory.isEmpty()) {
-            normalizedCategory = null;
-        }
-
         PageRequest pageRequest = PageRequest.of(effectivePage, effectivePageSize);
         List<Restaurant> topPicksEntities = restaurantRepository
-                .findTopChoiceNearby(lat, lng, radiusKm, normalizedCategory, PageRequest.of(0, 5))
+                .findTopChoiceNearby(lat, lng, radiusKm, PageRequest.of(0, 5))
                 .getContent();
         List<Restaurant> promotionEntities = restaurantRepository
-                .findNearbyWithPromotions(lat, lng, radiusKm, normalizedCategory, PageRequest.of(0, 5))
+                .findNearbyWithPromotions(lat, lng, radiusKm, PageRequest.of(0, 5))
                 .getContent();
 
         Set<Long> excludedFromOthers = new HashSet<>();
@@ -107,14 +101,7 @@ public class ClientController {
             }
         });
 
-        List<RestaurantDisplayDto> orderAgain = getOrderAgainRestaurants(
-                userId,
-                lat,
-                lng,
-                radiusKm,
-                favoriteRestaurantIds,
-                normalizedCategory
-        );
+        List<RestaurantDisplayDto> orderAgain = getOrderAgainRestaurants(userId, lat, lng, radiusKm, favoriteRestaurantIds);
         orderAgain.forEach(restaurant -> {
             if (restaurant.getId() != null) {
                 excludedFromOthers.add(restaurant.getId());
@@ -122,8 +109,8 @@ public class ClientController {
         });
 
         Page<Restaurant> othersPage = excludedFromOthers.isEmpty()
-                ? restaurantRepository.findNearby(lat, lng, radiusKm, normalizedCategory, pageRequest)
-                : restaurantRepository.findNearbyExcluding(lat, lng, radiusKm, excludedFromOthers, normalizedCategory, pageRequest);
+                ? restaurantRepository.findNearby(lat, lng, radiusKm, pageRequest)
+                : restaurantRepository.findNearbyExcluding(lat, lng, radiusKm, excludedFromOthers, pageRequest);
 
         List<RestaurantDisplayDto> others = mapAndEnrich(othersPage.getContent(), favoriteRestaurantIds, lat, lng);
 
@@ -138,6 +125,48 @@ public class ClientController {
                         othersPage.getSize(),
                         othersPage.getTotalElements()
                 )
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_CLIENT')")
+    @GetMapping("/filter/categorie")
+    public ResponseEntity<PageResponse<RestaurantDisplayDto>> filterRestaurantsByCategory(
+            @RequestParam double lat,
+            @RequestParam double lng,
+            @RequestParam String category,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int pageSize,
+            Authentication authentication
+    ) {
+        String normalizedCategory = category != null ? category.trim() : "";
+        if (normalizedCategory.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        int effectivePage = Math.max(page, 0);
+        int effectivePageSize = pageSize > 0 ? pageSize : 20;
+        PageRequest pageRequest = PageRequest.of(effectivePage, effectivePageSize);
+
+        Long userId = extractUserId(authentication);
+        Set<Long> favoriteRestaurantIds = clientService.getFavoriteIds(userId).restaurantIds();
+
+        Page<Restaurant> restaurants = restaurantRepository.findNearbyByCategory(
+                lat,
+                lng,
+                CATEGORY_FILTER_RADIUS_KM,
+                normalizedCategory,
+                pageRequest
+        );
+
+        List<RestaurantDisplayDto> items = mapAndEnrich(restaurants.getContent(), favoriteRestaurantIds, lat, lng);
+
+        PageResponse<RestaurantDisplayDto> response = new PageResponse<>(
+                items,
+                restaurants.getNumber(),
+                restaurants.getSize(),
+                restaurants.getTotalElements()
         );
 
         return ResponseEntity.ok(response);
@@ -241,8 +270,7 @@ public class ClientController {
                                                                 double lat,
                                                                 double lng,
                                                                 double radiusKm,
-                                                                Set<Long> favoriteRestaurantIds,
-                                                                String category) {
+                                                                Set<Long> favoriteRestaurantIds) {
         return clientRepository.findById(userId)
                 .map(client -> {
                     Page<Order> recentOrders = orderRepository.findAllByClient(
@@ -259,10 +287,7 @@ public class ClientController {
                             continue;
                         }
                         Long restaurantId = restaurant.getId();
-                        if (restaurantId == null
-                                || !isWithinRadius(restaurant, lat, lng, radiusKm)
-                                || !matchesCategory(restaurant, category)
-                                || !seen.add(restaurantId)) {
+                        if (restaurantId == null || !isWithinRadius(restaurant, lat, lng, radiusKm) || !seen.add(restaurantId)) {
                             continue;
                         }
                         restaurants.add(restaurant);
@@ -274,18 +299,6 @@ public class ClientController {
                     return mapAndEnrich(restaurants, favoriteRestaurantIds, lat, lng);
                 })
                 .orElseGet(Collections::emptyList);
-    }
-
-    private boolean matchesCategory(Restaurant restaurant, String category) {
-        if (category == null || category.isBlank()) {
-            return true;
-        }
-        Long restaurantId = restaurant.getId();
-        if (restaurantId == null) {
-            return false;
-        }
-        return menuCategoryRepository.findByRestaurant_IdAndNameIgnoreCase(restaurantId, category)
-                .isPresent();
     }
 
     private boolean isWithinRadius(Restaurant restaurant, double clientLat, double clientLng, double radiusKm) {
