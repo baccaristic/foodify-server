@@ -6,7 +6,10 @@ import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.dto.MenuCategoryRequestDTO;
 import com.foodify.server.modules.restaurants.dto.MenuItemAvailabilityRequest;
 import com.foodify.server.modules.restaurants.dto.MenuItemRequestDTO;
+import com.foodify.server.modules.restaurants.dto.OperatingHoursResponse;
 import com.foodify.server.modules.restaurants.dto.PageResponse;
+import com.foodify.server.modules.restaurants.dto.SaveSpecialDayRequest;
+import com.foodify.server.modules.restaurants.dto.UpdateWeeklyScheduleRequest;
 import com.foodify.server.modules.identity.domain.RestaurantAdmin;
 import com.foodify.server.modules.identity.repository.RestaurantAdminRepository;
 import com.foodify.server.modules.restaurants.application.RestaurantService;
@@ -74,6 +77,51 @@ public class RestaurantController {
     public List<MenuCategory> getCategories(Authentication authentication) {
         RestaurantAdmin restaurantAdmin = loadAdmin(authentication);
         return restaurantService.getCategoriesForRestaurant(restaurantAdmin.getRestaurant().getId());
+    }
+
+    @GetMapping("/operating-hours")
+    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    public OperatingHoursResponse getOperatingHours(Authentication authentication) {
+        RestaurantAdmin restaurantAdmin = loadAdmin(authentication);
+        return restaurantService.getOperatingHours(restaurantAdmin.getRestaurant().getId());
+    }
+
+    @PutMapping("/operating-hours/weekly")
+    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    public OperatingHoursResponse updateWeeklySchedule(
+            Authentication authentication,
+            @RequestBody UpdateWeeklyScheduleRequest request
+    ) {
+        RestaurantAdmin restaurantAdmin = loadAdmin(authentication);
+        return restaurantService.updateWeeklySchedule(restaurantAdmin.getRestaurant().getId(), request);
+    }
+
+    @PostMapping("/operating-hours/special-days")
+    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    public OperatingHoursResponse.SpecialDay addSpecialDay(
+            Authentication authentication,
+            @RequestBody SaveSpecialDayRequest request
+    ) {
+        RestaurantAdmin restaurantAdmin = loadAdmin(authentication);
+        return restaurantService.addSpecialDay(restaurantAdmin.getRestaurant().getId(), request);
+    }
+
+    @PutMapping("/operating-hours/special-days/{id}")
+    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    public OperatingHoursResponse.SpecialDay updateSpecialDay(
+            Authentication authentication,
+            @PathVariable Long id,
+            @RequestBody SaveSpecialDayRequest request
+    ) {
+        RestaurantAdmin restaurantAdmin = loadAdmin(authentication);
+        return restaurantService.updateSpecialDay(restaurantAdmin.getRestaurant().getId(), id, request);
+    }
+
+    @DeleteMapping("/operating-hours/special-days/{id}")
+    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    public void deleteSpecialDay(Authentication authentication, @PathVariable Long id) {
+        RestaurantAdmin restaurantAdmin = loadAdmin(authentication);
+        restaurantService.deleteSpecialDay(restaurantAdmin.getRestaurant().getId(), id);
     }
 
     @PostMapping("/categories")

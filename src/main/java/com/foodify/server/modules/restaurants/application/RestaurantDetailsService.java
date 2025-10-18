@@ -5,15 +5,23 @@ import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.restaurants.domain.MenuOptionGroup;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
+import com.foodify.server.modules.restaurants.domain.RestaurantSpecialDay;
+import com.foodify.server.modules.restaurants.domain.RestaurantWeeklyOperatingHour;
 import com.foodify.server.modules.restaurants.dto.RestaurantDetailsResponse;
 import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
+import com.foodify.server.modules.restaurants.repository.RestaurantOperatingHourRepository;
+import com.foodify.server.modules.restaurants.repository.RestaurantSpecialDayRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.DayOfWeek;
+import java.time.LocalTime;
+import java.time.format.TextStyle;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -21,7 +29,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,6 +40,8 @@ public class RestaurantDetailsService {
 
     private final RestaurantRepository restaurantRepository;
     private final MenuItemRepository menuItemRepository;
+    private final RestaurantOperatingHourRepository restaurantOperatingHourRepository;
+    private final RestaurantSpecialDayRepository restaurantSpecialDayRepository;
     private final DeliveryFeeCalculator deliveryFeeCalculator;
 
     @Transactional()
@@ -56,8 +68,35 @@ public class RestaurantDetailsService {
         Set<Long> menuItemFavorites = favoriteMenuItemIds == null ? Set.of() : favoriteMenuItemIds;
 
         List<MenuItem> menuItems = menuItemRepository.findByRestaurant_IdAndAvailableTrue(restaurantId);
+        List<RestaurantWeeklyOperatingHour> weeklyHours = restaurantOperatingHourRepository
+                .findByRestaurant_IdOrderByDayOfWeekAsc(restaurantId);
+        List<RestaurantSpecialDay> specialDays = restaurantSpecialDayRepository
+                .findByRestaurant_IdOrderByDateAsc(restaurantId);
 
-        List<RestaurantDetailsResponse.RestaurantBadge> highlights = buildHighlights(restaurant);
+        Map<DayOfWeek, RestaurantWeeklyOperatingHour> weeklyByDay = weeklyHours.stream()
+                .collect(Collectors.toMap(RestaurantWeeklyOperatingHour::getDayOfWeek, Function.identity(), (left, right) -> left));
+
+        List<RestaurantDetailsResponse.WeeklyScheduleEntry> weeklySchedule = Arrays.stream(DayOfWeek.values())
+                .map(day -> {
+                    RestaurantWeeklyOperatingHour hour = weeklyByDay.get(day);
+                    if (hour == null) {
+                        return new RestaurantDetailsResponse.WeeklyScheduleEntry(day, false, null, null);
+                    }
+                    return toWeeklyScheduleEntry(hour);
+                })
+                .toList();
+
+        List<RestaurantDetailsResponse.SpecialDay> specialDayDtos = specialDays.stream()
+                .map(this::toSpecialDayDto)
+                .toList();
+
+        Optional<RestaurantWeeklyOperatingHour> firstOpen = firstOpenDay(weeklyHours);
+        String openingHours = firstOpen.map(RestaurantWeeklyOperatingHour::getOpensAt).map(this::formatTime)
+                .orElse(restaurant.getOpeningHours());
+        String closingHours = firstOpen.map(RestaurantWeeklyOperatingHour::getClosesAt).map(this::formatTime)
+                .orElse(restaurant.getClosingHours());
+
+        List<RestaurantDetailsResponse.RestaurantBadge> highlights = buildHighlights(restaurant, weeklyHours);
         Map<String, List<MenuItem>> itemsByCategory = groupByCategory(menuItems);
         List<String> quickFilters = buildQuickFilters(itemsByCategory);
         List<RestaurantDetailsResponse.MenuItemSummary> topSales = mapTopSales(menuItems, menuItemFavorites);
@@ -78,8 +117,8 @@ public class RestaurantDetailsService {
                 restaurant.getPhone(),
                 restaurant.getType(),
                 restaurant.getRating(),
-                restaurant.getOpeningHours(),
-                restaurant.getClosingHours(),
+                openingHours,
+                closingHours,
                 restaurant.getLatitude(),
                 restaurant.getLongitude(),
                 deliveryFee,
@@ -87,11 +126,13 @@ public class RestaurantDetailsService {
                 highlights,
                 quickFilters,
                 topSales,
-                categories
+                categories,
+                weeklySchedule,
+                specialDayDtos
         );
     }
 
-    private List<RestaurantDetailsResponse.RestaurantBadge> buildHighlights(Restaurant restaurant) {
+    private List<RestaurantDetailsResponse.RestaurantBadge> buildHighlights(Restaurant restaurant, List<RestaurantWeeklyOperatingHour> weeklyHours) {
         List<RestaurantDetailsResponse.RestaurantBadge> highlights = new ArrayList<>();
         if (restaurant.getRating() != null) {
             highlights.add(new RestaurantDetailsResponse.RestaurantBadge("Rating", formatRating(restaurant.getRating())));
@@ -99,7 +140,13 @@ public class RestaurantDetailsService {
         if (restaurant.getType() != null) {
             highlights.add(new RestaurantDetailsResponse.RestaurantBadge("Category", restaurant.getType()));
         }
-        if (restaurant.getOpeningHours() != null && restaurant.getClosingHours() != null) {
+        Optional<RestaurantWeeklyOperatingHour> firstOpen = firstOpenDay(weeklyHours);
+        if (firstOpen.isPresent()) {
+            RestaurantWeeklyOperatingHour hour = firstOpen.get();
+            String dayLabel = hour.getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.ROOT);
+            String schedule = String.format(Locale.ROOT, "%s %s - %s", dayLabel, formatTime(hour.getOpensAt()), formatTime(hour.getClosesAt()));
+            highlights.add(new RestaurantDetailsResponse.RestaurantBadge("Hours", schedule));
+        } else if (restaurant.getOpeningHours() != null && restaurant.getClosingHours() != null) {
             String schedule = String.format(Locale.ROOT, "%s - %s", restaurant.getOpeningHours(), restaurant.getClosingHours());
             highlights.add(new RestaurantDetailsResponse.RestaurantBadge("Hours", schedule));
         }
@@ -217,6 +264,37 @@ public class RestaurantDetailsService {
                 extra.getPrice(),
                 extra.isDefault()
         );
+    }
+
+    private RestaurantDetailsResponse.WeeklyScheduleEntry toWeeklyScheduleEntry(RestaurantWeeklyOperatingHour hour) {
+        return new RestaurantDetailsResponse.WeeklyScheduleEntry(
+                hour.getDayOfWeek(),
+                hour.isOpen(),
+                hour.isOpen() ? hour.getOpensAt() : null,
+                hour.isOpen() ? hour.getClosesAt() : null
+        );
+    }
+
+    private RestaurantDetailsResponse.SpecialDay toSpecialDayDto(RestaurantSpecialDay specialDay) {
+        return new RestaurantDetailsResponse.SpecialDay(
+                specialDay.getId(),
+                specialDay.getName(),
+                specialDay.getDate(),
+                specialDay.isOpen(),
+                specialDay.isOpen() ? specialDay.getOpensAt() : null,
+                specialDay.isOpen() ? specialDay.getClosesAt() : null
+        );
+    }
+
+    private Optional<RestaurantWeeklyOperatingHour> firstOpenDay(List<RestaurantWeeklyOperatingHour> weeklyHours) {
+        return weeklyHours.stream()
+                .filter(RestaurantWeeklyOperatingHour::isOpen)
+                .sorted(Comparator.comparing(RestaurantWeeklyOperatingHour::getDayOfWeek))
+                .findFirst();
+    }
+
+    private String formatTime(LocalTime time) {
+        return time == null ? null : time.toString();
     }
 
     private List<String> buildTags(MenuItem item, boolean promotionActive) {
