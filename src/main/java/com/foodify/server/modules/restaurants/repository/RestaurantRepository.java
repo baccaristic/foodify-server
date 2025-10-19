@@ -58,13 +58,13 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long>, J
     );
 
     @Query(
-            value = "SELECT DISTINCT r.* FROM restaurant r " +
-                    "JOIN restaurant_category rc ON rc.restaurant_id = r.id " +
-                    "WHERE (" + DISTANCE_FORMULA + ") < :radius AND rc.category IN (:categories) " +
+            value = "SELECT r.* FROM restaurant r " +
+                    "WHERE (" + DISTANCE_FORMULA + ") < :radius " +
+                    "AND EXISTS (SELECT 1 FROM restaurant_category rc WHERE rc.restaurant_id = r.id AND rc.category IN (:categories)) " +
                     "ORDER BY " + DISTANCE_FORMULA,
-            countQuery = "SELECT COUNT(DISTINCT r.id) FROM restaurant r " +
-                    "JOIN restaurant_category rc ON rc.restaurant_id = r.id " +
-                    "WHERE (" + DISTANCE_FORMULA + ") < :radius AND rc.category IN (:categories)",
+            countQuery = "SELECT COUNT(*) FROM restaurant r " +
+                    "WHERE (" + DISTANCE_FORMULA + ") < :radius " +
+                    "AND EXISTS (SELECT 1 FROM restaurant_category rc WHERE rc.restaurant_id = r.id AND rc.category IN (:categories))",
             nativeQuery = true
     )
     Page<Restaurant> findNearbyByCategory(
