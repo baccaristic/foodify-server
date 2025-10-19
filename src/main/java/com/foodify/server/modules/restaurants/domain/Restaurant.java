@@ -33,6 +33,9 @@ public class Restaurant {
     private double latitude;
     private double longitude;
     private String imageUrl;
+
+    @Column(name = "icon_url")
+    private String iconUrl;
     @Column(name = "top_choice")
     private Boolean topChoice = Boolean.FALSE;
     @Column(name = "free_delivery")

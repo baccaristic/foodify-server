@@ -356,7 +356,8 @@ public class CustomerOrderService {
         CreateOrderResponse.RestaurantSummary restaurantSummary = new CreateOrderResponse.RestaurantSummary(
                 order.getRestaurant().getId(),
                 order.getRestaurant().getName(),
-                order.getRestaurant().getImageUrl()
+                order.getRestaurant().getImageUrl(),
+                order.getRestaurant().getIconUrl()
         );
 
         SavedAddressSummaryDto savedAddress = SavedAddressSummaryMapper.from(order.getSavedAddress());

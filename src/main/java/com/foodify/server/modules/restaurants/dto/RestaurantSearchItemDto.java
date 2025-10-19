@@ -12,6 +12,7 @@ public record RestaurantSearchItemDto(
         Double deliveryFee,
         boolean favorite,
         String imageUrl,
+        String iconUrl,
         List<MenuItemPromotionDto> promotedMenuItems
 ) {
 }
