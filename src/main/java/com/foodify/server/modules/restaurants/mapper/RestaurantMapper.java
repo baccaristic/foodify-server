@@ -3,14 +3,30 @@ package com.foodify.server.modules.restaurants.mapper;
 import com.foodify.server.modules.restaurants.dto.RestaurantDisplayDto;
 import com.foodify.server.modules.restaurants.dto.RestaurantDto;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
+import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
+import org.mapstruct.NullValuePropertyMappingStrategy;
 
 import java.util.List;
 
 @Mapper(componentModel = "spring")
 public interface RestaurantMapper {
     Restaurant toEntity(RestaurantDto dto);
+
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "admin", ignore = true)
+    @Mapping(target = "imageUrl", ignore = true)
+    @Mapping(target = "iconUrl", ignore = true)
+    @Mapping(target = "restaurantShareRate", ignore = true)
+    @Mapping(target = "categories", ignore = true)
+    @Mapping(target = "menu", ignore = true)
+    @Mapping(target = "orders", ignore = true)
+    @Mapping(target = "operatingHours", ignore = true)
+    @Mapping(target = "specialDays", ignore = true)
+    void updateEntity(RestaurantDto dto, @MappingTarget Restaurant restaurant);
     @Mapping(target = "id", source = "id")
     @Mapping(target = "name", source = "name")
     @Mapping(target = "description", source = "description")

@@ -1,13 +1,18 @@
 package com.foodify.server.modules.restaurants.api;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.foodify.server.modules.restaurants.dto.RestaurantDto;
-import com.foodify.server.modules.restaurants.domain.Restaurant;
 import com.foodify.server.modules.restaurants.application.AdminService;
+import com.foodify.server.modules.restaurants.domain.Restaurant;
+import com.foodify.server.modules.restaurants.dto.RestaurantDto;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -16,16 +21,29 @@ import java.io.IOException;
 @RequiredArgsConstructor
 @RequestMapping("/api/admin")
 public class AdminController {
-    private final AdminService adminService;
-    private final ObjectMapper objectMapper;
 
-    @PostMapping(value = "/restaurant/add", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    private final AdminService adminService;
+
+    @PostMapping(value = {"/restaurant/add", "/restaurants"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public Restaurant addRestaurant(
-            @RequestPart("restaurant") String restaurantJson,
-            @RequestPart("file") MultipartFile file
+            @RequestPart("restaurant") @Valid RestaurantDto restaurantDto,
+            @RequestPart(value = "image", required = false) MultipartFile image,
+            @RequestPart(value = "file", required = false) MultipartFile legacyImage,
+            @RequestPart(value = "icon", required = false) MultipartFile icon
     ) throws IOException {
-        RestaurantDto dto = objectMapper.readValue(restaurantJson, RestaurantDto.class);
-        return this.adminService.addRestaurant(dto, file);
+        MultipartFile restaurantImage = image != null ? image : legacyImage;
+        return this.adminService.addRestaurant(restaurantDto, restaurantImage, icon);
+    }
+
+    @PutMapping(value = "/restaurants/{restaurantId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public Restaurant updateRestaurant(
+            @PathVariable Long restaurantId,
+            @RequestPart("restaurant") @Valid RestaurantDto restaurantDto,
+            @RequestPart(value = "image", required = false) MultipartFile image,
+            @RequestPart(value = "icon", required = false) MultipartFile icon
+    ) throws IOException {
+        return this.adminService.updateRestaurant(restaurantId, restaurantDto, image, icon);
     }
 }
