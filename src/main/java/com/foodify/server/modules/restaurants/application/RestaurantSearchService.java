@@ -18,7 +18,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
-import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.JoinType;
 
 import java.util.List;
@@ -190,9 +189,7 @@ public class RestaurantSearchService {
             specification = specification.and((root, cq, cb) -> {
                 cq.distinct(true);
                 var categoriesJoin = root.join("categories", JoinType.INNER);
-                CriteriaBuilder.In<RestaurantCategory> inClause = cb.in(categoriesJoin);
-                query.categories().forEach(inClause::value);
-                return inClause;
+                return categoriesJoin.in(query.categories());
             });
         }
 
