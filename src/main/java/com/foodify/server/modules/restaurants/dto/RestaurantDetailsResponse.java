@@ -10,6 +10,7 @@ public record RestaurantDetailsResponse(
         String name,
         String description,
         String imageUrl,
+        String iconUrl,
         String address,
         String phone,
         String type,

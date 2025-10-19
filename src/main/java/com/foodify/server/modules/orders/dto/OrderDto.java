@@ -17,6 +17,7 @@ public class OrderDto {
     private LocationDto restaurantLocation;
     private String restaurantPhone;
     private String restaurantImage;
+    private String restaurantIcon;
 
     private Long clientId;
     private String clientName;

@@ -113,6 +113,7 @@ public class RestaurantDetailsService {
                 restaurant.getName(),
                 restaurant.getDescription(),
                 restaurant.getImageUrl(),
+                restaurant.getIconUrl(),
                 restaurant.getAddress(),
                 restaurant.getPhone(),
                 restaurant.getType(),

@@ -16,6 +16,7 @@ public class RestaurantDisplayDto {
     private String phone;
     private String openingHours;
     private String imageUrl;
+    private String iconUrl;
     private String closingHours;
     private double latitude;
     private double longitude;

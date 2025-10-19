@@ -15,7 +15,7 @@ public record CreateOrderResponse(
         List<OrderedItem> items,
         List<com.foodify.server.modules.orders.dto.OrderWorkflowStepDto> workflow
 ) {
-    public record RestaurantSummary(Long id, String name, String imageUrl) {}
+    public record RestaurantSummary(Long id, String name, String imageUrl, String iconUrl) {}
 
     public record PaymentSummary(
             String method,

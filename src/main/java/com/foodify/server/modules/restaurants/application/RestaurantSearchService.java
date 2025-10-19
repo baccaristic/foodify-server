@@ -115,6 +115,7 @@ public class RestaurantSearchService {
                 deliveryFee,
                 favoriteRestaurantIds.contains(restaurant.getId()),
                 restaurant.getImageUrl(),
+                restaurant.getIconUrl(),
                 promotedMenuItems
         );
     }

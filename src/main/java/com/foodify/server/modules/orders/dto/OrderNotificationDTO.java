@@ -18,6 +18,7 @@ public record OrderNotificationDTO(
         OrderStatus status,
         LocationDto deliveryLocation,
         String restaurantImage,
+        String restaurantIcon,
         RestaurantSummary restaurant,
         DeliverySummary delivery,
         PaymentSummary payment,
@@ -32,6 +33,7 @@ public record OrderNotificationDTO(
             String address,
             String phone,
             String imageUrl,
+            String iconUrl,
             LocationDto location
     ) {}
 

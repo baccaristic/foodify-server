@@ -1,0 +1,1 @@
+ALTER TABLE restaurant ADD COLUMN IF NOT EXISTS icon_url VARCHAR(255);

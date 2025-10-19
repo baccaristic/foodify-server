@@ -23,6 +23,7 @@ public interface RestaurantMapper {
     @Mapping(target = "latitude", source = "latitude")
     @Mapping(target = "longitude", source = "longitude")
     @Mapping(target = "imageUrl", source = "imageUrl")
+    @Mapping(target = "iconUrl", source = "iconUrl")
     @Mapping(target = "favorite", constant = "false")
     @Mapping(target = "hasPromotion", constant = "false")
     @Mapping(target = "promotionSummary", ignore = true)
