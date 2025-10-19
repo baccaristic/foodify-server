@@ -3,6 +3,7 @@ package com.foodify.server.modules.restaurants.mapper;
 import com.foodify.server.modules.restaurants.dto.RestaurantDisplayDto;
 import com.foodify.server.modules.restaurants.dto.RestaurantDto;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
+import com.foodify.server.modules.restaurants.domain.RestaurantCategory;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -10,6 +11,7 @@ import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 
 import java.util.List;
+import java.util.Set;
 
 @Mapper(componentModel = "spring")
 public interface RestaurantMapper {
@@ -22,6 +24,7 @@ public interface RestaurantMapper {
     @Mapping(target = "iconUrl", ignore = true)
     @Mapping(target = "restaurantShareRate", ignore = true)
     @Mapping(target = "categories", ignore = true)
+    @Mapping(target = "menuCategories", ignore = true)
     @Mapping(target = "menu", ignore = true)
     @Mapping(target = "orders", ignore = true)
     @Mapping(target = "operatingHours", ignore = true)
@@ -31,7 +34,7 @@ public interface RestaurantMapper {
     @Mapping(target = "name", source = "name")
     @Mapping(target = "description", source = "description")
     @Mapping(target = "rating", source = "rating")
-    @Mapping(target = "type", source = "type")
+    @Mapping(target = "categories", source = "categories")
     @Mapping(target = "address", source = "address")
     @Mapping(target = "phone", source = "phone")
     @Mapping(target = "openingHours", source = "openingHours")
@@ -45,4 +48,8 @@ public interface RestaurantMapper {
     @Mapping(target = "promotionSummary", ignore = true)
     RestaurantDisplayDto toDto(Restaurant entity);
     List<RestaurantDisplayDto> toDto(List<Restaurant> entities);
+
+    default Set<RestaurantCategory> mapCategories(Set<RestaurantCategory> categories) {
+        return categories == null || categories.isEmpty() ? Set.of() : Set.copyOf(categories);
+    }
 }

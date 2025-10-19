@@ -1,9 +1,12 @@
 package com.foodify.server.modules.restaurants.dto;
 
+import com.foodify.server.modules.restaurants.domain.RestaurantCategory;
+
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Set;
 
 public record RestaurantDetailsResponse(
         Long id,
@@ -13,7 +16,7 @@ public record RestaurantDetailsResponse(
         String iconUrl,
         String address,
         String phone,
-        String type,
+        Set<RestaurantCategory> restaurantCategories,
         Double rating,
         String openingHours,
         String closingHours,

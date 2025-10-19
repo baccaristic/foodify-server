@@ -2,6 +2,7 @@ package com.foodify.server.modules.restaurants.application;
 
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
+import com.foodify.server.modules.restaurants.domain.RestaurantCategory;
 import com.foodify.server.modules.restaurants.dto.PageResponse;
 import com.foodify.server.modules.restaurants.dto.MenuItemPromotionDto;
 import com.foodify.server.modules.restaurants.dto.RestaurantSearchItemDto;
@@ -17,6 +18,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.JoinType;
 
 import java.util.List;
@@ -105,6 +107,9 @@ public class RestaurantSearchService {
                 restaurant.getLatitude(),
                 restaurant.getLongitude()
         ).orElse(null);
+        Set<RestaurantCategory> categories = restaurant.getCategories() == null || restaurant.getCategories().isEmpty()
+                ? Set.of()
+                : Set.copyOf(restaurant.getCategories());
         return new RestaurantSearchItemDto(
                 restaurant.getId(),
                 restaurant.getName(),
@@ -116,6 +121,7 @@ public class RestaurantSearchService {
                 favoriteRestaurantIds.contains(restaurant.getId()),
                 restaurant.getImageUrl(),
                 restaurant.getIconUrl(),
+                categories,
                 promotedMenuItems
         );
     }
@@ -178,6 +184,16 @@ public class RestaurantSearchService {
 
         if (Boolean.TRUE.equals(query.topEatOnly())) {
             specification = specification.and((root, cq, cb) -> cb.isTrue(root.get("topEat")));
+        }
+
+        if (query.categories() != null && !query.categories().isEmpty()) {
+            specification = specification.and((root, cq, cb) -> {
+                cq.distinct(true);
+                var categoriesJoin = root.join("categories", JoinType.INNER);
+                CriteriaBuilder.In<RestaurantCategory> inClause = cb.in(categoriesJoin);
+                query.categories().forEach(inClause::value);
+                return inClause;
+            });
         }
 
         return specification;

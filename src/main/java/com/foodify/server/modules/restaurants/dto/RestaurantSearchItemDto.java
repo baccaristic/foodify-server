@@ -1,6 +1,9 @@
 package com.foodify.server.modules.restaurants.dto;
 
+import com.foodify.server.modules.restaurants.domain.RestaurantCategory;
+
 import java.util.List;
+import java.util.Set;
 
 public record RestaurantSearchItemDto(
         Long id,
@@ -13,6 +16,7 @@ public record RestaurantSearchItemDto(
         boolean favorite,
         String imageUrl,
         String iconUrl,
+        Set<RestaurantCategory> categories,
         List<MenuItemPromotionDto> promotedMenuItems
 ) {
 }
