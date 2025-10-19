@@ -1,5 +1,6 @@
 package com.foodify.server.modules.restaurants.dto;
 
+import com.foodify.server.modules.restaurants.domain.RestaurantCategory;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -7,6 +8,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -28,9 +30,8 @@ public class RestaurantDto {
     @Schema(description = "Short description visible to customers", example = "Authentic Italian cuisine with a modern twist")
     private String description;
 
-    @NotBlank
-    @Schema(description = "Cuisine or restaurant type", example = "Italian")
-    private String type;
+    @Schema(description = "Restaurant categories", example = "[\"ITALIAN\", \"PASTA\"]")
+    private Set<RestaurantCategory> categories;
 
     @Schema(description = "Latitude coordinate for delivery and pickup", example = "40.741895")
     private double latitude;

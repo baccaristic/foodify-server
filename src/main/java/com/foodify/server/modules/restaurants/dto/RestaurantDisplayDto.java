@@ -1,17 +1,19 @@
 package com.foodify.server.modules.restaurants.dto;
 
-import lombok.Data;
+import com.foodify.server.modules.restaurants.domain.RestaurantCategory;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.util.Set;
 
 @Getter
 @Setter
 public class RestaurantDisplayDto {
     private Long id;
-    private  String name;
+    private String name;
     private String description;
     private Double rating;
-    private String type;
+    private Set<RestaurantCategory> categories;
     private String address;
     private String phone;
     private String openingHours;

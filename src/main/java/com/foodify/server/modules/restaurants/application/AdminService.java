@@ -24,6 +24,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.HashSet;
 import java.util.UUID;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
@@ -48,6 +49,9 @@ public class AdminService {
         }
 
         Restaurant restaurant = this.restaurantMapper.toEntity(dto);
+        if (dto.getCategories() != null) {
+            restaurant.setCategories(new HashSet<>(dto.getCategories()));
+        }
         restaurant.setRestaurantShareRate(resolveShareRate(dto.getRestaurantShareRate(), null));
 
         if (image == null || image.isEmpty()) {
@@ -89,6 +93,9 @@ public class AdminService {
 
         BigDecimal previousShareRate = restaurant.getRestaurantShareRate();
         this.restaurantMapper.updateEntity(dto, restaurant);
+        if (dto.getCategories() != null) {
+            restaurant.setCategories(new HashSet<>(dto.getCategories()));
+        }
         restaurant.setRestaurantShareRate(resolveShareRate(dto.getRestaurantShareRate(), previousShareRate));
 
         if (image != null && !image.isEmpty()) {

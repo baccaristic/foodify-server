@@ -5,6 +5,7 @@ import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.restaurants.domain.MenuOptionGroup;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
+import com.foodify.server.modules.restaurants.domain.RestaurantCategory;
 import com.foodify.server.modules.restaurants.domain.RestaurantSpecialDay;
 import com.foodify.server.modules.restaurants.domain.RestaurantWeeklyOperatingHour;
 import com.foodify.server.modules.restaurants.dto.RestaurantDetailsResponse;
@@ -100,7 +101,10 @@ public class RestaurantDetailsService {
         Map<String, List<MenuItem>> itemsByCategory = groupByCategory(menuItems);
         List<String> quickFilters = buildQuickFilters(itemsByCategory);
         List<RestaurantDetailsResponse.MenuItemSummary> topSales = mapTopSales(menuItems, menuItemFavorites);
-        List<RestaurantDetailsResponse.MenuCategory> categories = mapCategories(itemsByCategory, menuItemFavorites);
+        List<RestaurantDetailsResponse.MenuCategory> menuCategories = mapCategories(itemsByCategory, menuItemFavorites);
+        Set<RestaurantCategory> restaurantCategories = restaurant.getCategories() == null || restaurant.getCategories().isEmpty()
+                ? Set.of()
+                : Set.copyOf(restaurant.getCategories());
         Double deliveryFee = deliveryFeeCalculator.calculateFee(
                 clientLatitude,
                 clientLongitude,
@@ -116,7 +120,7 @@ public class RestaurantDetailsService {
                 restaurant.getIconUrl(),
                 restaurant.getAddress(),
                 restaurant.getPhone(),
-                restaurant.getType(),
+                restaurantCategories,
                 restaurant.getRating(),
                 openingHours,
                 closingHours,
@@ -127,7 +131,7 @@ public class RestaurantDetailsService {
                 highlights,
                 quickFilters,
                 topSales,
-                categories,
+                menuCategories,
                 weeklySchedule,
                 specialDayDtos
         );
@@ -138,8 +142,11 @@ public class RestaurantDetailsService {
         if (restaurant.getRating() != null) {
             highlights.add(new RestaurantDetailsResponse.RestaurantBadge("Rating", formatRating(restaurant.getRating())));
         }
-        if (restaurant.getType() != null) {
-            highlights.add(new RestaurantDetailsResponse.RestaurantBadge("Category", restaurant.getType()));
+        if (restaurant.getCategories() != null && !restaurant.getCategories().isEmpty()) {
+            String categories = restaurant.getCategories().stream()
+                    .map(RestaurantCategory::name)
+                    .collect(Collectors.joining(", "));
+            highlights.add(new RestaurantDetailsResponse.RestaurantBadge("Categories", categories));
         }
         Optional<RestaurantWeeklyOperatingHour> firstOpen = firstOpenDay(weeklyHours);
         if (firstOpen.isPresent()) {

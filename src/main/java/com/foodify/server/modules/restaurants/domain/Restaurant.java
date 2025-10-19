@@ -23,7 +23,6 @@ public class Restaurant {
     private String name;
     private String address;
     private String phone;
-    private String type;
     private Double rating;
     private String openingHours;
     private String closingHours;
@@ -57,8 +56,14 @@ public class Restaurant {
     @OneToMany(mappedBy = "restaurant")
     private List<MenuItem> menu;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "restaurant_category", joinColumns = @JoinColumn(name = "restaurant_id"))
+    @Column(name = "category")
+    @Enumerated(EnumType.STRING)
+    private Set<RestaurantCategory> categories = new HashSet<>();
+
     @OneToMany(mappedBy = "restaurant", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<MenuCategory> categories;
+    private Set<MenuCategory> menuCategories;
 
     @OneToMany(mappedBy = "restaurant")
     private List<Order> orders;

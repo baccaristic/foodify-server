@@ -10,6 +10,7 @@ import com.foodify.server.modules.restaurants.application.DeliveryFeeCalculator;
 import com.foodify.server.modules.restaurants.application.RestaurantDetailsService;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
+import com.foodify.server.modules.restaurants.domain.RestaurantCategory;
 import com.foodify.server.modules.restaurants.dto.RestaurantDetailsResponse;
 import com.foodify.server.modules.restaurants.dto.RestaurantDisplayDto;
 import com.foodify.server.modules.restaurants.dto.PageResponse;
@@ -27,7 +28,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -38,11 +41,14 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
 
 @RestController
 @RequestMapping("/api/client")
@@ -145,6 +151,8 @@ public class ClientController {
             return ResponseEntity.badRequest().build();
         }
 
+        RestaurantCategory restaurantCategory = parseCategory(normalizedCategory);
+
         int effectivePage = Math.max(page, 0);
         int effectivePageSize = pageSize > 0 ? pageSize : 20;
         PageRequest pageRequest = PageRequest.of(effectivePage, effectivePageSize);
@@ -156,7 +164,7 @@ public class ClientController {
                 lat,
                 lng,
                 CATEGORY_FILTER_RADIUS_KM,
-                normalizedCategory,
+                Set.of(restaurantCategory.name()),
                 pageRequest
         );
 
@@ -170,6 +178,17 @@ public class ClientController {
         );
 
         return ResponseEntity.ok(response);
+    }
+
+    private RestaurantCategory parseCategory(String value) {
+        if (!StringUtils.hasText(value)) {
+            throw new ResponseStatusException(BAD_REQUEST, "Category is required");
+        }
+        try {
+            return RestaurantCategory.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(BAD_REQUEST, "Unknown restaurant category: " + value);
+        }
     }
 
     private List<RestaurantDisplayDto> mapAndEnrich(List<Restaurant> restaurants,
