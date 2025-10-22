@@ -1,5 +1,6 @@
 package com.foodify.server.modules.delivery.application;
 
+import com.foodify.server.config.OrderViewProperties;
 import com.foodify.server.modules.addresses.domain.SavedAddress;
 import com.foodify.server.modules.delivery.application.DriverAvailabilityService;
 import com.foodify.server.modules.delivery.application.DriverDispatchService;
@@ -38,6 +39,7 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.geo.Point;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -69,6 +71,7 @@ public class DriverService {
     private final DriverAvailabilityService driverAvailabilityService;
     private final DriverDispatchService driverDispatchService;
     private final OrderLifecycleService orderLifecycleService;
+    private final OrderViewProperties orderViewProperties;
 
     private static final List<OrderStatus> ACTIVE_DRIVER_STATUSES = List.of(
             OrderStatus.ACCEPTED,
@@ -168,7 +171,11 @@ public class DriverService {
         return driverRepository.findById(driverId).orElse(null);
     }
     public List<Order> getIncommingOrders(Long driverId) {
-        return orderRepository.findAllByPendingDriverId(driverId);
+        if (driverId == null) {
+            return List.of();
+        }
+        int limit = Math.max(orderViewProperties.getPendingDriverLimit(), 1);
+        return orderRepository.findAllByPendingDriverId(driverId, PageRequest.of(0, limit)).getContent();
     }
     public Order getOrderDetails(Long orderId, Long userId ) {
         Driver driver = driverRepository.findById(userId).orElse(null);

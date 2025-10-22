@@ -39,11 +39,31 @@ spring:
 
 server:
   port: 8081
+  tomcat:
+    threads:
+      max: ${SERVER_TOMCAT_THREADS_MAX:200}
+      min-spare: ${SERVER_TOMCAT_THREADS_MIN_SPARE:20}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,threaddump
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+    tags:
+      application: foodify-server
 
 orders:
   archive:
     fixed-delay-ms: 3600000
     completed-after-hours: 72
+    batch-size: 200
+  view:
+    restaurant-snapshot-limit: 100
+    pending-driver-limit: 25
 
 google:
   maps:
@@ -63,3 +83,18 @@ driver:
   session:
     heartbeat-timeout-seconds: 120
     heartbeat-check-interval-ms: 30000
+
+guardrails:
+  rate-limits:
+    - name: order-placement
+      method: POST
+      paths:
+        - /api/orders
+      capacity: ${GUARDRAILS_ORDERS_CAPACITY:50}
+      window: PT1S
+    - name: nearby-search
+      method: GET
+      paths:
+        - /api/client/nearby
+      capacity: ${GUARDRAILS_NEARBY_CAPACITY:30}
+      window: PT1S

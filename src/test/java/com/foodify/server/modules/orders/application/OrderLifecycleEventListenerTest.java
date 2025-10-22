@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.task.TaskExecutor;
 
 import java.util.List;
 import java.util.Optional;
@@ -45,6 +46,8 @@ class OrderLifecycleEventListenerTest {
     @Mock
     private NotificationPreferenceService notificationPreferenceService;
 
+    private final TaskExecutor inlineExecutor = Runnable::run;
+
     private OrderLifecycleEventListener listener;
 
     @BeforeEach
@@ -54,7 +57,8 @@ class OrderLifecycleEventListenerTest {
                 webSocketService,
                 userDeviceService,
                 pushNotificationService,
-                notificationPreferenceService
+                notificationPreferenceService,
+                inlineExecutor
         );
     }
 

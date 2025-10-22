@@ -27,6 +27,7 @@ import com.foodify.server.modules.restaurants.domain.Restaurant;
 import com.foodify.server.modules.restaurants.repository.MenuItemExtraRepository;
 import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
+import io.micrometer.core.annotation.Timed;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +42,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -107,6 +109,7 @@ public class CustomerOrderService {
     private final DeliveryFeeCalculator deliveryFeeCalculator;
 
     @Transactional
+    @Timed(value = "orders.place.sync", description = "Time spent placing orders via API", histogram = true)
     public CreateOrderResponse placeOrder(Long clientId, OrderRequest request) {
         request.setUserId(clientId);
         Order order = createOrder(clientId, request);
@@ -114,6 +117,7 @@ public class CustomerOrderService {
     }
 
     @Transactional
+    @Timed(value = "orders.place.async", description = "Time spent processing queued order requests", histogram = true)
     public void placeOrder(OrderRequest request) {
         if (request.getUserId() == null) {
             throw new IllegalArgumentException("User id is required to place an order");
@@ -228,7 +232,7 @@ public class CustomerOrderService {
                 validateExtras(menuItem, extras);
             }
 
-            orderItem.setMenuItemExtras(new ArrayList<>(extras));
+            orderItem.setMenuItemExtras(new LinkedHashSet<>(extras));
 
             OrderItemPricing itemPricing = OrderPricingCalculator.calculateItemPricing(orderItem);
             orderItem.setUnitBasePrice(itemPricing.unitBasePrice());
@@ -305,7 +309,7 @@ public class CustomerOrderService {
         for (OrderItem item : Optional.ofNullable(order.getItems()).orElse(Collections.emptyList())) {
             OrderItemPricing pricing = resolveItemPricing(item);
 
-            List<CreateOrderResponse.Extra> extras = Optional.ofNullable(item.getMenuItemExtras()).orElse(Collections.emptyList())
+            List<CreateOrderResponse.Extra> extras = Optional.ofNullable(item.getMenuItemExtras()).orElse(Collections.emptySet())
                     .stream()
                     .map(extra -> new CreateOrderResponse.Extra(
                             extra.getId(),

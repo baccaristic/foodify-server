@@ -8,6 +8,9 @@ import com.foodify.server.modules.identity.domain.Client;
 import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
 import jakarta.persistence.*;
+import jakarta.persistence.NamedAttributeNode;
+import jakarta.persistence.NamedEntityGraph;
+import jakarta.persistence.NamedSubgraph;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -16,11 +19,31 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+@NamedEntityGraph(
+        name = "Order.summary",
+        attributeNodes = {
+                @NamedAttributeNode("client"),
+                @NamedAttributeNode(value = "restaurant", subgraph = "order.restaurant"),
+                @NamedAttributeNode(value = "delivery", subgraph = "order.delivery"),
+                @NamedAttributeNode("pendingDriver"),
+                @NamedAttributeNode(value = "items", subgraph = "order.items"),
+                @NamedAttributeNode("savedAddress")
+        },
+        subgraphs = {
+                @NamedSubgraph(name = "order.restaurant", attributeNodes = @NamedAttributeNode("admin")),
+                @NamedSubgraph(name = "order.delivery", attributeNodes = @NamedAttributeNode("driver")),
+                @NamedSubgraph(name = "order.items", attributeNodes = {
+                        @NamedAttributeNode("menuItem"),
+                        @NamedAttributeNode("menuItemExtras")
+                })
+        }
+)
 @Entity
 @Table(name = "orders")
 @Getter
 @Setter
 public class Order  {
+    public static final String SUMMARY_GRAPH = "Order.summary";
     @Id @GeneratedValue
     private Long id;
 

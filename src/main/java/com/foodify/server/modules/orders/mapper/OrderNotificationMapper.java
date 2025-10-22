@@ -129,7 +129,7 @@ public class OrderNotificationMapper {
         OrderItemPricing pricing = resolveItemPricing(item);
 
         List<String> extras = Optional.ofNullable(item.getMenuItemExtras())
-                .orElseGet(List::of)
+                .orElseGet(java.util.Collections::emptySet)
                 .stream()
                 .map(MenuItemExtra::getName)
                 .toList();

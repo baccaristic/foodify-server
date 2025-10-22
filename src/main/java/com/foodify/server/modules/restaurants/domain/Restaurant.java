@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.foodify.server.modules.identity.domain.RestaurantAdmin;
 import com.foodify.server.modules.orders.domain.Order;
 import jakarta.persistence.*;
+import jakarta.persistence.Index;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -14,6 +15,14 @@ import java.util.List;
 import java.util.Set;
 
 @Entity
+@Table(
+        name = "restaurant",
+        indexes = {
+                @Index(name = "idx_restaurant_lat_lng", columnList = "latitude, longitude"),
+                @Index(name = "idx_restaurant_top_choice", columnList = "top_choice, latitude, longitude"),
+                @Index(name = "idx_restaurant_free_delivery", columnList = "free_delivery, latitude, longitude")
+        }
+)
 @Getter
 @Setter
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
@@ -57,7 +66,11 @@ public class Restaurant {
     private List<MenuItem> menu;
 
     @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "restaurant_category", joinColumns = @JoinColumn(name = "restaurant_id"))
+    @CollectionTable(
+            name = "restaurant_category",
+            joinColumns = @JoinColumn(name = "restaurant_id"),
+            indexes = @Index(name = "idx_restaurant_category_category", columnList = "category")
+    )
     @Column(name = "category")
     @Enumerated(EnumType.STRING)
     private Set<RestaurantCategory> categories = new HashSet<>();

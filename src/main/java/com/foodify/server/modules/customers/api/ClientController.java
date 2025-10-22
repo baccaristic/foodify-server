@@ -22,6 +22,7 @@ import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
+import io.micrometer.core.annotation.Timed;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -71,6 +72,7 @@ public class ClientController {
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
     @GetMapping("/nearby")
+    @Timed(value = "client.nearby.restaurants", description = "Time spent searching for nearby restaurants", histogram = true)
     public ResponseEntity<NearbyRestaurantsResponse> getNearbyRestaurants(
             @RequestParam double lat,
             @RequestParam double lng,
@@ -85,11 +87,30 @@ public class ClientController {
         int effectivePage = page != null && page >= 0 ? page : 0;
         int effectivePageSize = pageSize != null && pageSize > 0 ? pageSize : 20;
         PageRequest pageRequest = PageRequest.of(effectivePage, effectivePageSize);
+        GeoBounds searchBounds = computeGeoBounds(lat, lng, radiusKm);
         List<Restaurant> topPicksEntities = restaurantRepository
-                .findTopChoiceNearby(lat, lng, radiusKm, PageRequest.of(0, 5))
+                .findTopChoiceNearby(
+                        lat,
+                        lng,
+                        radiusKm,
+                        searchBounds.minLat(),
+                        searchBounds.maxLat(),
+                        searchBounds.minLng(),
+                        searchBounds.maxLng(),
+                        PageRequest.of(0, 5)
+                )
                 .getContent();
         List<Restaurant> promotionEntities = restaurantRepository
-                .findNearbyWithPromotions(lat, lng, radiusKm, PageRequest.of(0, 5))
+                .findNearbyWithPromotions(
+                        lat,
+                        lng,
+                        radiusKm,
+                        searchBounds.minLat(),
+                        searchBounds.maxLat(),
+                        searchBounds.minLng(),
+                        searchBounds.maxLng(),
+                        PageRequest.of(0, 5)
+                )
                 .getContent();
 
         Set<Long> excludedFromOthers = new HashSet<>();
@@ -115,8 +136,27 @@ public class ClientController {
         });
 
         Page<Restaurant> othersPage = excludedFromOthers.isEmpty()
-                ? restaurantRepository.findNearby(lat, lng, radiusKm, pageRequest)
-                : restaurantRepository.findNearbyExcluding(lat, lng, radiusKm, excludedFromOthers, pageRequest);
+                ? restaurantRepository.findNearby(
+                        lat,
+                        lng,
+                        radiusKm,
+                        searchBounds.minLat(),
+                        searchBounds.maxLat(),
+                        searchBounds.minLng(),
+                        searchBounds.maxLng(),
+                        pageRequest
+                )
+                : restaurantRepository.findNearbyExcluding(
+                        lat,
+                        lng,
+                        radiusKm,
+                        excludedFromOthers,
+                        searchBounds.minLat(),
+                        searchBounds.maxLat(),
+                        searchBounds.minLng(),
+                        searchBounds.maxLng(),
+                        pageRequest
+                );
 
         List<RestaurantDisplayDto> others = mapAndEnrich(othersPage.getContent(), favoriteRestaurantIds, lat, lng);
 
@@ -160,11 +200,17 @@ public class ClientController {
         Long userId = extractUserId(authentication);
         Set<Long> favoriteRestaurantIds = clientService.getFavoriteIds(userId).restaurantIds();
 
+        GeoBounds categoryBounds = computeGeoBounds(lat, lng, CATEGORY_FILTER_RADIUS_KM);
+
         Page<Restaurant> restaurants = restaurantRepository.findNearbyByCategory(
                 lat,
                 lng,
                 CATEGORY_FILTER_RADIUS_KM,
                 Set.of(restaurantCategory.name()),
+                categoryBounds.minLat(),
+                categoryBounds.maxLat(),
+                categoryBounds.minLng(),
+                categoryBounds.maxLng(),
                 pageRequest
         );
 
@@ -323,6 +369,37 @@ public class ClientController {
     private boolean isWithinRadius(Restaurant restaurant, double clientLat, double clientLng, double radiusKm) {
         double distance = haversine(clientLat, clientLng, restaurant.getLatitude(), restaurant.getLongitude());
         return distance <= radiusKm;
+    }
+
+    private GeoBounds computeGeoBounds(double lat, double lng, double radiusKm) {
+        double latDelta = radiusKm / 111.0;
+        double minLat = clampLatitude(lat - latDelta);
+        double maxLat = clampLatitude(lat + latDelta);
+
+        double cosLat = Math.cos(Math.toRadians(lat));
+        double safeCosLat = Math.max(Math.abs(cosLat), 1e-6);
+        double lonDelta = radiusKm / (111.0 * safeCosLat);
+        double minLng = clampLongitude(lng - lonDelta);
+        double maxLng = clampLongitude(lng + lonDelta);
+
+        return new GeoBounds(minLat, maxLat, minLng, maxLng);
+    }
+
+    private double clampLatitude(double value) {
+        return Math.max(-90.0, Math.min(90.0, value));
+    }
+
+    private double clampLongitude(double value) {
+        if (value > 180.0) {
+            return 180.0;
+        }
+        if (value < -180.0) {
+            return -180.0;
+        }
+        return value;
+    }
+
+    private record GeoBounds(double minLat, double maxLat, double minLng, double maxLng) {
     }
 
     private double haversine(double lat1, double lon1, double lat2, double lon2) {
