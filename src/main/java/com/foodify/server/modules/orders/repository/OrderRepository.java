@@ -6,6 +6,7 @@ import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -18,67 +19,61 @@ import java.util.Optional;
 import java.util.Set;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
-    List<Order> findAllByRestaurantOrderByDateDesc(Restaurant restaurant);
+
+    String[] ORDER_SUMMARY_GRAPH = new String[] {
+            "client",
+            "restaurant",
+            "restaurant.admin",
+            "delivery",
+            "delivery.driver",
+            "pendingDriver",
+            "items",
+            "items.menuItem",
+            "items.menuItemExtras",
+            "savedAddress"
+    };
+
+    @EntityGraph(attributePaths = ORDER_SUMMARY_GRAPH)
     Page<Order> findAllByRestaurant(Restaurant restaurant, Pageable pageable);
 
+    @EntityGraph(attributePaths = ORDER_SUMMARY_GRAPH)
     Page<Order> findAllByRestaurantAndDateGreaterThanEqual(
             Restaurant restaurant,
             LocalDateTime fromDate,
             Pageable pageable
     );
 
+    @EntityGraph(attributePaths = ORDER_SUMMARY_GRAPH)
     Page<Order> findAllByRestaurantAndDateLessThanEqual(
             Restaurant restaurant,
             LocalDateTime toDate,
             Pageable pageable
     );
 
+    @EntityGraph(attributePaths = ORDER_SUMMARY_GRAPH)
     Page<Order> findAllByRestaurantAndDateBetween(
             Restaurant restaurant,
             LocalDateTime fromDate,
             LocalDateTime toDate,
             Pageable pageable
     );
+
+    @EntityGraph(attributePaths = ORDER_SUMMARY_GRAPH)
     Page<Order> findAllByClient(Client client, Pageable pageable);
-    List<Order> findAllByPendingDriverId(Long pendingDriverId);
-    @EntityGraph(attributePaths = {
-            "client",
-            "restaurant",
-            "restaurant.admin",
-            "delivery",
-            "delivery.driver",
-            "items",
-            "items.menuItem",
-            "pendingDriver",
-            "savedAddress"
-    })
+    @EntityGraph(attributePaths = ORDER_SUMMARY_GRAPH)
+    Slice<Order> findAllByPendingDriverId(Long pendingDriverId, Pageable pageable);
+    @EntityGraph(attributePaths = ORDER_SUMMARY_GRAPH)
     Optional<Order> findDetailedById(Long id);
     boolean existsByClient_IdAndStatusInAndArchivedAtIsNull(Long clientId, List<OrderStatus> statuses);
-    @EntityGraph(attributePaths = {
-            "client",
-            "restaurant",
-            "restaurant.admin",
-            "delivery",
-            "delivery.driver",
-            "items",
-            "items.menuItem",
-            "pendingDriver",
-            "savedAddress"
-    })
+    @EntityGraph(attributePaths = ORDER_SUMMARY_GRAPH)
     Optional<Order> findFirstByClient_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(Long clientId, List<OrderStatus> statuses);
 
-    @EntityGraph(attributePaths = {
-            "client",
-            "restaurant",
-            "restaurant.admin",
-            "delivery",
-            "delivery.driver",
-            "items",
-            "items.menuItem",
-            "pendingDriver",
-            "savedAddress"
-    })
-    List<Order> findAllByRestaurant_Admin_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(Long adminId, List<OrderStatus> statuses);
+    @EntityGraph(attributePaths = ORDER_SUMMARY_GRAPH)
+    Slice<Order> findAllByRestaurant_Admin_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(
+            Long adminId,
+            List<OrderStatus> statuses,
+            Pageable pageable
+    );
     @Query("""
     SELECT o
     FROM Order o
@@ -119,5 +114,17 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
       AND o.archivedAt IS NULL
     """)
     List<Long> findIdsNeedingDriver(@Param("statuses") Collection<OrderStatus> statuses);
-    List<Order> findAllByStatusInAndArchivedAtIsNullAndDateBefore(List<OrderStatus> statuses, LocalDateTime date);
+    @Query("""
+    SELECT o
+    FROM Order o
+    WHERE o.status IN :statuses
+      AND o.archivedAt IS NULL
+      AND o.date < :date
+    ORDER BY o.id
+    """)
+    Slice<Order> findArchivableOrders(
+            @Param("statuses") Collection<OrderStatus> statuses,
+            @Param("date") LocalDateTime date,
+            Pageable pageable
+    );
 }

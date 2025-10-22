@@ -12,6 +12,7 @@ import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
@@ -59,6 +60,8 @@ public class DriverDispatchService {
     private final NotificationPreferenceService notificationPreferenceService;
     private final TransactionTemplate transactionTemplate;
     private final TaskScheduler taskScheduler;
+    @Qualifier("notificationDispatchExecutor")
+    private final TaskExecutor notificationExecutor;
 
     private final Map<Long, DispatchState> states = new ConcurrentHashMap<>();
 
@@ -71,7 +74,8 @@ public class DriverDispatchService {
                                  WebSocketService webSocketService,
                                  NotificationPreferenceService notificationPreferenceService,
                                  PlatformTransactionManager transactionManager,
-                                 @Qualifier("driverDispatchTaskScheduler") TaskScheduler taskScheduler) {
+                                 @Qualifier("driverDispatchTaskScheduler") TaskScheduler taskScheduler,
+                                 @Qualifier("notificationDispatchExecutor") TaskExecutor notificationExecutor) {
         this.driverAssignmentService = driverAssignmentService;
         this.driverLocationService = driverLocationService;
         this.orderRepository = orderRepository;
@@ -82,6 +86,7 @@ public class DriverDispatchService {
         this.notificationPreferenceService = notificationPreferenceService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.taskScheduler = taskScheduler;
+        this.notificationExecutor = notificationExecutor;
     }
 
     public void beginSearch(Order order) {
@@ -283,18 +288,21 @@ public class DriverDispatchService {
         if (!notificationPreferenceService.isEnabled(driverId, NotificationType.ORDER_UPDATES)) {
             return;
         }
+        Long orderId = order.getId();
         for (UserDevice userDevice : userDeviceService.findByUser(driverId)) {
-            try {
-                pushNotificationService.sendOrderNotification(
-                        userDevice.getDeviceToken(),
-                        order.getId(),
-                        "You have a new delivery request",
-                        "You have recieved a new delivery request. You have 2 minutes to accept or decline.",
-                        NotificationType.ORDER_UPDATES
-                );
-            } catch (Exception ex) {
-                log.warn("Failed to send push notification to driver {} for order {}", driverId, order.getId(), ex);
-            }
+            notificationExecutor.execute(() -> {
+                try {
+                    pushNotificationService.sendOrderNotification(
+                            userDevice.getDeviceToken(),
+                            orderId,
+                            "You have a new delivery request",
+                            "You have recieved a new delivery request. You have 2 minutes to accept or decline.",
+                            NotificationType.ORDER_UPDATES
+                    );
+                } catch (Exception ex) {
+                    log.warn("Failed to send push notification to driver {} for order {}", driverId, orderId, ex);
+                }
+            });
         }
     }
 

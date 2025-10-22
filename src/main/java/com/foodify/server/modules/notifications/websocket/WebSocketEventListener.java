@@ -2,12 +2,14 @@ package com.foodify.server.modules.notifications.websocket;
 
 import com.foodify.server.modules.auth.security.JwtService;
 import com.foodify.server.modules.identity.domain.Role;
+import com.foodify.server.config.OrderViewProperties;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.orders.support.OrderStatusGroups;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Component;
@@ -22,6 +24,7 @@ public class WebSocketEventListener {
     private final OrderRepository orderRepository;
     private final WebSocketService webSocketService;
     private final JwtService jwtService;
+    private final OrderViewProperties orderViewProperties;
 
     @EventListener
     public void handleSessionConnectedEvent(SessionConnectedEvent event) {
@@ -70,8 +73,14 @@ public class WebSocketEventListener {
 
         String roleValue = rawRole.toString();
         if (Role.RESTAURANT_ADMIN.name().equals(roleValue)) {
+            int limit = Math.max(orderViewProperties.getRestaurantSnapshotLimit(), 1);
             List<Order> activeOrders = orderRepository
-                    .findAllByRestaurant_Admin_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(userId, OrderStatusGroups.RESTAURANT_ACTIVE_STATUSES);
+                    .findAllByRestaurant_Admin_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(
+                            userId,
+                            OrderStatusGroups.RESTAURANT_ACTIVE_STATUSES,
+                            PageRequest.of(0, limit)
+                    )
+                    .getContent();
             webSocketService.sendRestaurantSnapshot(userId, activeOrders);
         }
     }

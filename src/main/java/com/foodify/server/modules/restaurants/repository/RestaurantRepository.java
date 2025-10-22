@@ -21,49 +21,63 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long>, J
             )
             """;
 
+    String BOUNDING_BOX_FILTER = "r.latitude BETWEEN :minLat AND :maxLat AND r.longitude BETWEEN :minLng AND :maxLng";
+
     @Query(
-            value = "SELECT r.* FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius ORDER BY " + DISTANCE_FORMULA,
-            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius",
+            value = "SELECT r.* FROM restaurant r WHERE " + BOUNDING_BOX_FILTER + " AND (" + DISTANCE_FORMULA + ") < :radius ORDER BY " + DISTANCE_FORMULA,
+            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE " + BOUNDING_BOX_FILTER + " AND (" + DISTANCE_FORMULA + ") < :radius",
             nativeQuery = true
     )
     Page<Restaurant> findNearby(
             @Param("lat") double lat,
             @Param("lng") double lng,
             @Param("radius") double radiusInKm,
+            @Param("minLat") double minLat,
+            @Param("maxLat") double maxLat,
+            @Param("minLng") double minLng,
+            @Param("maxLng") double maxLng,
             Pageable pageable
     );
 
     @Query(
-            value = "SELECT r.* FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.top_choice = TRUE ORDER BY " + DISTANCE_FORMULA,
-            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.top_choice = TRUE",
+            value = "SELECT r.* FROM restaurant r WHERE " + BOUNDING_BOX_FILTER + " AND (" + DISTANCE_FORMULA + ") < :radius AND r.top_choice = TRUE ORDER BY " + DISTANCE_FORMULA,
+            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE " + BOUNDING_BOX_FILTER + " AND (" + DISTANCE_FORMULA + ") < :radius AND r.top_choice = TRUE",
             nativeQuery = true
     )
     Page<Restaurant> findTopChoiceNearby(
             @Param("lat") double lat,
             @Param("lng") double lng,
             @Param("radius") double radiusInKm,
+            @Param("minLat") double minLat,
+            @Param("maxLat") double maxLat,
+            @Param("minLng") double minLng,
+            @Param("maxLng") double maxLng,
             Pageable pageable
     );
 
     @Query(
-            value = "SELECT r.* FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.free_delivery = TRUE ORDER BY " + DISTANCE_FORMULA,
-            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.free_delivery = TRUE",
+            value = "SELECT r.* FROM restaurant r WHERE " + BOUNDING_BOX_FILTER + " AND (" + DISTANCE_FORMULA + ") < :radius AND r.free_delivery = TRUE ORDER BY " + DISTANCE_FORMULA,
+            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE " + BOUNDING_BOX_FILTER + " AND (" + DISTANCE_FORMULA + ") < :radius AND r.free_delivery = TRUE",
             nativeQuery = true
     )
     Page<Restaurant> findNearbyWithPromotions(
             @Param("lat") double lat,
             @Param("lng") double lng,
             @Param("radius") double radiusInKm,
+            @Param("minLat") double minLat,
+            @Param("maxLat") double maxLat,
+            @Param("minLng") double minLng,
+            @Param("maxLng") double maxLng,
             Pageable pageable
     );
 
     @Query(
             value = "SELECT r.* FROM restaurant r " +
-                    "WHERE (" + DISTANCE_FORMULA + ") < :radius " +
+                    "WHERE " + BOUNDING_BOX_FILTER + " AND (" + DISTANCE_FORMULA + ") < :radius " +
                     "AND EXISTS (SELECT 1 FROM restaurant_category rc WHERE rc.restaurant_id = r.id AND rc.category IN (:categories)) " +
                     "ORDER BY " + DISTANCE_FORMULA,
             countQuery = "SELECT COUNT(*) FROM restaurant r " +
-                    "WHERE (" + DISTANCE_FORMULA + ") < :radius " +
+                    "WHERE " + BOUNDING_BOX_FILTER + " AND (" + DISTANCE_FORMULA + ") < :radius " +
                     "AND EXISTS (SELECT 1 FROM restaurant_category rc WHERE rc.restaurant_id = r.id AND rc.category IN (:categories))",
             nativeQuery = true
     )
@@ -72,12 +86,16 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long>, J
             @Param("lng") double lng,
             @Param("radius") double radiusInKm,
             @Param("categories") Iterable<String> categories,
+            @Param("minLat") double minLat,
+            @Param("maxLat") double maxLat,
+            @Param("minLng") double minLng,
+            @Param("maxLng") double maxLng,
             Pageable pageable
     );
 
     @Query(
-            value = "SELECT r.* FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.id NOT IN (:excludedIds) ORDER BY " + DISTANCE_FORMULA,
-            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE (" + DISTANCE_FORMULA + ") < :radius AND r.id NOT IN (:excludedIds)",
+            value = "SELECT r.* FROM restaurant r WHERE " + BOUNDING_BOX_FILTER + " AND (" + DISTANCE_FORMULA + ") < :radius AND r.id NOT IN (:excludedIds) ORDER BY " + DISTANCE_FORMULA,
+            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE " + BOUNDING_BOX_FILTER + " AND (" + DISTANCE_FORMULA + ") < :radius AND r.id NOT IN (:excludedIds)",
             nativeQuery = true
     )
     Page<Restaurant> findNearbyExcluding(
@@ -85,6 +103,10 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long>, J
             @Param("lng") double lng,
             @Param("radius") double radiusInKm,
             @Param("excludedIds") Iterable<Long> excludedIds,
+            @Param("minLat") double minLat,
+            @Param("maxLat") double maxLat,
+            @Param("minLng") double minLng,
+            @Param("maxLng") double maxLng,
             Pageable pageable
     );
 

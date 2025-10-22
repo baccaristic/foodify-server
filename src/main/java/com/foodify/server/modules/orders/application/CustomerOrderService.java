@@ -27,6 +27,7 @@ import com.foodify.server.modules.restaurants.domain.Restaurant;
 import com.foodify.server.modules.restaurants.repository.MenuItemExtraRepository;
 import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
+import io.micrometer.core.annotation.Timed;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -107,6 +108,7 @@ public class CustomerOrderService {
     private final DeliveryFeeCalculator deliveryFeeCalculator;
 
     @Transactional
+    @Timed(value = "orders.place.sync", description = "Time spent placing orders via API", histogram = true)
     public CreateOrderResponse placeOrder(Long clientId, OrderRequest request) {
         request.setUserId(clientId);
         Order order = createOrder(clientId, request);
@@ -114,6 +116,7 @@ public class CustomerOrderService {
     }
 
     @Transactional
+    @Timed(value = "orders.place.async", description = "Time spent processing queued order requests", histogram = true)
     public void placeOrder(OrderRequest request) {
         if (request.getUserId() == null) {
             throw new IllegalArgumentException("User id is required to place an order");

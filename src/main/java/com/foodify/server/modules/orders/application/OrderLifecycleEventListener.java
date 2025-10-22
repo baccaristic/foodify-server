@@ -6,6 +6,7 @@ import com.foodify.server.modules.notifications.application.UserDeviceService;
 import com.foodify.server.modules.notifications.domain.NotificationType;
 import com.foodify.server.modules.notifications.domain.UserDevice;
 import com.foodify.server.modules.notifications.websocket.WebSocketService;
+import io.micrometer.core.annotation.Timed;
 import com.foodify.server.modules.orders.application.event.OrderLifecycleEvent;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderStatus;
@@ -13,6 +14,9 @@ import com.foodify.server.modules.orders.repository.OrderRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,11 +37,15 @@ public class OrderLifecycleEventListener {
     private final UserDeviceService userDeviceService;
     private final PushNotificationService pushNotificationService;
     private final NotificationPreferenceService notificationPreferenceService;
+    @Qualifier("notificationDispatchExecutor")
+    private final TaskExecutor notificationExecutor;
 
     private static final Map<OrderStatus, NotificationTemplate> CLIENT_NOTIFICATION_TEMPLATES = buildClientTemplates();
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    @Async("orderLifecycleExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Timed(value = "orders.lifecycle.notifications", description = "Time spent broadcasting order lifecycle events", histogram = true)
     public void handleOrderLifecycleEvent(OrderLifecycleEvent event) {
         Order order = orderRepository.findDetailedById(event.getOrderId())
                 .orElseThrow(() -> new EntityNotFoundException("Order not found for notification"));
@@ -88,18 +96,21 @@ public class OrderLifecycleEventListener {
             return;
         }
 
+        Long orderId = order.getId();
         for (UserDevice device : devices) {
-            try {
-                pushNotificationService.sendOrderNotification(
-                        device.getDeviceToken(),
-                        order.getId(),
-                        template.title,
-                        template.body,
-                        NotificationType.ORDER_UPDATES
-                );
-            } catch (Exception ex) {
-                log.warn("Failed to push notification for order {} to device {}", order.getId(), device.getDeviceToken(), ex);
-            }
+            notificationExecutor.execute(() -> {
+                try {
+                    pushNotificationService.sendOrderNotification(
+                            device.getDeviceToken(),
+                            orderId,
+                            template.title,
+                            template.body,
+                            NotificationType.ORDER_UPDATES
+                    );
+                } catch (Exception ex) {
+                    log.warn("Failed to push notification for order {} to device {}", orderId, device.getDeviceToken(), ex);
+                }
+            });
         }
     }
 

@@ -2,6 +2,7 @@ package com.foodify.server.modules.restaurants.application;
 
 import com.foodify.server.modules.delivery.application.DriverDispatchService;
 import com.foodify.server.modules.orders.domain.Order;
+import com.foodify.server.config.OrderViewProperties;
 import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.orders.dto.OrderNotificationDTO;
 import com.foodify.server.modules.orders.mapper.OrderNotificationMapper;
@@ -31,7 +32,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -73,6 +76,7 @@ public class RestaurantService {
     private final DriverDispatchService driverDispatchService;
     private final OrderLifecycleService orderLifecycleService;
     private final OrderNotificationMapper orderNotificationMapper;
+    private final OrderViewProperties orderViewProperties;
 
     @Transactional(readOnly = true)
     public Page<OrderNotificationDTO> getAllOrders(
@@ -81,7 +85,13 @@ public class RestaurantService {
             LocalDate fromDate,
             LocalDate toDate
     ) {
-        Pageable effectivePageable = pageable != null ? pageable : Pageable.unpaged();
+        Pageable effectivePageable;
+        if (pageable == null || pageable.isUnpaged()) {
+            int defaultSize = Math.max(orderViewProperties.getRestaurantSnapshotLimit(), 1);
+            effectivePageable = PageRequest.of(0, defaultSize);
+        } else {
+            effectivePageable = pageable;
+        }
 
         if (restaurant == null) {
             return Page.empty(effectivePageable);
@@ -120,9 +130,19 @@ public class RestaurantService {
 
     @Transactional(readOnly = true)
     public List<OrderNotificationDTO> getActiveOrders(Long adminId) {
-        return this.orderRepository
-                .findAllByRestaurant_Admin_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(adminId, OrderStatusGroups.RESTAURANT_ACTIVE_STATUSES)
-                .stream()
+        if (adminId == null) {
+            return List.of();
+        }
+
+        int limit = Math.max(orderViewProperties.getRestaurantSnapshotLimit(), 1);
+        Slice<Order> slice = this.orderRepository
+                .findAllByRestaurant_Admin_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(
+                        adminId,
+                        OrderStatusGroups.RESTAURANT_ACTIVE_STATUSES,
+                        PageRequest.of(0, limit)
+                );
+
+        return slice.getContent().stream()
                 .map(orderNotificationMapper::toRestaurantDto)
                 .toList();
     }
