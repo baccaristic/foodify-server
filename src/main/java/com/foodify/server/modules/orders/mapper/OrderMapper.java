@@ -120,7 +120,7 @@ public class OrderMapper {
         OrderItemPricing pricing = resolveItemPricing(item);
 
         var extras = Optional.ofNullable(item.getMenuItemExtras())
-                .orElseGet(List::of)
+                .orElseGet(java.util.Collections::emptySet)
                 .stream()
                 .map(MenuItemExtra::getName)
                 .toList();

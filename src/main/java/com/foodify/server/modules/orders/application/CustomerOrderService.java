@@ -42,6 +42,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -231,7 +232,7 @@ public class CustomerOrderService {
                 validateExtras(menuItem, extras);
             }
 
-            orderItem.setMenuItemExtras(new ArrayList<>(extras));
+            orderItem.setMenuItemExtras(new LinkedHashSet<>(extras));
 
             OrderItemPricing itemPricing = OrderPricingCalculator.calculateItemPricing(orderItem);
             orderItem.setUnitBasePrice(itemPricing.unitBasePrice());
@@ -308,7 +309,7 @@ public class CustomerOrderService {
         for (OrderItem item : Optional.ofNullable(order.getItems()).orElse(Collections.emptyList())) {
             OrderItemPricing pricing = resolveItemPricing(item);
 
-            List<CreateOrderResponse.Extra> extras = Optional.ofNullable(item.getMenuItemExtras()).orElse(Collections.emptyList())
+            List<CreateOrderResponse.Extra> extras = Optional.ofNullable(item.getMenuItemExtras()).orElse(Collections.emptySet())
                     .stream()
                     .map(extra -> new CreateOrderResponse.Extra(
                             extra.getId(),

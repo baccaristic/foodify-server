@@ -10,7 +10,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Entity
 @Getter
@@ -31,7 +32,7 @@ public class OrderItem {
             joinColumns = @JoinColumn(name = "order_item_id"),
             inverseJoinColumns = @JoinColumn(name = "menu_item_extras_id")
     )
-    private List<MenuItemExtra> menuItemExtras;
+    private Set<MenuItemExtra> menuItemExtras = new LinkedHashSet<>();
 
     private int quantity;
 

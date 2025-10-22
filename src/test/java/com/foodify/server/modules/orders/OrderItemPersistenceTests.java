@@ -115,13 +115,13 @@ class OrderItemPersistenceTests {
         firstItem.setOrder(order);
         firstItem.setMenuItem(savedMenuItem);
         firstItem.setQuantity(1);
-        firstItem.setMenuItemExtras(new ArrayList<>(List.of(savedExtra)));
+        firstItem.setMenuItemExtras(new LinkedHashSet<>(List.of(savedExtra)));
 
         OrderItem secondItem = new OrderItem();
         secondItem.setOrder(order);
         secondItem.setMenuItem(savedMenuItem);
         secondItem.setQuantity(2);
-        secondItem.setMenuItemExtras(new ArrayList<>(List.of(savedExtra)));
+        secondItem.setMenuItemExtras(new LinkedHashSet<>(List.of(savedExtra)));
 
         order.setItems(new ArrayList<>(List.of(firstItem, secondItem)));
 
@@ -132,10 +132,10 @@ class OrderItemPersistenceTests {
         Assertions.assertThat(reloaded.getItems()).hasSize(2);
         Assertions.assertThat(reloaded.getItems().get(0).getMenuItemExtras())
                 .extracting(MenuItemExtra::getId)
-                .containsExactly(savedExtra.getId());
+                .containsExactlyInAnyOrder(savedExtra.getId());
         Assertions.assertThat(reloaded.getItems().get(1).getMenuItemExtras())
                 .extracting(MenuItemExtra::getId)
-                .containsExactly(savedExtra.getId());
+                .containsExactlyInAnyOrder(savedExtra.getId());
 
         Assertions.assertThat(hasUniqueConstraintOnMenuItemExtraId()).isFalse();
     }

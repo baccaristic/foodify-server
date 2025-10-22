@@ -117,7 +117,7 @@ public final class OrderPricingCalculator {
     private static BigDecimal resolveExtrasPerUnit(OrderItem item) {
         return Optional.ofNullable(item)
                 .map(OrderItem::getMenuItemExtras)
-                .orElse(Collections.emptyList())
+                .orElse(Collections.emptySet())
                 .stream()
                 .map(MenuItemExtra::getPrice)
                 .map(BigDecimal::valueOf)

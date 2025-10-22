@@ -20,6 +20,13 @@ It is meant to serve as a checklist for future hardening work.
   keeps queries fast and payload sizes predictable. **Update:** the service now paginates results,
   returning the newest orders first.【F:src/main/java/com/foodify/server/modules/customers/application/ClientService.java†L43-L135】【F:src/main/java/com/foodify/server/modules/orders/repository/OrderRepository.java†L16-L63】【F:src/main/java/com/foodify/server/modules/customers/api/ClientController.java†L1-L140】
 
+- **Order history summary fetches can overload Hibernate when multiple bags are fetched together.**
+  The shared entity graph we introduced for order summaries eagerly loads order items and their extras
+  so N+1 lookups disappear. However Hibernate throws `MultipleBagFetchException` when two `List`
+  associations are fetched in the same query. **Update:** we now model `OrderItem.menuItemExtras` as a
+  `Set`, keeping deterministic iteration while allowing Hibernate to materialize order summaries with
+  a single fetch.【F:src/main/java/com/foodify/server/modules/orders/domain/OrderItem.java†L1-L60】【F:src/main/java/com/foodify/server/modules/orders/application/CustomerOrderService.java†L210-L320】【F:src/main/java/com/foodify/server/modules/orders/support/OrderPricingCalculator.java†L1-L140】
+
 - **Several repository helpers lack pagination limits.** `OrderRepository` exposes convenience
   methods such as `findAllByRestaurantOrderByDateDesc`, `findAllByPendingDriverId`, and
   `findAllByDriverIdAndStatus` (the last one fetch-joins items and delivery data). These queries can
