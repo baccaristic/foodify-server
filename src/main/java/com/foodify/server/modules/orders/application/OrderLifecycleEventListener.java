@@ -12,7 +12,6 @@ import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderStatus;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import jakarta.persistence.EntityNotFoundException;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
@@ -28,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class OrderLifecycleEventListener {
 
@@ -37,8 +35,23 @@ public class OrderLifecycleEventListener {
     private final UserDeviceService userDeviceService;
     private final PushNotificationService pushNotificationService;
     private final NotificationPreferenceService notificationPreferenceService;
-    @Qualifier("notificationDispatchExecutor")
     private final TaskExecutor notificationExecutor;
+
+    public OrderLifecycleEventListener(
+            OrderRepository orderRepository,
+            WebSocketService webSocketService,
+            UserDeviceService userDeviceService,
+            PushNotificationService pushNotificationService,
+            NotificationPreferenceService notificationPreferenceService,
+            @Qualifier("notificationDispatchExecutor") TaskExecutor notificationExecutor
+    ) {
+        this.orderRepository = orderRepository;
+        this.webSocketService = webSocketService;
+        this.userDeviceService = userDeviceService;
+        this.pushNotificationService = pushNotificationService;
+        this.notificationPreferenceService = notificationPreferenceService;
+        this.notificationExecutor = notificationExecutor;
+    }
 
     private static final Map<OrderStatus, NotificationTemplate> CLIENT_NOTIFICATION_TEMPLATES = buildClientTemplates();
 
