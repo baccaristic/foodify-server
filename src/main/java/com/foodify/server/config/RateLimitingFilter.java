@@ -53,13 +53,24 @@ public class RateLimitingFilter extends OncePerRequestFilter {
 
     private Rule findRule(HttpServletRequest request) {
         String path = request.getRequestURI();
-        HttpMethod method = HttpMethod.resolve(request.getMethod());
+        HttpMethod method = resolveMethod(request.getMethod());
         for (Rule rule : rules) {
             if (rule.matches(path, method)) {
                 return rule;
             }
         }
         return null;
+    }
+
+    private HttpMethod resolveMethod(String methodValue) {
+        if (methodValue == null || methodValue.isBlank()) {
+            return null;
+        }
+        try {
+            return HttpMethod.valueOf(methodValue.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
     }
 
     private List<Rule> buildRules(GuardrailProperties properties, MeterRegistry registry) {
