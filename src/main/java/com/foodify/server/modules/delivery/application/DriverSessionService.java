@@ -82,6 +82,13 @@ public class DriverSessionService {
         driverLocationService.markUnavailable(String.valueOf(session.getDriver().getId()));
     }
 
+    @Transactional
+    public void endSessionByToken(String sessionToken, DriverSessionTerminationReason reason) {
+        driverSessionRepository
+                .findBySessionTokenAndStatus(sessionToken, DriverSessionStatus.ACTIVE)
+                .ifPresent(session -> endSession(session, reason));
+    }
+
     @Scheduled(fixedDelayString = "${driver.session.heartbeat-check-interval-ms:30000}")
     @Transactional
     public void expireInactiveSessions() {

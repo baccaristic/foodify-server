@@ -2,8 +2,10 @@ package com.foodify.server.modules.auth.api;
 
 import com.foodify.server.modules.auth.application.PhoneNumberUtils;
 import com.foodify.server.modules.auth.dto.*;
+import com.foodify.server.modules.auth.security.DriverAuthenticationDetails;
 import com.foodify.server.modules.delivery.application.DriverSessionService;
 import com.foodify.server.modules.delivery.domain.DriverSession;
+import com.foodify.server.modules.delivery.domain.DriverSessionTerminationReason;
 import com.foodify.server.modules.identity.domain.AuthProvider;
 import com.foodify.server.modules.identity.domain.Client;
 import com.foodify.server.modules.identity.domain.Driver;
@@ -13,6 +15,7 @@ import com.foodify.server.modules.identity.repository.ClientRepository;
 import com.foodify.server.modules.identity.repository.DriverRepository;
 import com.foodify.server.modules.identity.repository.UserRepository;
 import com.foodify.server.modules.auth.security.JwtService;
+import com.foodify.server.modules.notifications.application.UserDeviceService;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
@@ -47,6 +50,7 @@ public class AuthController {
     private final JwtService jwtService;
     private final DriverRepository driverRepository;
     private final DriverSessionService driverSessionService;
+    private final UserDeviceService userDeviceService;
 
     private Long extractUserId(Authentication authentication) {
         return Long.parseLong((String) authentication.getPrincipal());
@@ -394,6 +398,34 @@ public class AuthController {
         return ResponseEntity.ok()
                 .contentType(MediaType.IMAGE_JPEG)
                 .body(resource);
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_CLIENT')")
+    @PostMapping("/client/logout")
+    public ResponseEntity<?> logoutClient(Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        userDeviceService.deleteDevicesForUser(userId);
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_DRIVER')")
+    @PostMapping("/driver/logout")
+    public ResponseEntity<?> logoutDriver(Authentication authentication) {
+        if (authentication == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated");
+        }
+
+        Object details = authentication.getDetails();
+        if (details instanceof DriverAuthenticationDetails driverDetails) {
+            driverSessionService.endSessionByToken(driverDetails.sessionToken(), DriverSessionTerminationReason.LOGOUT);
+        } else {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Driver session not found");
+        }
+
+        Long userId = extractUserId(authentication);
+        userDeviceService.deleteDevicesForUser(userId);
+
+        return ResponseEntity.ok(Map.of("success", true));
     }
 
     @GetMapping("/heart-beat")

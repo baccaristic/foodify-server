@@ -49,6 +49,11 @@ public class UserDeviceService {
             deviceRepo.delete(device);
         });
     }
+
+    @Transactional
+    public void deleteDevicesForUser(Long userId) {
+        deviceRepo.deleteByUserId(userId);
+    }
     public List<UserDevice> findByUser(Long userId) {
         return deviceRepo.findByUserId(userId);
     }
