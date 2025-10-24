@@ -2,12 +2,16 @@ package com.foodify.server.modules.delivery.api;
 
 import com.foodify.server.modules.delivery.dto.DeliverOrderDto;
 import com.foodify.server.modules.auth.security.DriverAuthenticationDetails;
+import com.foodify.server.modules.delivery.application.DriverFinancialService;
 import com.foodify.server.modules.delivery.application.DriverSessionService;
 import com.foodify.server.modules.delivery.dto.DriverHeartbeatRequest;
 import com.foodify.server.modules.delivery.dto.DriverLocationDto;
 import com.foodify.server.modules.delivery.dto.DriverShiftDto;
 import com.foodify.server.modules.delivery.dto.DriverShiftBalanceDto;
 import com.foodify.server.modules.delivery.dto.DriverShiftEarningDetailsDto;
+import com.foodify.server.modules.delivery.dto.DriverDepositDto;
+import com.foodify.server.modules.delivery.dto.DriverDepositRequestDto;
+import com.foodify.server.modules.delivery.dto.DriverFinancialSummaryDto;
 import com.foodify.server.modules.delivery.dto.PickUpOrderRequest;
 import com.foodify.server.modules.delivery.dto.StatusUpdateRequest;
 import com.foodify.server.modules.delivery.dto.DriverEarningsSummaryDto;
@@ -41,6 +45,7 @@ public class DriverController {
     private final DriverService driverService;
     private final WebSocketService webSocketService;
     private final DriverSessionService driverSessionService;
+    private final DriverFinancialService driverFinancialService;
 
     @PostMapping("/location")
     @PreAuthorize("hasAuthority('ROLE_DRIVER')")
@@ -208,6 +213,28 @@ public class DriverController {
         }
 
         return driverService.getShiftIncomeDetails(userId, dateOnValue, fromValue, toValue);
+    }
+
+    @GetMapping("/finance/summary")
+    @PreAuthorize("hasAuthority('ROLE_DRIVER')")
+    public DriverFinancialSummaryDto financialSummary(Authentication authentication) {
+        Long userId = Long.parseLong((String) authentication.getPrincipal());
+        return driverFinancialService.getSummary(userId);
+    }
+
+    @GetMapping("/finance/deposits")
+    @PreAuthorize("hasAuthority('ROLE_DRIVER')")
+    public List<DriverDepositDto> listDeposits(Authentication authentication) {
+        Long userId = Long.parseLong((String) authentication.getPrincipal());
+        return driverFinancialService.getDriverDeposits(userId);
+    }
+
+    @PostMapping("/finance/deposits")
+    @PreAuthorize("hasAuthority('ROLE_DRIVER')")
+    public DriverDepositDto createDeposit(Authentication authentication,
+                                          @RequestBody(required = false) DriverDepositRequestDto request) {
+        Long userId = Long.parseLong((String) authentication.getPrincipal());
+        return driverFinancialService.requestDeposit(userId, request != null ? request.getAmount() : null);
     }
 
     @GetMapping("/earnings/shifts/{shiftId}")

@@ -118,6 +118,35 @@ All endpoints below require a valid driver access token and the `ROLE_DRIVER` au
   ```
 - **Errors**: `400 Bad Request` when the date format is invalid, ranges are inverted, or both `dateOn` and `from`/`to` are provided at the same time.
 
+### 2.11 Finance overview & deposits
+- **Deposit threshold**: When the driver’s collected cash (Cash on Delivery orders) reaches **250 DT**, they must deposit it before they can start a new shift or accept additional jobs. Failing to deposit automatically keeps the driver unavailable in dispatch.
+- **Daily fee**: Each day a shift starts, the platform charges a fixed **20 DT** service fee that is deducted from the driver’s next payout.
+- **Offline cash handling**: Drivers physically bring their cash to the partner bureau. After they hand over the funds they submit the deposit in the app so the admin team can validate it against the receipt.
+
+- **Endpoint**: `GET /api/driver/finance/summary`
+  - **Behavior**: Returns the current financial snapshot for the authenticated driver, including:
+    - `cashOnHand` – accumulated cash that still needs to be deposited.
+    - `unpaidEarnings` – unpaid 12% commission plus delivery fees for delivered orders.
+    - `outstandingDailyFees` – total daily fees that will be deducted from the next payout.
+    - `depositThreshold` – the 250 DT ceiling, so the UI can highlight when the driver is close to the limit.
+    - `depositRequired` – boolean flag telling the client to block the workflow and show a “Please deposit” action.
+    - `nextPayoutAmount` – expected transfer to the driver once the next deposit is confirmed (after fees).
+    - `feesToDeduct` – fees that will be removed from the upcoming payout.
+
+- **Endpoint**: `GET /api/driver/finance/deposits`
+  - **Behavior**: Lists every deposit request created by the driver, newest first, with status (`PENDING`/`CONFIRMED`), cash amount, payout, and fee deduction.
+
+- **Endpoint**: `POST /api/driver/finance/deposits`
+  - **Body** (optional): `{ "amount": 180.00 }`. When omitted the full `cashOnHand` value is used.
+  - **Behavior**:
+    - Validates that the driver has cash available and that there is no pending deposit awaiting confirmation.
+    - For cash balances at or above the 250 DT threshold the server enforces a full deposit.
+    - Deducts the declared cash from the running `cashOnHand` balance so the driver can resume shifts while finance validates the paper receipt.
+    - Captures the unpaid earnings and outstanding fees snapshot to be processed once an administrator confirms the deposit.
+  - **Response**: Deposit record mirroring the list endpoint.
+
+- **Payout timing**: The driver’s unpaid earnings remain visible until the admin marks the deposit as confirmed. At that point the earnings are cleared and outstanding daily fees are deducted.
+
 ## 3. Driver Status & Location Semantics
 The location service keeps two pieces of state in Redis:
 - A GEO set (`drivers:geo`) storing `longitude/latitude` pairs for each driver. Updated through `/api/driver/location`.
