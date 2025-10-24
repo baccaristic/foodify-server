@@ -130,7 +130,13 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
-        Optional<User> optionalUser = userRepository.findByEmail(request.getEmail());
+        String email = normalizeEmail(request.getEmail());
+        if (!StringUtils.hasText(email) || !StringUtils.hasText(request.getPassword())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("success", false, "message", "Email and password are required"));
+        }
+
+        Optional<User> optionalUser = userRepository.findByEmail(email);
 
         if (optionalUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -157,7 +163,13 @@ public class AuthController {
 
     @PostMapping("/driver/login")
     public ResponseEntity<?> driverLogin(@RequestBody LoginRequest request) {
-        Optional<User> optionalUser = userRepository.findByEmail(request.getEmail());
+        String email = normalizeEmail(request.getEmail());
+        if (!StringUtils.hasText(email) || !StringUtils.hasText(request.getPassword())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("success", false, "message", "Email and password are required"));
+        }
+
+        Optional<User> optionalUser = userRepository.findByEmail(email);
 
         if (optionalUser.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
