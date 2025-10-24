@@ -12,6 +12,7 @@ public record CreateOrderResponse(
         RestaurantSummary restaurant,
         OrderNotificationDTO.DeliverySummary delivery,
         PaymentSummary payment,
+        String couponCode,
         List<OrderedItem> items,
         List<com.foodify.server.modules.orders.dto.OrderWorkflowStepDto> workflow
 ) {
@@ -24,6 +25,7 @@ public record CreateOrderResponse(
             BigDecimal total,
             BigDecimal itemsSubtotal,
             BigDecimal promotionDiscount,
+            BigDecimal couponDiscount,
             BigDecimal itemsTotal,
             BigDecimal deliveryFee
     ) {}

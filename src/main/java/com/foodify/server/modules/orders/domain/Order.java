@@ -7,6 +7,7 @@ import com.foodify.server.modules.delivery.domain.Delivery;
 import com.foodify.server.modules.identity.domain.Client;
 import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
+import com.foodify.server.modules.rewards.domain.Coupon;
 import jakarta.persistence.*;
 import jakarta.persistence.NamedAttributeNode;
 import jakarta.persistence.NamedEntityGraph;
@@ -112,4 +113,15 @@ public class Order  {
 
     @Column(name = "order_total", precision = 12, scale = 2)
     private BigDecimal total;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "coupon_id")
+    @JsonIgnoreProperties({"assignments", "redemptions"})
+    private Coupon coupon;
+
+    @Column(name = "coupon_discount", precision = 12, scale = 2)
+    private BigDecimal couponDiscount;
+
+    @Column(name = "loyalty_points_earned", precision = 19, scale = 2)
+    private BigDecimal loyaltyPointsEarned;
 }

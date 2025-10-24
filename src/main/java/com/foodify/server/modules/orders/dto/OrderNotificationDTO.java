@@ -22,6 +22,7 @@ public record OrderNotificationDTO(
         RestaurantSummary restaurant,
         DeliverySummary delivery,
         PaymentSummary payment,
+        String couponCode,
         List<OrderStatusHistoryDTO> statusHistory,
         String deliveryToken,
         String pickupToken
@@ -62,6 +63,7 @@ public record OrderNotificationDTO(
             BigDecimal total,
             BigDecimal itemsSubtotal,
             BigDecimal promotionDiscount,
+            BigDecimal couponDiscount,
             BigDecimal itemsTotal,
             BigDecimal deliveryFee
     ) {}
