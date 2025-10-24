@@ -57,7 +57,18 @@ ALTER TABLE orders
     ADD COLUMN IF NOT EXISTS coupon_discount NUMERIC(12,2),
     ADD COLUMN IF NOT EXISTS loyalty_points_earned NUMERIC(19,2);
 
-ALTER TABLE orders
-    ADD CONSTRAINT IF NOT EXISTS fk_orders_coupon FOREIGN KEY (coupon_id) REFERENCES coupons (id) ON DELETE SET NULL;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.table_constraints tc
+        WHERE tc.constraint_name = 'fk_orders_coupon'
+          AND tc.table_name = 'orders'
+    ) THEN
+        ALTER TABLE orders
+            ADD CONSTRAINT fk_orders_coupon FOREIGN KEY (coupon_id) REFERENCES coupons (id) ON DELETE SET NULL;
+    END IF;
+END;
+$$;
 
 CREATE INDEX IF NOT EXISTS idx_orders_coupon ON orders (coupon_id);
