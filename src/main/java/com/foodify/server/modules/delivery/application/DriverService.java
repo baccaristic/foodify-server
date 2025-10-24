@@ -64,6 +64,7 @@ public class DriverService {
     private final DeliveryRepository deliveryRepository;
     private final DriverShiftRepository driverShiftRepository;
     private final DriverShiftBalanceRepository driverShiftBalanceRepository;
+    private final DriverFinancialService driverFinancialService;
     private final OrderItemRepository orderItemRepository;
     private final QrCodeService qrCodeService;
     private final GoogleMapsService googleMapsService;
@@ -92,6 +93,8 @@ public class DriverService {
         if (driver == null || order == null) {
             return null;
         }
+
+        driverFinancialService.assertCanWork(driver);
 
         if (orderRepository.findByDriverIdAndStatusIn(driverId, ACTIVE_DRIVER_STATUSES).isPresent()) {
             throw new IllegalStateException("Driver already has an active order.");
@@ -246,12 +249,13 @@ public class DriverService {
         delivery.setDeliveredTime(LocalDateTime.now());
         deliveryRepository.save(delivery);
         Driver driver = delivery.getDriver();
-        driverAvailabilityService.refreshAvailability(driver.getId());
         order.setDeliveryToken(null);
         orderLifecycleService.transition(order, OrderStatus.DELIVERED,
                 "driver:" + driverId,
                 "Order delivered to client");
         updateShiftBalance(driver, order);
+        driverFinancialService.recordDelivery(order);
+        driverAvailabilityService.refreshAvailability(driver.getId());
         return true;
     }
 
@@ -274,6 +278,8 @@ public class DriverService {
                 .orElse(null);
 
         if (available) {
+            driverFinancialService.assertCanWork(driver);
+            driverFinancialService.applyDailyFeeIfNeeded(driver);
             if (activeShift == null) {
                 LocalDateTime now = LocalDateTime.now();
                 DriverShift newShift = new DriverShift();
@@ -676,8 +682,8 @@ public class DriverService {
             return;
         }
 
-        BigDecimal orderTotal = OrderPricingCalculator.calculateTotal(order);
-        if (orderTotal.compareTo(BigDecimal.ZERO) <= 0) {
+        BigDecimal itemsTotal = OrderPricingCalculator.calculateTotal(order);
+        if (itemsTotal.compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
 
@@ -708,7 +714,9 @@ public class DriverService {
                 .map(Restaurant::getRestaurantShareRate)
                 .orElse(null);
 
-        balance.recordOrder(orderTotal, restaurantShareRate);
+        BigDecimal deliveryFee = Optional.ofNullable(order.getDeliveryFee()).orElse(BigDecimal.ZERO);
+
+        balance.recordOrder(itemsTotal, restaurantShareRate, deliveryFee);
         driverShiftBalanceRepository.save(balance);
         shift.setBalance(balance);
     }

@@ -43,21 +43,27 @@ public class DriverShiftBalance {
     @Column(name = "settled_at")
     private LocalDateTime settledAt;
 
-    public void recordOrder(BigDecimal orderTotal, BigDecimal restaurantShareRate) {
-        BigDecimal safeTotal = Optional.ofNullable(orderTotal)
+    public void recordOrder(BigDecimal itemsTotal, BigDecimal restaurantShareRate, BigDecimal deliveryFee) {
+        BigDecimal safeItemsTotal = Optional.ofNullable(itemsTotal)
                 .orElse(BigDecimal.ZERO)
                 .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal safeDeliveryFee = Optional.ofNullable(deliveryFee)
+                .orElse(BigDecimal.ZERO)
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal safeTotal = safeItemsTotal.add(safeDeliveryFee).setScale(2, RoundingMode.HALF_UP);
         BigDecimal normalizedRestaurantRate = normalizeRestaurantShareRate(restaurantShareRate);
         BigDecimal driverRate = BigDecimal.ONE
                 .subtract(normalizedRestaurantRate)
                 .setScale(4, RoundingMode.HALF_UP);
-        BigDecimal driverCommission = safeTotal.multiply(driverRate)
+        BigDecimal driverCommission = safeItemsTotal.multiply(driverRate)
                 .setScale(2, RoundingMode.HALF_UP);
-        BigDecimal restaurantPortion = safeTotal.subtract(driverCommission)
+        BigDecimal driverTotal = driverCommission.add(safeDeliveryFee)
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal restaurantPortion = safeItemsTotal.subtract(driverCommission)
                 .setScale(2, RoundingMode.HALF_UP);
 
         totalAmount = totalAmount.add(safeTotal).setScale(2, RoundingMode.HALF_UP);
-        driverShare = driverShare.add(driverCommission).setScale(2, RoundingMode.HALF_UP);
+        driverShare = driverShare.add(driverTotal).setScale(2, RoundingMode.HALF_UP);
         restaurantShare = restaurantShare.add(restaurantPortion).setScale(2, RoundingMode.HALF_UP);
         settled = false;
         settledAt = null;
