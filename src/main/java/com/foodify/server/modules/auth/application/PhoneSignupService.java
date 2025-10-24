@@ -19,6 +19,8 @@ import org.springframework.web.server.ResponseStatusException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
@@ -31,6 +33,10 @@ public class PhoneSignupService {
     private static final Duration RESEND_INTERVAL = Duration.ofSeconds(45);
     private static final int MAX_ATTEMPTS = 5;
     private static final int MAX_RESENDS = 3;
+    private static final Duration EMAIL_CODE_VALIDITY = Duration.ofMinutes(10);
+    private static final Duration EMAIL_RESEND_INTERVAL = Duration.ofMinutes(1);
+    private static final int EMAIL_MAX_ATTEMPTS = 5;
+    private static final int EMAIL_MAX_RESENDS = 3;
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$", Pattern.CASE_INSENSITIVE);
 
     private final PhoneSignupSessionRepository sessionRepository;
@@ -38,6 +44,7 @@ public class PhoneSignupService {
     private final UserRepository userRepository;
     private final JwtService jwtService;
     private final SmsSender smsSender;
+    private final EmailSender emailSender;
 
     private final SecureRandom random = new SecureRandom();
 
@@ -141,16 +148,84 @@ public class PhoneSignupService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email is already registered");
         }
 
+        Instant now = Instant.now();
         session.setEmail(email);
-        session.setEmailCapturedAt(Instant.now());
+        session.setEmailCapturedAt(now);
+        session.setEmailVerifiedAt(null);
+        session.setEmailResendCount(0);
+        session.setEmailFailedAttemptCount(0);
+        issueNewEmailVerificationCode(session, true);
+        sessionRepository.save(session);
+
+        emailSender.sendVerificationCode(email, session.getEmailVerificationCode());
+        return mapToState(session);
+    }
+
+    public PhoneSignupStateResponse verifyEmail(VerifyEmailCodeRequest request) {
+        PhoneSignupSession session = requireEmailProvided(request.getSessionId());
+        if (session.isEmailVerified()) {
+            return mapToState(session);
+        }
+        if (!StringUtils.hasText(request.getCode())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Verification code is required");
+        }
+        if (session.getEmailVerificationCode() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Verification code has not been issued");
+        }
+        if (session.getEmailFailedAttemptCount() >= EMAIL_MAX_ATTEMPTS) {
+            throw new ResponseStatusException(HttpStatus.LOCKED, "Maximum verification attempts exceeded");
+        }
+
+        Instant now = Instant.now();
+        if (session.getEmailCodeExpiresAt() == null || session.getEmailCodeExpiresAt().isBefore(now)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Verification code has expired");
+        }
+
+        if (!session.getEmailVerificationCode().equals(request.getCode())) {
+            session.setEmailFailedAttemptCount(session.getEmailFailedAttemptCount() + 1);
+            sessionRepository.save(session);
+            int remaining = Math.max(0, EMAIL_MAX_ATTEMPTS - session.getEmailFailedAttemptCount());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid verification code. Attempts remaining: " + remaining);
+        }
+
+        session.setEmailVerifiedAt(now);
+        session.setEmailFailedAttemptCount(0);
         sessionRepository.save(session);
         return mapToState(session);
     }
 
+    public PhoneSignupStateResponse resendEmail(ResendEmailCodeRequest request) {
+        PhoneSignupSession session = requireEmailProvided(request.getSessionId());
+        if (session.isEmailVerified()) {
+            return mapToState(session);
+        }
+        if (session.getEmailResendCount() >= EMAIL_MAX_RESENDS) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Maximum resend attempts reached");
+        }
+        Instant now = Instant.now();
+        Instant lastSentAt = session.getEmailLastCodeSentAt();
+        if (lastSentAt != null) {
+            Instant nextAllowed = lastSentAt.plus(EMAIL_RESEND_INTERVAL);
+            if (now.isBefore(nextAllowed)) {
+                long seconds = Duration.between(now, nextAllowed).toSeconds();
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                        "Please wait " + seconds + " seconds before requesting a new code");
+            }
+        }
+
+        session.setEmailResendCount(session.getEmailResendCount() + 1);
+        issueNewEmailVerificationCode(session, true);
+        sessionRepository.save(session);
+
+        emailSender.sendVerificationCode(session.getEmail(), session.getEmailVerificationCode());
+        return mapToState(session);
+    }
+
     public PhoneSignupStateResponse captureName(CaptureNameRequest request) {
-        PhoneSignupSession session = requireEmailCaptured(request.getSessionId());
+        PhoneSignupSession session = requireEmailVerified(request.getSessionId());
         String firstName = sanitizeName(request.getFirstName());
         String lastName = sanitizeName(request.getLastName());
+        LocalDate dateOfBirth = parseDateOfBirth(request.getDateOfBirth());
 
         if (!StringUtils.hasText(firstName) || !StringUtils.hasText(lastName)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Both first and last names are required");
@@ -158,6 +233,7 @@ public class PhoneSignupService {
 
         session.setFirstName(firstName);
         session.setLastName(lastName);
+        session.setDateOfBirth(dateOfBirth);
         session.setNameCapturedAt(Instant.now());
         sessionRepository.save(session);
         return mapToState(session);
@@ -189,8 +265,9 @@ public class PhoneSignupService {
         client.setPhoneNumber(session.getPhoneNumber());
         client.setPhoneVerified(true);
         client.setEmail(session.getEmail());
-        client.setEmailVerified(false);
+        client.setEmailVerified(true);
         client.setName(buildFullName(session));
+        client.setDateOfBirth(session.getDateOfBirth());
         client.setRole(Role.CLIENT);
         client.setAuthProvider(AuthProvider.PHONE);
 
@@ -226,7 +303,7 @@ public class PhoneSignupService {
         return session;
     }
 
-    private PhoneSignupSession requireEmailCaptured(String sessionId) {
+    private PhoneSignupSession requireEmailProvided(String sessionId) {
         PhoneSignupSession session = requirePhoneVerified(sessionId);
         if (!session.isEmailProvided()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required before continuing");
@@ -234,8 +311,16 @@ public class PhoneSignupService {
         return session;
     }
 
+    private PhoneSignupSession requireEmailVerified(String sessionId) {
+        PhoneSignupSession session = requireEmailProvided(sessionId);
+        if (!session.isEmailVerified()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email must be verified before continuing");
+        }
+        return session;
+    }
+
     private PhoneSignupSession requireNameCaptured(String sessionId) {
-        PhoneSignupSession session = requireEmailCaptured(sessionId);
+        PhoneSignupSession session = requireEmailVerified(sessionId);
         if (!session.isNameProvided()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Name must be provided before continuing");
         }
@@ -250,6 +335,17 @@ public class PhoneSignupService {
         session.setLastCodeSentAt(now);
         if (resetAttempts) {
             session.setFailedAttemptCount(0);
+        }
+    }
+
+    private void issueNewEmailVerificationCode(PhoneSignupSession session, boolean resetAttempts) {
+        String code = String.format(Locale.US, "%06d", random.nextInt(1_000_000));
+        Instant now = Instant.now();
+        session.setEmailVerificationCode(code);
+        session.setEmailCodeExpiresAt(now.plus(EMAIL_CODE_VALIDITY));
+        session.setEmailLastCodeSentAt(now);
+        if (resetAttempts) {
+            session.setEmailFailedAttemptCount(0);
         }
     }
 
@@ -270,12 +366,25 @@ public class PhoneSignupService {
         Instant codeExpiresAt = session.isPhoneVerified() ? null : session.getCodeExpiresAt();
         Integer attemptsRemaining = session.isPhoneVerified() ? null : Math.max(0, MAX_ATTEMPTS - session.getFailedAttemptCount());
         Integer resendsRemaining = session.isPhoneVerified() ? 0 : Math.max(0, MAX_RESENDS - session.getResendCount());
+        Instant emailResendAvailableAt = null;
+        Instant emailCodeExpiresAt = null;
+        Integer emailAttemptsRemaining = null;
+        Integer emailResendsRemaining = null;
+        if (session.isEmailProvided() && !session.isEmailVerified()) {
+            emailResendAvailableAt = session.getEmailLastCodeSentAt() == null
+                    ? null
+                    : session.getEmailLastCodeSentAt().plus(EMAIL_RESEND_INTERVAL);
+            emailCodeExpiresAt = session.getEmailCodeExpiresAt();
+            emailAttemptsRemaining = Math.max(0, EMAIL_MAX_ATTEMPTS - session.getEmailFailedAttemptCount());
+            emailResendsRemaining = Math.max(0, EMAIL_MAX_RESENDS - session.getEmailResendCount());
+        }
 
         return PhoneSignupStateResponse.builder()
                 .sessionId(session.getSessionId())
                 .phoneNumber(session.getPhoneNumber())
                 .phoneVerified(session.isPhoneVerified())
                 .emailProvided(session.isEmailProvided())
+                .emailVerified(session.isEmailVerified())
                 .nameProvided(session.isNameProvided())
                 .termsAccepted(session.isTermsAccepted())
                 .completed(completed)
@@ -284,9 +393,14 @@ public class PhoneSignupService {
                 .resendAvailableAt(resendAvailableAt)
                 .attemptsRemaining(attemptsRemaining)
                 .resendsRemaining(resendsRemaining)
+                .emailCodeExpiresAt(emailCodeExpiresAt)
+                .emailResendAvailableAt(emailResendAvailableAt)
+                .emailAttemptsRemaining(emailAttemptsRemaining)
+                .emailResendsRemaining(emailResendsRemaining)
                 .email(session.getEmail())
                 .firstName(session.getFirstName())
                 .lastName(session.getLastName())
+                .dateOfBirth(session.getDateOfBirth())
                 .loginAttempt(loginAttempt)
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -321,12 +435,31 @@ public class PhoneSignupService {
         return name == null ? null : name.trim();
     }
 
+    private LocalDate parseDateOfBirth(String value) {
+        if (!StringUtils.hasText(value)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date of birth is required");
+        }
+        try {
+            LocalDate date = LocalDate.parse(value.trim());
+            if (date.isAfter(LocalDate.now())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date of birth cannot be in the future");
+            }
+            return date;
+        } catch (DateTimeParseException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Invalid date of birth format. Expected ISO date (YYYY-MM-DD)");
+        }
+    }
+
     private String determineNextStep(PhoneSignupSession session) {
         if (!session.isPhoneVerified()) {
             return "VERIFY_PHONE_CODE";
         }
         if (!session.isEmailProvided()) {
             return "PROVIDE_EMAIL";
+        }
+        if (!session.isEmailVerified()) {
+            return "VERIFY_EMAIL_CODE";
         }
         if (!session.isNameProvided()) {
             return "PROVIDE_NAME";
@@ -349,6 +482,7 @@ public class PhoneSignupService {
                 .phone(client.getPhoneNumber())
                 .phoneVerified(client.getPhoneVerified())
                 .emailVerified(client.getEmailVerified())
+                .dateOfBirth(client.getDateOfBirth())
                 .role(client.getRole())
                 .build();
     }

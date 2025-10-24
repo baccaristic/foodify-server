@@ -20,6 +20,8 @@ import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
@@ -30,6 +32,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Optional;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.Locale;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -42,6 +47,30 @@ public class AuthController {
     private final JwtService jwtService;
     private final DriverRepository driverRepository;
     private final DriverSessionService driverSessionService;
+
+    private Long extractUserId(Authentication authentication) {
+        return Long.parseLong((String) authentication.getPrincipal());
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase(Locale.US);
+    }
+
+    private LocalDate parseDateOfBirthOrThrow(String value) {
+        if (!StringUtils.hasText(value)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date of birth is required");
+        }
+        try {
+            LocalDate date = LocalDate.parse(value.trim());
+            if (date.isAfter(LocalDate.now())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date of birth cannot be in the future");
+            }
+            return date;
+        } catch (DateTimeParseException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Invalid date of birth format. Expected ISO date (YYYY-MM-DD)");
+        }
+    }
 
     @PostMapping("/google")
     public ResponseEntity<?> registerWithGoogle(@RequestBody GoogleRegisterRequest request) {
@@ -201,6 +230,144 @@ public class AuthController {
                 ),
                 "token", token
         ));
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_CLIENT')")
+    @PutMapping("/client/profile")
+    public ResponseEntity<?> updateClientProfile(@RequestBody UpdateClientProfileRequest request,
+                                                 Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        Client client = clientRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Client not found"));
+
+        boolean updated = false;
+
+        if (StringUtils.hasText(request.getName())) {
+            String name = request.getName().trim();
+            if (!name.equals(client.getName())) {
+                client.setName(name);
+                updated = true;
+            }
+        }
+
+        if (StringUtils.hasText(request.getEmail())) {
+            String email = normalizeEmail(request.getEmail());
+            if (!StringUtils.hasText(email)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required");
+            }
+            String currentEmail = client.getEmail();
+            boolean emailChanged = currentEmail == null || !currentEmail.equalsIgnoreCase(email);
+            if (emailChanged) {
+                if (userRepository.existsByEmail(email)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use");
+                }
+                client.setEmail(email);
+                client.setEmailVerified(false);
+                updated = true;
+            }
+        }
+
+        if (StringUtils.hasText(request.getDateOfBirth())) {
+            LocalDate dateOfBirth = parseDateOfBirthOrThrow(request.getDateOfBirth());
+            if (!dateOfBirth.equals(client.getDateOfBirth())) {
+                client.setDateOfBirth(dateOfBirth);
+                updated = true;
+            }
+        }
+
+        if (StringUtils.hasText(request.getNewPassword())) {
+            if (!StringUtils.hasText(request.getCurrentPassword())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is required to change the password");
+            }
+            if (!StringUtils.hasText(client.getPassword())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password updates are not available for this account");
+            }
+            if (!passwordEncoder.matches(request.getCurrentPassword(), client.getPassword())) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Current password is incorrect");
+            }
+            client.setPassword(passwordEncoder.encode(request.getNewPassword()));
+            updated = true;
+        }
+
+        if (updated) {
+            clientRepository.save(client);
+        }
+
+        Map<String, Object> userPayload = Map.of(
+                "id", client.getId(),
+                "name", client.getName(),
+                "email", client.getEmail(),
+                "phone", client.getPhoneNumber(),
+                "emailVerified", client.getEmailVerified(),
+                "phoneVerified", client.getPhoneVerified(),
+                "role", client.getRole(),
+                "dateOfBirth", client.getDateOfBirth()
+        );
+
+        return ResponseEntity.ok(Map.of("success", true, "user", userPayload));
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_DRIVER')")
+    @PutMapping("/driver/profile")
+    public ResponseEntity<?> updateDriverProfile(@RequestBody UpdateDriverProfileRequest request,
+                                                 Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        Driver driver = driverRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Driver not found"));
+
+        boolean updated = false;
+
+        if (StringUtils.hasText(request.getName())) {
+            String name = request.getName().trim();
+            if (!name.equals(driver.getName())) {
+                driver.setName(name);
+                updated = true;
+            }
+        }
+
+        if (StringUtils.hasText(request.getEmail())) {
+            String email = normalizeEmail(request.getEmail());
+            if (!StringUtils.hasText(email)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required");
+            }
+            String currentEmail = driver.getEmail();
+            boolean emailChanged = currentEmail == null || !currentEmail.equalsIgnoreCase(email);
+            if (emailChanged) {
+                if (userRepository.existsByEmail(email)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use");
+                }
+                driver.setEmail(email);
+                updated = true;
+            }
+        }
+
+        if (StringUtils.hasText(request.getNewPassword())) {
+            if (!StringUtils.hasText(request.getCurrentPassword())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is required to change the password");
+            }
+            if (!StringUtils.hasText(driver.getPassword())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password updates are not available for this account");
+            }
+            if (!passwordEncoder.matches(request.getCurrentPassword(), driver.getPassword())) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Current password is incorrect");
+            }
+            driver.setPassword(passwordEncoder.encode(request.getNewPassword()));
+            updated = true;
+        }
+
+        if (updated) {
+            driverRepository.save(driver);
+        }
+
+        Map<String, Object> userPayload = Map.of(
+                "id", driver.getId(),
+                "name", driver.getName(),
+                "email", driver.getEmail(),
+                "phone", driver.getPhone(),
+                "role", driver.getRole()
+        );
+
+        return ResponseEntity.ok(Map.of("success", true, "user", userPayload));
     }
 
     @GetMapping("/image/{filename:.+}")

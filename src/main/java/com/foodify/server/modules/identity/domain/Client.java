@@ -8,6 +8,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -21,6 +22,7 @@ public class Client extends User {
     private Boolean phoneVerified;
     private Boolean emailVerified;
     private String googleId;
+    private LocalDate dateOfBirth;
 
     @JsonIgnore
     @OneToMany(mappedBy = "client")
