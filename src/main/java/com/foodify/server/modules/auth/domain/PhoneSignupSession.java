@@ -54,6 +54,7 @@ public class PhoneSignupSession {
     private Instant emailLastCodeSentAt;
 
     @Column(nullable = false)
+    @ColumnDefault("0")
     private int emailFailedAttemptCount = 0;
 
     @Column(nullable = false)
