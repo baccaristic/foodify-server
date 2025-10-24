@@ -33,4 +33,6 @@ public class OrderRequest {
     private Long userId;
 
     private UUID savedAddressId;
+
+    private String couponCode;
 }

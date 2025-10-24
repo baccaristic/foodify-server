@@ -80,6 +80,9 @@ public class OrderNotificationMapper {
         BigDecimal orderTotal = Optional.ofNullable(order.getTotal())
                 .orElse(itemsTotal.add(deliveryFee))
                 .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal couponDiscount = Optional.ofNullable(order.getCouponDiscount())
+                .orElse(BigDecimal.ZERO)
+                .setScale(2, RoundingMode.HALF_UP);
 
         BigDecimal promotionalSubtotal = itemsSubtotal.subtract(promotionDiscount);
         if (promotionalSubtotal.compareTo(BigDecimal.ZERO) < 0) {
@@ -93,9 +96,14 @@ public class OrderNotificationMapper {
                 orderTotal,
                 itemsSubtotal,
                 promotionDiscount,
+                couponDiscount,
                 itemsTotal,
                 deliveryFee
         );
+
+        String couponCode = Optional.ofNullable(order.getCoupon())
+                .map(coupon -> coupon.getCode())
+                .orElse(null);
 
         return new OrderNotificationDTO(
                 order.getId(),
@@ -115,6 +123,7 @@ public class OrderNotificationMapper {
                 restaurantSummary,
                 deliverySummary,
                 paymentSummary,
+                couponCode,
                 buildStatusHistory(order),
                 deliveryToken,
                 pickupToken

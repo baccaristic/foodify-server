@@ -21,6 +21,9 @@ import com.foodify.server.modules.orders.support.OrderPricingCalculator;
 import com.foodify.server.modules.orders.support.OrderPricingCalculator.OrderItemPricing;
 import com.foodify.server.modules.orders.support.OrderPricingCalculator.OrderPricingBreakdown;
 import com.foodify.server.modules.restaurants.application.DeliveryFeeCalculator;
+import com.foodify.server.modules.rewards.application.CouponApplicationResult;
+import com.foodify.server.modules.rewards.application.CouponService;
+import com.foodify.server.modules.rewards.domain.Coupon;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.MenuItemExtra;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
@@ -33,6 +36,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -107,6 +111,7 @@ public class CustomerOrderService {
     private final SavedAddressRepository savedAddressRepository;
     private final OrderNotificationMapper orderNotificationMapper;
     private final DeliveryFeeCalculator deliveryFeeCalculator;
+    private final CouponService couponService;
 
     @Transactional
     @Timed(value = "orders.place.sync", description = "Time spent placing orders via API", histogram = true)
@@ -273,9 +278,46 @@ public class CustomerOrderService {
                 .orElse(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
 
         order.setDeliveryFee(deliveryFee);
-        order.setTotal(pricing.itemsTotal().add(deliveryFee).setScale(2, RoundingMode.HALF_UP));
+        order.setCouponDiscount(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+
+        BigDecimal itemsTotal = Optional.ofNullable(order.getItemsTotal())
+                .orElse(pricing.itemsTotal())
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal orderTotal = itemsTotal.add(deliveryFee).setScale(2, RoundingMode.HALF_UP);
+        order.setTotal(orderTotal);
+
+        Coupon appliedCoupon = null;
+        String couponCode = request.getCouponCode();
+        if (StringUtils.hasText(couponCode)) {
+            CouponApplicationResult applicationResult = couponService.previewApplication(order, client, couponCode);
+            appliedCoupon = applicationResult.coupon();
+
+            BigDecimal discount = Optional.ofNullable(applicationResult.discount())
+                    .orElse(BigDecimal.ZERO)
+                    .setScale(2, RoundingMode.HALF_UP);
+
+            if (applicationResult.deliveryFeeOverride() != null) {
+                order.setDeliveryFee(applicationResult.deliveryFeeOverride().setScale(2, RoundingMode.HALF_UP));
+            }
+
+            BigDecimal currentDeliveryFee = Optional.ofNullable(order.getDeliveryFee())
+                    .orElse(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+
+            BigDecimal recalculatedTotal = itemsTotal.add(currentDeliveryFee).setScale(2, RoundingMode.HALF_UP);
+            if (discount.compareTo(recalculatedTotal) > 0) {
+                discount = recalculatedTotal;
+            }
+
+            order.setCoupon(appliedCoupon);
+            order.setCouponDiscount(discount);
+            order.setTotal(recalculatedTotal.subtract(discount).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP));
+        }
 
         Order savedOrder = orderRepository.save(order);
+
+        if (appliedCoupon != null) {
+            couponService.recordRedemption(appliedCoupon, client, savedOrder);
+        }
 
         orderLifecycleService.registerCreation(savedOrder, "client:" + clientId);
         return savedOrder;
@@ -350,12 +392,19 @@ public class CustomerOrderService {
         BigDecimal orderTotal = Optional.ofNullable(order.getTotal())
                 .orElse(itemsTotal.add(deliveryFee))
                 .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal couponDiscount = Optional.ofNullable(order.getCouponDiscount())
+                .orElse(BigDecimal.ZERO)
+                .setScale(2, RoundingMode.HALF_UP);
 
         BigDecimal promotionalSubtotal = itemsSubtotal.subtract(promotionDiscount);
         if (promotionalSubtotal.compareTo(BigDecimal.ZERO) < 0) {
             promotionalSubtotal = BigDecimal.ZERO;
         }
         promotionalSubtotal = promotionalSubtotal.setScale(2, RoundingMode.HALF_UP);
+
+        String appliedCouponCode = Optional.ofNullable(order.getCoupon())
+                .map(Coupon::getCode)
+                .orElse(null);
 
         CreateOrderResponse.RestaurantSummary restaurantSummary = new CreateOrderResponse.RestaurantSummary(
                 order.getRestaurant().getId(),
@@ -385,6 +434,7 @@ public class CustomerOrderService {
                 orderTotal,
                 itemsSubtotal,
                 promotionDiscount,
+                couponDiscount,
                 itemsTotal,
                 deliveryFee
         );
@@ -395,6 +445,7 @@ public class CustomerOrderService {
                 restaurantSummary,
                 deliverySummary,
                 paymentSummary,
+                appliedCouponCode,
                 orderedItems,
                 buildWorkflow(order.getStatus())
         );
