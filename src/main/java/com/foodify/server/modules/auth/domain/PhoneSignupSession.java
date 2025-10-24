@@ -3,6 +3,7 @@ package com.foodify.server.modules.auth.domain;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -56,6 +57,7 @@ public class PhoneSignupSession {
     private int emailFailedAttemptCount = 0;
 
     @Column(nullable = false)
+    @ColumnDefault("0")
     private int emailResendCount = 0;
 
     private Instant emailVerifiedAt;
