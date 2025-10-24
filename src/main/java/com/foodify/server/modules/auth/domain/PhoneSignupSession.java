@@ -3,8 +3,10 @@ package com.foodify.server.modules.auth.domain;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
@@ -44,6 +46,23 @@ public class PhoneSignupSession {
 
     private Instant emailCapturedAt;
 
+    @Column(length = 6)
+    private String emailVerificationCode;
+
+    private Instant emailCodeExpiresAt;
+
+    private Instant emailLastCodeSentAt;
+
+    @Column(nullable = false)
+    @ColumnDefault("0")
+    private int emailFailedAttemptCount = 0;
+
+    @Column(nullable = false)
+    @ColumnDefault("0")
+    private int emailResendCount = 0;
+
+    private Instant emailVerifiedAt;
+
     @Column(length = 80)
     private String firstName;
 
@@ -51,6 +70,8 @@ public class PhoneSignupSession {
     private String lastName;
 
     private Instant nameCapturedAt;
+
+    private LocalDate dateOfBirth;
 
     private Instant termsAcceptedAt;
 
@@ -86,8 +107,14 @@ public class PhoneSignupSession {
         return email != null && !email.isBlank();
     }
 
+    public boolean isEmailVerified() {
+        return emailVerifiedAt != null;
+    }
+
     public boolean isNameProvided() {
-        return (firstName != null && !firstName.isBlank()) && (lastName != null && !lastName.isBlank());
+        boolean hasFirstName = firstName != null && !firstName.isBlank();
+        boolean hasLastName = lastName != null && !lastName.isBlank();
+        return hasFirstName && hasLastName && dateOfBirth != null;
     }
 
     public boolean isTermsAccepted() {

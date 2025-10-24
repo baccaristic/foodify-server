@@ -7,4 +7,5 @@ public class CaptureNameRequest {
     private String sessionId;
     private String firstName;
     private String lastName;
+    private String dateOfBirth;
 }

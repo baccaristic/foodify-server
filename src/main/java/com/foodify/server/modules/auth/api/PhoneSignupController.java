@@ -32,6 +32,16 @@ public class PhoneSignupController {
         return phoneSignupService.captureEmail(request);
     }
 
+    @PostMapping("/email/verify")
+    public PhoneSignupStateResponse verifyEmail(@RequestBody VerifyEmailCodeRequest request) {
+        return phoneSignupService.verifyEmail(request);
+    }
+
+    @PostMapping("/email/resend")
+    public PhoneSignupStateResponse resendEmail(@RequestBody ResendEmailCodeRequest request) {
+        return phoneSignupService.resendEmail(request);
+    }
+
     @PostMapping("/name")
     public PhoneSignupStateResponse captureName(@RequestBody CaptureNameRequest request) {
         return phoneSignupService.captureName(request);
