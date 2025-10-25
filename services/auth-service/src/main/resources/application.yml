@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/foodify}
+    username: ${SPRING_DATASOURCE_USERNAME:foodify}
+    password: ${SPRING_DATASOURCE_PASSWORD:foodify}
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+  flyway:
+    enabled: false
+
+security:
+  jwt:
+    access-secret: ${SECURITY_JWT_ACCESS_SECRET:dev-access-secret-please-change-1234567890}
+    refresh-secret: ${SECURITY_JWT_REFRESH_SECRET:dev-refresh-secret-please-change-0987654321}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka}
+
+server:
+  port: ${SERVER_PORT:8085}
+
+auth-service:
+  server:
+    service-id: ${AUTH_SERVICE_SERVER_ID:foodify-server}
+    internal-secret: ${INTERNAL_SHARED_SECRET:dev-internal-secret}
