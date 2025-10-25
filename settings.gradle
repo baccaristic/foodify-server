@@ -1,1 +1,4 @@
-rootProject.name = 'server'
+rootProject.name = 'foodify'
+include 'services:server'
+include 'services:image-service'
+include 'services:eureka-server'

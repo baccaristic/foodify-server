@@ -44,14 +44,40 @@ services:
     container_name: redis
     ports:
       - "6379:6379"
-    command: ["redis-server", "--appendonly", "yes"] # enables persistence
+    command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
+
+  eureka:
+    build:
+      context: .
+      dockerfile: services/eureka-server/Dockerfile
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+
+  image-service:
+    build:
+      context: .
+      dockerfile: services/image-service/Dockerfile
+    depends_on:
+      eureka:
+        condition: service_started
+    environment:
+      - SPRING_APPLICATION_NAME=image-service
+      - EUREKA_SERVER_URL=http://eureka:8761/eureka
+      - SERVER_PORT=8080
+      - IMAGES_LOCATION=/app/uploads
+      - IMAGES_PUBLIC_BASE_URL=http://localhost:8082/images
+    ports:
+      - "8082:8080"
+    volumes:
+      - image_service_uploads:/app/uploads
 
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: services/server/Dockerfile
     container_name: foodify-app
     depends_on:
       postgres:
@@ -59,6 +85,10 @@ services:
       kafka:
         condition: service_started
       redis:
+        condition: service_started
+      eureka:
+        condition: service_started
+      image-service:
         condition: service_started
     ports:
       - "8084:8081"
@@ -69,7 +99,9 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_REDIS_HOST: redis
       GOOGLE_APPLICATION_CREDENTIALS: /app/config/serviceAccountKey.json
-
+      EUREKA_SERVER_URL: http://eureka:8761/eureka
+      IMAGE_SERVICE_SERVICE_ID: image-service
+      IMAGE_SERVICE_PUBLIC_BASE_URL: http://localhost:8082/images
     volumes:
       - ./serviceAccountKey.json:/app/config/serviceAccountKey.json
       - ./uploads:/app/uploads
@@ -78,3 +110,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  image_service_uploads:
