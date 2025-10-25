@@ -38,7 +38,7 @@ dependencies {
     implementation 'com.google.zxing:javase:3.5.3'
     implementation 'com.google.maps:google-maps-routing:1.58.0'
     implementation 'io.micrometer:micrometer-registry-prometheus'
-    implementation 'org.flywaydb:flyway-database-postgresql'
+    implementation 'org.flywaydb:flyway-database-postgresql:9.22.3'
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
 
     compileOnly 'org.projectlombok:lombok'
