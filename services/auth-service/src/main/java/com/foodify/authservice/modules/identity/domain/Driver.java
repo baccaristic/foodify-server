@@ -1,30 +1,17 @@
 package com.foodify.authservice.modules.identity.domain;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.foodify.authservice.modules.delivery.domain.Delivery;
-import com.foodify.authservice.modules.delivery.domain.DriverShift;
 import jakarta.persistence.*;
 import lombok.Data;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.List;
 
 @Data
 @Entity
 public class Driver extends User {
     private boolean available;
     private String phone;
-
-    @OneToMany(mappedBy = "driver")
-    @JsonIgnore
-    private List<Delivery> deliveries;
-
-    @OneToMany(mappedBy = "driver")
-    @JsonIgnore
-    private List<DriverShift> shifts;
 
     @Column(
             name = "cash_on_hand",
