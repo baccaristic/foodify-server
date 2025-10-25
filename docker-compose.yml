@@ -85,10 +85,35 @@ services:
       - EUREKA_SERVER_URL=http://eureka:8761/eureka
       - SERVER_PORT=8083
       - GOOGLE_APPLICATION_CREDENTIALS=/app/config/serviceAccountKey.json
+      - SECURITY_JWT_ACCESS_SECRET=${SECURITY_JWT_ACCESS_SECRET:-dev-access-secret-please-change-1234567890}
+      - SECURITY_JWT_REFRESH_SECRET=${SECURITY_JWT_REFRESH_SECRET:-dev-refresh-secret-please-change-0987654321}
     ports:
       - "8083:8083"
     volumes:
       - ./serviceAccountKey.json:/app/config/serviceAccountKey.json
+    restart: on-failure
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka:
+        condition: service_started
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/foodify
+      - SPRING_DATASOURCE_USERNAME=foodify
+      - SPRING_DATASOURCE_PASSWORD=foodify
+      - EUREKA_SERVER_URL=http://eureka:8761/eureka
+      - SERVER_PORT=8085
+      - SECURITY_JWT_ACCESS_SECRET=${SECURITY_JWT_ACCESS_SECRET:-dev-access-secret-please-change-1234567890}
+      - SECURITY_JWT_REFRESH_SECRET=${SECURITY_JWT_REFRESH_SECRET:-dev-refresh-secret-please-change-0987654321}
+      - INTERNAL_SHARED_SECRET=${INTERNAL_SHARED_SECRET:-dev-internal-secret}
+      - AUTH_SERVICE_SERVER_ID=${AUTH_SERVICE_SERVER_ID:-foodify-server}
+    ports:
+      - "8085:8085"
     restart: on-failure
 
   app:
@@ -109,6 +134,8 @@ services:
         condition: service_started
       push-service:
         condition: service_started
+      auth-service:
+        condition: service_started
     ports:
       - "8084:8081"
     environment:
@@ -121,6 +148,9 @@ services:
       IMAGE_SERVICE_SERVICE_ID: image-service
       IMAGE_SERVICE_PUBLIC_BASE_URL: http://localhost:8080/images
       PUSH_SERVICE_SERVICE_ID: push-service
+      SECURITY_JWT_ACCESS_SECRET: ${SECURITY_JWT_ACCESS_SECRET:-dev-access-secret-please-change-1234567890}
+      SECURITY_JWT_REFRESH_SECRET: ${SECURITY_JWT_REFRESH_SECRET:-dev-refresh-secret-please-change-0987654321}
+      INTERNAL_SHARED_SECRET: ${INTERNAL_SHARED_SECRET:-dev-internal-secret}
     volumes:
       - ./uploads:/app/uploads
     restart: on-failure
@@ -135,6 +165,8 @@ services:
       app:
         condition: service_started
       image-service:
+        condition: service_started
+      auth-service:
         condition: service_started
     environment:
       - EUREKA_SERVER_URL=http://eureka:8761/eureka

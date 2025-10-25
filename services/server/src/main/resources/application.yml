@@ -39,6 +39,9 @@ spring:
             client-id: 507898158443-v30o4karkuovc0fb3qq43f482am22uid.apps.googleusercontent.com
             client-secret: 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
             scope: profile, email
+    jwt:
+      access-secret: ${SECURITY_JWT_ACCESS_SECRET:dev-access-secret-please-change-1234567890}
+      refresh-secret: ${SECURITY_JWT_REFRESH_SECRET:dev-refresh-secret-please-change-0987654321}
 
 eureka:
   client:
@@ -119,3 +122,6 @@ image-service:
 push-service:
   service-id: ${PUSH_SERVICE_SERVICE_ID:push-service}
   base-url: ${PUSH_SERVICE_BASE_URL:http://push-service}
+
+internal:
+  shared-secret: ${INTERNAL_SHARED_SECRET:dev-internal-secret}

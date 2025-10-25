@@ -35,6 +35,7 @@ public class SecurityConfig {
     private final CustomOAuth2UserService customOAuth2UserService;
     private final JwtService jwtService;
     private final DriverSessionService driverSessionService;
+    private final InternalSecretFilter internalSecretFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -49,6 +50,7 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui.html",
+                                "/internal/**",
                                 "/topic/**",      // 👈 allow pub/sub topics
                                 "/app/**",        // 👈 app-bound messages
                                 "/ws"
@@ -75,6 +77,8 @@ public class SecurityConfig {
                             response.getWriter().write("{\"error\": \"Forbidden\"}");
                         })
                 )
+                .addFilterBefore(internalSecretFilter,
+                        org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter(),
                         org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class);
 

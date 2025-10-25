@@ -1,6 +1,6 @@
-package com.foodify.server.modules.auth.security;
+package com.foodify.authservice.modules.auth.security;
 
-import com.foodify.server.modules.identity.domain.User;
+import com.foodify.authservice.modules.identity.domain.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;

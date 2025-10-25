@@ -11,6 +11,10 @@ spring:
           enabled: true
           lower-case-service-id: true
       routes:
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/auth/login,/api/auth/driver/login,/api/auth/google,/api/auth/register/**,/api/auth/email/**,/api/auth/phone/**
         - id: image-service
           uri: lb://image-service
           predicates:
