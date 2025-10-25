@@ -1,0 +1,47 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        - id: image-service
+          uri: lb://image-service
+          predicates:
+            - Path=/images/**
+        - id: foodify-server-api
+          uri: lb://foodify-server
+          predicates:
+            - Path=/api/**,/swagger-ui/**,/swagger-ui.html,/v3/api-docs/**,/v3/api-docs.yaml
+        - id: foodify-server-ws
+          uri: lb://foodify-server
+          predicates:
+            - Path=/ws,/ws/**
+        - id: foodify-server-fallback
+          uri: lb://foodify-server
+          predicates:
+            - Path=/**
+          order: 100
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  server:
+    port: 9090
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true

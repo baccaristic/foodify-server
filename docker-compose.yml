@@ -68,7 +68,7 @@ services:
       - EUREKA_SERVER_URL=http://eureka:8761/eureka
       - SERVER_PORT=8080
       - IMAGES_LOCATION=/app/uploads
-      - IMAGES_PUBLIC_BASE_URL=http://localhost:8082/images
+      - IMAGES_PUBLIC_BASE_URL=http://localhost:8080/images
     ports:
       - "8082:8080"
     volumes:
@@ -101,11 +101,28 @@ services:
       GOOGLE_APPLICATION_CREDENTIALS: /app/config/serviceAccountKey.json
       EUREKA_SERVER_URL: http://eureka:8761/eureka
       IMAGE_SERVICE_SERVICE_ID: image-service
-      IMAGE_SERVICE_PUBLIC_BASE_URL: http://localhost:8082/images
+      IMAGE_SERVICE_PUBLIC_BASE_URL: http://localhost:8080/images
     volumes:
       - ./serviceAccountKey.json:/app/config/serviceAccountKey.json
       - ./uploads:/app/uploads
     restart: on-failure
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    depends_on:
+      eureka:
+        condition: service_started
+      app:
+        condition: service_started
+      image-service:
+        condition: service_started
+    environment:
+      - EUREKA_SERVER_URL=http://eureka:8761/eureka
+      - SERVER_PORT=8080
+    ports:
+      - "8080:8080"
 
 volumes:
   postgres_data:
