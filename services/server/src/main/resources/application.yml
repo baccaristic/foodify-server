@@ -115,3 +115,7 @@ image-service:
   service-id: ${IMAGE_SERVICE_SERVICE_ID:image-service}
   base-url: ${IMAGE_SERVICE_BASE_URL:http://image-service}
   public-base-url: ${IMAGE_SERVICE_PUBLIC_BASE_URL:http://image-service/images}
+
+push-service:
+  service-id: ${PUSH_SERVICE_SERVICE_ID:push-service}
+  base-url: ${PUSH_SERVICE_BASE_URL:http://push-service}

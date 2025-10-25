@@ -1,26 +1,23 @@
 package com.foodify.server.modules.notifications.application;
 
 import com.foodify.server.modules.notifications.domain.NotificationType;
-import com.google.firebase.messaging.FirebaseMessaging;
-import com.google.firebase.messaging.Message;
-import com.google.firebase.messaging.Notification;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 
 @Service
 public class PushNotificationService {
 
-    public void sendOrderNotification(String deviceToken, Long orderId, String title, String body, NotificationType type) throws Exception {
-        Message message = Message.builder()
-                .setToken(deviceToken)
-                .setNotification(Notification.builder()
-                        .setTitle(title)
-                        .setBody(body)
-                        .build())
-                .putData("orderId", String.valueOf(orderId))
-                .putData("notificationType", String.valueOf(type))// optional: for in-app handling
-                .build();
+    private final PushNotificationClient pushNotificationClient;
 
-        String response = FirebaseMessaging.getInstance().send(message);
-        System.out.println("Successfully sent message: " + response);
+    public PushNotificationService(PushNotificationClient pushNotificationClient) {
+        this.pushNotificationClient = pushNotificationClient;
+    }
+
+    public void sendOrderNotification(String deviceToken, Long orderId, String title, String body, NotificationType type) throws Exception {
+        try {
+            pushNotificationClient.sendOrderNotification(deviceToken, orderId, title, body, type);
+        } catch (RestClientException ex) {
+            throw new Exception("Failed to dispatch push notification", ex);
+        }
     }
 }

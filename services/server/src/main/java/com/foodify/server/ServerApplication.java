@@ -3,6 +3,7 @@ package com.foodify.server;
 import com.foodify.server.config.GuardrailProperties;
 import com.foodify.server.config.ImageServiceProperties;
 import com.foodify.server.config.OrderViewProperties;
+import com.foodify.server.config.PushServiceProperties;
 import com.foodify.server.modules.delivery.application.DriverSessionSettings;
 import com.foodify.server.modules.delivery.config.DriverAssignmentProperties;
 import org.springframework.boot.SpringApplication;
@@ -21,7 +22,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     DriverSessionSettings.class,
     GuardrailProperties.class,
     OrderViewProperties.class,
-    ImageServiceProperties.class
+    ImageServiceProperties.class,
+    PushServiceProperties.class
 })
 public class ServerApplication {
 

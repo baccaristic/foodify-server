@@ -74,6 +74,23 @@ services:
     volumes:
       - image_service_uploads:/app/uploads
 
+  push-service:
+    build:
+      context: .
+      dockerfile: services/push-service/Dockerfile
+    depends_on:
+      eureka:
+        condition: service_started
+    environment:
+      - EUREKA_SERVER_URL=http://eureka:8761/eureka
+      - SERVER_PORT=8083
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/config/serviceAccountKey.json
+    ports:
+      - "8083:8083"
+    volumes:
+      - ./serviceAccountKey.json:/app/config/serviceAccountKey.json
+    restart: on-failure
+
   app:
     build:
       context: .
@@ -90,6 +107,8 @@ services:
         condition: service_started
       image-service:
         condition: service_started
+      push-service:
+        condition: service_started
     ports:
       - "8084:8081"
     environment:
@@ -98,12 +117,11 @@ services:
       SPRING_DATASOURCE_PASSWORD: foodify
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_REDIS_HOST: redis
-      GOOGLE_APPLICATION_CREDENTIALS: /app/config/serviceAccountKey.json
       EUREKA_SERVER_URL: http://eureka:8761/eureka
       IMAGE_SERVICE_SERVICE_ID: image-service
       IMAGE_SERVICE_PUBLIC_BASE_URL: http://localhost:8080/images
+      PUSH_SERVICE_SERVICE_ID: push-service
     volumes:
-      - ./serviceAccountKey.json:/app/config/serviceAccountKey.json
       - ./uploads:/app/uploads
     restart: on-failure
 

@@ -14,4 +14,10 @@ public class RestClientConfiguration {
     public RestTemplate imageServiceRestTemplate(RestTemplateBuilder builder) {
         return builder.build();
     }
+
+    @Bean(name = "pushServiceRestTemplate")
+    @LoadBalanced
+    public RestTemplate pushServiceRestTemplate(RestTemplateBuilder builder) {
+        return builder.build();
+    }
 }
