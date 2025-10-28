@@ -29,7 +29,12 @@ class RateLimitingFilterTest {
         rateLimit.setCapacity(2);
         rateLimit.setWindow(Duration.ofSeconds(60));
         rateLimit.setMethod(HttpMethod.GET);
-        rateLimit.setPaths(List.of("/api/client/nearby"));
+        rateLimit.setPaths(List.of(
+                "/api/client/nearby/top",
+                "/api/client/nearby/favorites",
+                "/api/client/nearby/orders",
+                "/api/client/nearby/restaurants"
+        ));
         properties.setRateLimits(List.of(rateLimit));
 
         meterRegistry = new SimpleMeterRegistry();
@@ -38,7 +43,7 @@ class RateLimitingFilterTest {
 
     @Test
     void allowsRequestsWithinCapacity() throws ServletException, IOException {
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/client/nearby");
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/client/nearby/top");
         MockHttpServletResponse response = new MockHttpServletResponse();
         filter.doFilter(request, response, new MockFilterChain());
 
@@ -53,11 +58,11 @@ class RateLimitingFilterTest {
 
     @Test
     void rejectsRequestsBeyondCapacity() throws ServletException, IOException {
-        filter.doFilter(new MockHttpServletRequest("GET", "/api/client/nearby"), new MockHttpServletResponse(), new MockFilterChain());
-        filter.doFilter(new MockHttpServletRequest("GET", "/api/client/nearby"), new MockHttpServletResponse(), new MockFilterChain());
+        filter.doFilter(new MockHttpServletRequest("GET", "/api/client/nearby/top"), new MockHttpServletResponse(), new MockFilterChain());
+        filter.doFilter(new MockHttpServletRequest("GET", "/api/client/nearby/top"), new MockHttpServletResponse(), new MockFilterChain());
 
         MockHttpServletResponse blockedResponse = new MockHttpServletResponse();
-        filter.doFilter(new MockHttpServletRequest("GET", "/api/client/nearby"), blockedResponse, new MockFilterChain());
+        filter.doFilter(new MockHttpServletRequest("GET", "/api/client/nearby/top"), blockedResponse, new MockFilterChain());
 
         assertThat(blockedResponse.getStatus()).isEqualTo(429);
         assertThat(blockedResponse.getHeader("Retry-After")).isNotBlank();

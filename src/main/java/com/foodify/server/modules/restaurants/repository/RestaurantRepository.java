@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
+
 public interface RestaurantRepository extends JpaRepository<Restaurant, Long>, JpaSpecificationExecutor<Restaurant> {
 
     String DISTANCE_FORMULA = """
@@ -103,6 +105,23 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long>, J
             @Param("lng") double lng,
             @Param("radius") double radiusInKm,
             @Param("excludedIds") Iterable<Long> excludedIds,
+            @Param("minLat") double minLat,
+            @Param("maxLat") double maxLat,
+            @Param("minLng") double minLng,
+            @Param("maxLng") double maxLng,
+            Pageable pageable
+    );
+
+    @Query(
+            value = "SELECT r.* FROM restaurant r WHERE r.id IN (:ids) AND " + BOUNDING_BOX_FILTER + " AND (" + DISTANCE_FORMULA + ") < :radius ORDER BY " + DISTANCE_FORMULA,
+            countQuery = "SELECT COUNT(*) FROM restaurant r WHERE r.id IN (:ids) AND " + BOUNDING_BOX_FILTER + " AND (" + DISTANCE_FORMULA + ") < :radius",
+            nativeQuery = true
+    )
+    Page<Restaurant> findNearbyByIds(
+            @Param("lat") double lat,
+            @Param("lng") double lng,
+            @Param("radius") double radiusInKm,
+            @Param("ids") Collection<Long> ids,
             @Param("minLat") double minLat,
             @Param("maxLat") double maxLat,
             @Param("minLng") double minLng,

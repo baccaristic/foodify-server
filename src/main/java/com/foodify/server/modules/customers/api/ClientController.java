@@ -14,9 +14,6 @@ import com.foodify.server.modules.restaurants.domain.RestaurantCategory;
 import com.foodify.server.modules.restaurants.dto.RestaurantDetailsResponse;
 import com.foodify.server.modules.restaurants.dto.RestaurantDisplayDto;
 import com.foodify.server.modules.restaurants.dto.PageResponse;
-import com.foodify.server.modules.restaurants.dto.NearbyRestaurantsResponse;
-import com.foodify.server.modules.restaurants.dto.PaginatedRestaurantSection;
-import com.foodify.server.modules.restaurants.dto.RestaurantSection;
 import com.foodify.server.modules.restaurants.mapper.RestaurantMapper;
 import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
@@ -40,7 +37,6 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -71,109 +67,121 @@ public class ClientController {
     }
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
-    @GetMapping("/nearby")
-    @Timed(value = "client.nearby.restaurants", description = "Time spent searching for nearby restaurants", histogram = true)
-    public ResponseEntity<NearbyRestaurantsResponse> getNearbyRestaurants(
+    @GetMapping("/nearby/top")
+    @Timed(value = "client.nearby.top", description = "Time spent fetching top nearby restaurants", histogram = true)
+    public List<RestaurantDisplayDto> getTopNearbyRestaurants(
             @RequestParam double lat,
             @RequestParam double lng,
             @RequestParam(defaultValue = "1000") double radiusKm,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer pageSize,
+            Authentication authentication
+    ) {
+        Long userId = extractUserId(authentication);
+        Set<Long> favoriteRestaurantIds = clientService.getFavoriteIds(userId).restaurantIds();
+        GeoBounds searchBounds = computeGeoBounds(lat, lng, radiusKm);
+
+        List<Restaurant> restaurants = restaurantRepository
+                .findNearby(
+                        lat,
+                        lng,
+                        radiusKm,
+                        searchBounds.minLat(),
+                        searchBounds.maxLat(),
+                        searchBounds.minLng(),
+                        searchBounds.maxLng(),
+                        PageRequest.of(0, 5)
+                )
+                .getContent();
+
+        return mapAndEnrich(restaurants, favoriteRestaurantIds, lat, lng);
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_CLIENT')")
+    @GetMapping("/nearby/favorites")
+    @Timed(value = "client.nearby.favorites", description = "Time spent fetching favorite nearby restaurants", histogram = true)
+    public List<RestaurantDisplayDto> getFavoriteNearbyRestaurants(
+            @RequestParam double lat,
+            @RequestParam double lng,
+            @RequestParam(defaultValue = "1000") double radiusKm,
             Authentication authentication
     ) {
         Long userId = extractUserId(authentication);
         ClientFavoriteIds favoriteIds = clientService.getFavoriteIds(userId);
         Set<Long> favoriteRestaurantIds = favoriteIds.restaurantIds();
-        int effectivePage = page != null && page >= 0 ? page : 0;
-        int effectivePageSize = pageSize != null && pageSize > 0 ? pageSize : 20;
+        if (favoriteRestaurantIds.isEmpty()) {
+            return List.of();
+        }
+
+        GeoBounds searchBounds = computeGeoBounds(lat, lng, radiusKm);
+
+        List<Restaurant> restaurants = restaurantRepository
+                .findNearbyByIds(
+                        lat,
+                        lng,
+                        radiusKm,
+                        favoriteRestaurantIds,
+                        searchBounds.minLat(),
+                        searchBounds.maxLat(),
+                        searchBounds.minLng(),
+                        searchBounds.maxLng(),
+                        PageRequest.of(0, 5)
+                )
+                .getContent();
+
+        return mapAndEnrich(restaurants, favoriteRestaurantIds, lat, lng);
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_CLIENT')")
+    @GetMapping("/nearby/orders")
+    @Timed(value = "client.nearby.orders", description = "Time spent fetching previously ordered nearby restaurants", histogram = true)
+    public List<RestaurantDisplayDto> getRecentlyOrderedNearbyRestaurants(
+            @RequestParam double lat,
+            @RequestParam double lng,
+            @RequestParam(defaultValue = "1000") double radiusKm,
+            Authentication authentication
+    ) {
+        Long userId = extractUserId(authentication);
+        Set<Long> favoriteRestaurantIds = clientService.getFavoriteIds(userId).restaurantIds();
+        return getOrderAgainRestaurants(userId, lat, lng, radiusKm, favoriteRestaurantIds);
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_CLIENT')")
+    @GetMapping("/nearby/restaurants")
+    @Timed(value = "client.nearby.all", description = "Time spent fetching paginated nearby restaurants", histogram = true)
+    public PageResponse<RestaurantDisplayDto> getAllNearbyRestaurants(
+            @RequestParam double lat,
+            @RequestParam double lng,
+            @RequestParam(defaultValue = "1000") double radiusKm,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int pageSize,
+            Authentication authentication
+    ) {
+        Long userId = extractUserId(authentication);
+        Set<Long> favoriteRestaurantIds = clientService.getFavoriteIds(userId).restaurantIds();
+
+        int effectivePage = Math.max(page, 0);
+        int effectivePageSize = pageSize > 0 ? pageSize : 20;
         PageRequest pageRequest = PageRequest.of(effectivePage, effectivePageSize);
         GeoBounds searchBounds = computeGeoBounds(lat, lng, radiusKm);
-        List<Restaurant> topPicksEntities = restaurantRepository
-                .findTopChoiceNearby(
-                        lat,
-                        lng,
-                        radiusKm,
-                        searchBounds.minLat(),
-                        searchBounds.maxLat(),
-                        searchBounds.minLng(),
-                        searchBounds.maxLng(),
-                        PageRequest.of(0, 5)
-                )
-                .getContent();
-        List<Restaurant> promotionEntities = restaurantRepository
-                .findNearbyWithPromotions(
-                        lat,
-                        lng,
-                        radiusKm,
-                        searchBounds.minLat(),
-                        searchBounds.maxLat(),
-                        searchBounds.minLng(),
-                        searchBounds.maxLng(),
-                        PageRequest.of(0, 5)
-                )
-                .getContent();
 
-        Set<Long> excludedFromOthers = new HashSet<>();
-        List<RestaurantDisplayDto> topPicks = mapAndEnrich(topPicksEntities, favoriteRestaurantIds, lat, lng);
-        topPicks.forEach(restaurant -> {
-            if (restaurant.getId() != null) {
-                excludedFromOthers.add(restaurant.getId());
-            }
-        });
-
-        List<RestaurantDisplayDto> promotions = mapAndEnrich(promotionEntities, favoriteRestaurantIds, lat, lng);
-        promotions.forEach(restaurant -> {
-            if (restaurant.getId() != null) {
-                excludedFromOthers.add(restaurant.getId());
-            }
-        });
-
-        List<RestaurantDisplayDto> orderAgain = getOrderAgainRestaurants(userId, lat, lng, radiusKm, favoriteRestaurantIds);
-        orderAgain.forEach(restaurant -> {
-            if (restaurant.getId() != null) {
-                excludedFromOthers.add(restaurant.getId());
-            }
-        });
-
-        Page<Restaurant> othersPage = excludedFromOthers.isEmpty()
-                ? restaurantRepository.findNearby(
-                        lat,
-                        lng,
-                        radiusKm,
-                        searchBounds.minLat(),
-                        searchBounds.maxLat(),
-                        searchBounds.minLng(),
-                        searchBounds.maxLng(),
-                        pageRequest
-                )
-                : restaurantRepository.findNearbyExcluding(
-                        lat,
-                        lng,
-                        radiusKm,
-                        excludedFromOthers,
-                        searchBounds.minLat(),
-                        searchBounds.maxLat(),
-                        searchBounds.minLng(),
-                        searchBounds.maxLng(),
-                        pageRequest
-                );
-
-        List<RestaurantDisplayDto> others = mapAndEnrich(othersPage.getContent(), favoriteRestaurantIds, lat, lng);
-
-        NearbyRestaurantsResponse response = new NearbyRestaurantsResponse(
-                new RestaurantSection("carousel", topPicks),
-                new RestaurantSection("carousel", orderAgain),
-                new RestaurantSection("flatList", promotions),
-                new PaginatedRestaurantSection(
-                        "flatList",
-                        others,
-                        othersPage.getNumber(),
-                        othersPage.getSize(),
-                        othersPage.getTotalElements()
-                )
+        Page<Restaurant> pageResult = restaurantRepository.findNearby(
+                lat,
+                lng,
+                radiusKm,
+                searchBounds.minLat(),
+                searchBounds.maxLat(),
+                searchBounds.minLng(),
+                searchBounds.maxLng(),
+                pageRequest
         );
 
-        return ResponseEntity.ok(response);
+        List<RestaurantDisplayDto> items = mapAndEnrich(pageResult.getContent(), favoriteRestaurantIds, lat, lng);
+
+        return new PageResponse<>(
+                items,
+                pageResult.getNumber(),
+                pageResult.getSize(),
+                pageResult.getTotalElements()
+        );
     }
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")

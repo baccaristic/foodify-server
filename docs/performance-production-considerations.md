@@ -80,7 +80,8 @@ It is meant to serve as a checklist for future hardening work.
   updates, lifecycle notifications, and nearby restaurant searches now emit Micrometer timers so we
   can alert on latency regressions once traffic ramps up. Spring Boot Actuator is enabled with a
   Prometheus registry, async executors expose queue depth metrics, and a configurable rate-limiting
-  filter protects `/api/orders` and `/api/client/nearby` from floods while surfacing rejection
+  filter protects `/api/orders` and the `/api/client/nearby/*` endpoints (top picks, favorites,
+  order-again, and paginated listings) from floods while surfacing rejection
   counts for on-call dashboards.【F:build.gradle†L25-L45】【F:src/main/java/com/foodify/server/config/OperationalGuardrailConfig.java†L1-L52】【F:src/main/java/com/foodify/server/config/RateLimitingFilter.java†L1-L149】【F:src/main/resources/application.yml†L38-L84】【F:src/main/java/com/foodify/server/modules/orders/application/CustomerOrderService.java†L21-L128】【F:src/main/java/com/foodify/server/modules/delivery/location/DriverLocationService.java†L1-L104】【F:src/main/java/com/foodify/server/modules/orders/application/OrderLifecycleEventListener.java†L1-L118】【F:src/main/java/com/foodify/server/modules/customers/api/ClientController.java†L1-L120】
 
 - **Order lifecycle events now fan out asynchronously.** The transition workflow persists history in

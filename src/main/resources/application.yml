@@ -95,7 +95,10 @@ guardrails:
     - name: nearby-search
       method: GET
       paths:
-        - /api/client/nearby
+        - /api/client/nearby/top
+        - /api/client/nearby/favorites
+        - /api/client/nearby/orders
+        - /api/client/nearby/restaurants
       capacity: ${GUARDRAILS_NEARBY_CAPACITY:30}
       window: PT1S
 
