@@ -30,6 +30,22 @@ Many endpoints require a JWT access token. You can obtain a token by calling one
 - The OpenAPI specification is available at `/v3/api-docs` (JSON) or `/v3/api-docs.yaml` (YAML).
 - Swagger UI and the OpenAPI documents are publicly accessible while the rest of the API remains protected by the existing security configuration.
 
+## Client nearby restaurant APIs
+
+The consolidated `/api/client/nearby` endpoint has been split into focused endpoints so clients can
+load targeted sections independently:
+
+- `GET /api/client/nearby/top` – returns the five closest restaurants ranked by overall score.
+- `GET /api/client/nearby/favorites` – returns up to five nearby restaurants drawn from the client’s
+  saved favorites.
+- `GET /api/client/nearby/orders` – returns nearby restaurants the client has ordered from most
+  recently ("order again").
+- `GET /api/client/nearby/restaurants` – returns the complete nearby restaurant listing with
+  pagination support.
+
+Each response reuses `RestaurantDisplayDto` and includes delivery-fee and favorite flags so the
+mobile app can render consistent cards across the different sections.
+
 ### Setting environment variables with Docker Compose
 
 Docker Compose automatically reads a `.env` file that lives next to `docker-compose.yml`. Populate it with any overrides you need before starting the stack:
