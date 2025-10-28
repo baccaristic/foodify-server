@@ -54,7 +54,7 @@ public class KonnectProperties {
     public static class PaymentOptions {
         private String token = "TND";
         private String type = "immediate";
-        private List<String> acceptedMethods = new ArrayList<>(List.of("bank_card"));
+        private List<String> acceptedMethods = new ArrayList<>();
         private Integer lifespanMinutes = 60;
         private Boolean checkoutForm = Boolean.TRUE;
         private Boolean addPaymentFeesToAmount = Boolean.FALSE;
@@ -64,7 +64,7 @@ public class KonnectProperties {
 
         public List<String> getAcceptedMethods() {
             if (CollectionUtils.isEmpty(acceptedMethods)) {
-                return List.of("bank_card");
+                return List.of();
             }
             return acceptedMethods;
         }

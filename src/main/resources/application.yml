@@ -115,8 +115,6 @@ konnect:
   payment:
     token: ${KONNECT_PAYMENT_TOKEN:TND}
     type: immediate
-    accepted-methods:
-      - bank_card
     lifespan-minutes: ${KONNECT_PAYMENT_LIFESPAN_MINUTES:60}
     checkout-form: true
     add-payment-fees-to-amount: false
