@@ -92,8 +92,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     WHERE d.driver.id = :driverId
       AND o.status = :status
     ORDER BY o.date DESC
-""")
+    """)
     List<Order> findAllByDriverIdAndStatus(Long driverId, OrderStatus status);
+
+    long countByStatusInAndDeliveryIsNullAndPendingDriverIsNullAndArchivedAtIsNull(Collection<OrderStatus> statuses);
+
+    long countByStatusInAndDeliveryIsNullAndPendingDriverIsNotNullAndArchivedAtIsNull(Collection<OrderStatus> statuses);
 
     @Query("""
     SELECT o.id
