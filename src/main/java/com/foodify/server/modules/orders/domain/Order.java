@@ -59,6 +59,21 @@ public class Order  {
 
     private String paymentMethod;
 
+    @Column(name = "payment_reference")
+    private String paymentReference;
+
+    @Column(name = "payment_url")
+    private String paymentUrl;
+
+    @Column(name = "payment_status")
+    private String paymentStatus;
+
+    @Column(name = "payment_environment")
+    private String paymentEnvironment;
+
+    @Column(name = "payment_expires_at")
+    private LocalDateTime paymentExpiresAt;
+
     private double lng;
     private double lat;
 

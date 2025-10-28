@@ -98,3 +98,28 @@ guardrails:
         - /api/client/nearby
       capacity: ${GUARDRAILS_NEARBY_CAPACITY:30}
       window: PT1S
+
+konnect:
+  enabled: true
+  environment: ${KONNECT_ENVIRONMENT:sandbox}
+  sandbox:
+    base-url: https://api.sandbox.konnect.network/api/v2
+    api-key: ${KONNECT_SANDBOX_API_KEY:}
+    receiver-wallet-id: ${KONNECT_SANDBOX_WALLET_ID:}
+    webhook: ${KONNECT_SANDBOX_WEBHOOK_URL:}
+  production:
+    base-url: https://api.konnect.network/api/v2
+    api-key: ${KONNECT_PRODUCTION_API_KEY:}
+    receiver-wallet-id: ${KONNECT_PRODUCTION_WALLET_ID:}
+    webhook: ${KONNECT_PRODUCTION_WEBHOOK_URL:}
+  payment:
+    token: ${KONNECT_PAYMENT_TOKEN:TND}
+    type: immediate
+    accepted-methods:
+      - bank_card
+    lifespan-minutes: ${KONNECT_PAYMENT_LIFESPAN_MINUTES:60}
+    checkout-form: true
+    add-payment-fees-to-amount: false
+    theme: light
+    amount-scale: ${KONNECT_PAYMENT_AMOUNT_SCALE:1000}
+    description-template: "Foodify order #{orderId}"

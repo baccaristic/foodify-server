@@ -98,7 +98,11 @@ public class OrderNotificationMapper {
                 promotionDiscount,
                 couponDiscount,
                 itemsTotal,
-                deliveryFee
+                deliveryFee,
+                order.getPaymentStatus(),
+                order.getPaymentUrl(),
+                order.getPaymentReference(),
+                order.getPaymentEnvironment()
         );
 
         String couponCode = Optional.ofNullable(order.getCoupon())
