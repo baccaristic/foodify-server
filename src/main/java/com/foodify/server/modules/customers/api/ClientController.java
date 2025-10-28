@@ -177,6 +177,45 @@ public class ClientController {
     }
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
+    @GetMapping("/nearby/promotions")
+    public PageResponse<RestaurantDisplayDto> getNearbyRestaurantsWithPromotions(
+            @RequestParam double lat,
+            @RequestParam double lng,
+            @RequestParam(defaultValue = "1000") double radiusKm,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int pageSize,
+            Authentication authentication
+    ) {
+        Long userId = extractUserId(authentication);
+        Set<Long> favoriteRestaurantIds = clientService.getFavoriteIds(userId).restaurantIds();
+
+        int effectivePage = Math.max(page, 0);
+        int effectivePageSize = pageSize > 0 ? pageSize : 20;
+        PageRequest pageRequest = PageRequest.of(effectivePage, effectivePageSize);
+        GeoBounds searchBounds = computeGeoBounds(lat, lng, radiusKm);
+
+        Page<Restaurant> restaurants = restaurantRepository.findNearbyWithPromotions(
+                lat,
+                lng,
+                radiusKm,
+                searchBounds.minLat(),
+                searchBounds.maxLat(),
+                searchBounds.minLng(),
+                searchBounds.maxLng(),
+                pageRequest
+        );
+
+        List<RestaurantDisplayDto> items = mapAndEnrich(restaurants.getContent(), favoriteRestaurantIds, lat, lng);
+
+        return new PageResponse<>(
+                items,
+                restaurants.getNumber(),
+                restaurants.getSize(),
+                restaurants.getTotalElements()
+        );
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_CLIENT')")
     @GetMapping("/filter/categorie")
     public ResponseEntity<PageResponse<RestaurantDisplayDto>> filterRestaurantsByCategory(
             @RequestParam double lat,
