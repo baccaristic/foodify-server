@@ -52,6 +52,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Slice<Order> findAllByPendingDriverId(Long pendingDriverId, Pageable pageable);
     @EntityGraph(value = Order.SUMMARY_GRAPH, type = EntityGraphType.LOAD)
     Optional<Order> findDetailedById(Long id);
+    @EntityGraph(value = Order.SUMMARY_GRAPH, type = EntityGraphType.LOAD)
+    Optional<Order> findByPaymentReference(String paymentReference);
     boolean existsByClient_IdAndStatusInAndArchivedAtIsNull(Long clientId, List<OrderStatus> statuses);
     @EntityGraph(value = Order.SUMMARY_GRAPH, type = EntityGraphType.LOAD)
     Optional<Order> findFirstByClient_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(Long clientId, List<OrderStatus> statuses);

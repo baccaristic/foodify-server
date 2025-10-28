@@ -27,7 +27,11 @@ public record CreateOrderResponse(
             BigDecimal promotionDiscount,
             BigDecimal couponDiscount,
             BigDecimal itemsTotal,
-            BigDecimal deliveryFee
+            BigDecimal deliveryFee,
+            String status,
+            String paymentUrl,
+            String paymentReference,
+            String environment
     ) {}
 
     public record OrderedItem(

@@ -29,3 +29,21 @@ Many endpoints require a JWT access token. You can obtain a token by calling one
 ### Notes
 - The OpenAPI specification is available at `/v3/api-docs` (JSON) or `/v3/api-docs.yaml` (YAML).
 - Swagger UI and the OpenAPI documents are publicly accessible while the rest of the API remains protected by the existing security configuration.
+
+### Setting environment variables with Docker Compose
+
+Docker Compose automatically reads a `.env` file that lives next to `docker-compose.yml`. Populate it with any overrides you need before starting the stack:
+
+```env
+KONNECT_SANDBOX_API_KEY=your-sandbox-key
+KONNECT_SANDBOX_WALLET_ID=wallet-id
+KONNECT_SANDBOX_WEBHOOK_URL=http://host.docker.internal:8081/api/payments/konnect/webhook
+```
+
+Alternatively, pass a different env file when booting the services:
+
+```bash
+docker compose --env-file ops/dev.env up -d
+```
+
+You can also export variables in your shell (`export DATABASE_URL=...`) before running `docker compose up`. Compose propagates those values into each service's `environment` block, including the application container.

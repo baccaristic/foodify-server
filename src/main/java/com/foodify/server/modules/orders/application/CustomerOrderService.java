@@ -20,6 +20,8 @@ import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.orders.support.OrderPricingCalculator;
 import com.foodify.server.modules.orders.support.OrderPricingCalculator.OrderItemPricing;
 import com.foodify.server.modules.orders.support.OrderPricingCalculator.OrderPricingBreakdown;
+import com.foodify.server.modules.payments.konnect.KonnectPaymentService;
+import com.foodify.server.modules.payments.konnect.KonnectPaymentService.KonnectPaymentSummary;
 import com.foodify.server.modules.restaurants.application.DeliveryFeeCalculator;
 import com.foodify.server.modules.rewards.application.CouponApplicationResult;
 import com.foodify.server.modules.rewards.application.CouponService;
@@ -112,6 +114,7 @@ public class CustomerOrderService {
     private final OrderNotificationMapper orderNotificationMapper;
     private final DeliveryFeeCalculator deliveryFeeCalculator;
     private final CouponService couponService;
+    private final KonnectPaymentService konnectPaymentService;
 
     @Transactional
     @Timed(value = "orders.place.sync", description = "Time spent placing orders via API", histogram = true)
@@ -315,12 +318,35 @@ public class CustomerOrderService {
 
         Order savedOrder = orderRepository.save(order);
 
+        if (requiresOnlinePayment(savedOrder.getPaymentMethod())) {
+            KonnectPaymentSummary paymentSummary = konnectPaymentService.initiatePayment(savedOrder, client)
+                    .orElse(null);
+            if (paymentSummary != null) {
+                savedOrder.setPaymentUrl(paymentSummary.paymentUrl());
+                savedOrder.setPaymentReference(paymentSummary.paymentReference());
+                savedOrder.setPaymentStatus(paymentSummary.status());
+                savedOrder.setPaymentEnvironment(paymentSummary.environment());
+                savedOrder.setPaymentExpiresAt(paymentSummary.expiresAt());
+            }
+        }
+
         if (appliedCoupon != null) {
             couponService.recordRedemption(appliedCoupon, client, savedOrder);
         }
 
         orderLifecycleService.registerCreation(savedOrder, "client:" + clientId);
         return savedOrder;
+    }
+
+    private boolean requiresOnlinePayment(String paymentMethod) {
+        if (!StringUtils.hasText(paymentMethod)) {
+            return false;
+        }
+        String normalized = paymentMethod.trim().toLowerCase(Locale.ROOT);
+        return normalized.equals("card")
+                || normalized.equals("online")
+                || normalized.equals("bank_card")
+                || normalized.equals("konnect");
     }
 
     @Transactional
@@ -436,7 +462,11 @@ public class CustomerOrderService {
                 promotionDiscount,
                 couponDiscount,
                 itemsTotal,
-                deliveryFee
+                deliveryFee,
+                order.getPaymentStatus(),
+                order.getPaymentUrl(),
+                order.getPaymentReference(),
+                order.getPaymentEnvironment()
         );
 
         return new CreateOrderResponse(
