@@ -58,15 +58,19 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long>, J
     );
 
     @Query(
-            value = "SELECT DISTINCT r.* FROM restaurant r " +
-                    "JOIN menu_item mi ON mi.restaurant_id = r.id " +
+            value = "SELECT r.* FROM restaurant r " +
                     "WHERE " + BOUNDING_BOX_FILTER + " AND (" + DISTANCE_FORMULA + ") < :radius " +
-                    "AND mi.promotion_active = TRUE AND mi.available = TRUE " +
+                    "AND EXISTS (" +
+                        "SELECT 1 FROM menu_item mi " +
+                        "WHERE mi.restaurant_id = r.id AND mi.promotion_active = TRUE AND mi.available = TRUE" +
+                    ") " +
                     "ORDER BY " + DISTANCE_FORMULA,
-            countQuery = "SELECT COUNT(DISTINCT r.id) FROM restaurant r " +
-                    "JOIN menu_item mi ON mi.restaurant_id = r.id " +
+            countQuery = "SELECT COUNT(*) FROM restaurant r " +
                     "WHERE " + BOUNDING_BOX_FILTER + " AND (" + DISTANCE_FORMULA + ") < :radius " +
-                    "AND mi.promotion_active = TRUE AND mi.available = TRUE",
+                    "AND EXISTS (" +
+                        "SELECT 1 FROM menu_item mi " +
+                        "WHERE mi.restaurant_id = r.id AND mi.promotion_active = TRUE AND mi.available = TRUE" +
+                    ")",
             nativeQuery = true
     )
     Page<Restaurant> findNearbyWithPromotions(
