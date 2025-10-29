@@ -7,10 +7,12 @@ public record RestaurantRatingResponse(
         Long restaurantId,
         Long orderId,
         Long clientId,
-        Integer rating,
+        Boolean thumbsUp,
         String comments,
         Double restaurantAverageRating,
         Long totalRatings,
+        Long thumbsUpCount,
+        Long thumbsDownCount,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

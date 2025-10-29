@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS restaurant_ratings (
     restaurant_id BIGINT NOT NULL,
     client_id BIGINT NOT NULL,
     order_id BIGINT NOT NULL UNIQUE,
-    rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    thumbs_up BOOLEAN NOT NULL,
     comments VARCHAR(1024),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

@@ -14,13 +14,13 @@ public interface RestaurantRatingRepository extends JpaRepository<RestaurantRati
     @Query("""
             SELECT new com.foodify.server.modules.restaurants.repository.RestaurantRatingRepository$RatingAggregate(
                 COUNT(r),
-                COALESCE(AVG(r.rating), 0)
+                COALESCE(SUM(CASE WHEN r.thumbsUp = true THEN 1 ELSE 0 END), 0)
             )
             FROM RestaurantRating r
             WHERE r.restaurant.id = :restaurantId
             """)
     RatingAggregate findAggregateByRestaurantId(@Param("restaurantId") Long restaurantId);
 
-    record RatingAggregate(long ratingCount, double averageRating) {
+    record RatingAggregate(long totalCount, long thumbsUpCount) {
     }
 }

@@ -38,8 +38,8 @@ public class RestaurantRating {
     @JoinColumn(name = "order_id", nullable = false, unique = true)
     private Order order;
 
-    @Column(name = "rating", nullable = false)
-    private Integer rating;
+    @Column(name = "thumbs_up", nullable = false)
+    private Boolean thumbsUp;
 
     @Column(name = "comments", length = 1024)
     private String comments;

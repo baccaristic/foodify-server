@@ -44,10 +44,9 @@ public class RestaurantRatingService {
         if (order.getStatus() != OrderStatus.DELIVERED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Only delivered orders can be rated");
         }
-        if (request == null || request.rating() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A rating value is required");
+        if (request == null || request.thumbsUp() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A thumbs up/down value is required");
         }
-        validateRating(request.rating());
 
         RestaurantRating rating = restaurantRatingRepository.findByOrder_Id(orderId)
                 .orElseGet(RestaurantRating::new);
@@ -56,16 +55,19 @@ public class RestaurantRatingService {
         rating.setRestaurant(restaurant);
         rating.setOrder(order);
         rating.setClient(order.getClient());
-        rating.setRating(request.rating());
+        rating.setThumbsUp(request.thumbsUp());
         rating.setComments(StringUtils.hasText(request.comments()) ? request.comments().trim() : null);
 
         RestaurantRating saved = restaurantRatingRepository.save(rating);
 
         RatingAggregate aggregate = restaurantRatingRepository.findAggregateByRestaurantId(restaurant.getId());
-        double average = aggregate != null ? aggregate.averageRating() : 0.0;
-        long count = aggregate != null ? aggregate.ratingCount() : 0L;
+        long totalCount = aggregate != null ? aggregate.totalCount() : 0L;
+        long thumbsUpCount = aggregate != null ? aggregate.thumbsUpCount() : 0L;
+        long thumbsDownCount = Math.max(totalCount - thumbsUpCount, 0L);
 
-        Double restaurantAverage = count > 0 ? roundToHalf(average) : null;
+        Double restaurantAverage = totalCount > 0
+                ? roundToOneDecimal(((double) thumbsUpCount / totalCount) * 5)
+                : null;
         restaurant.setRating(restaurantAverage);
 
         return new RestaurantRatingResponse(
@@ -73,10 +75,12 @@ public class RestaurantRatingService {
                 restaurant.getId(),
                 order.getId(),
                 order.getClient().getId(),
-                saved.getRating(),
+                saved.getThumbsUp(),
                 saved.getComments(),
                 restaurantAverage,
-                count,
+                totalCount,
+                thumbsUpCount,
+                thumbsDownCount,
                 saved.getCreatedAt(),
                 saved.getUpdatedAt()
         );
@@ -99,31 +103,30 @@ public class RestaurantRatingService {
         return restaurantRatingRepository.findByOrder_Id(orderId)
                 .map(rating -> {
                     RatingAggregate aggregate = restaurantRatingRepository.findAggregateByRestaurantId(order.getRestaurant().getId());
-                    double average = aggregate != null ? aggregate.averageRating() : 0.0;
-                    long count = aggregate != null ? aggregate.ratingCount() : 0L;
-                    Double restaurantAverage = count > 0 ? roundToHalf(average) : null;
+                    long totalCount = aggregate != null ? aggregate.totalCount() : 0L;
+                    long thumbsUpCount = aggregate != null ? aggregate.thumbsUpCount() : 0L;
+                    long thumbsDownCount = Math.max(totalCount - thumbsUpCount, 0L);
+                    Double restaurantAverage = totalCount > 0
+                            ? roundToOneDecimal(((double) thumbsUpCount / totalCount) * 5)
+                            : null;
                     return new RestaurantRatingResponse(
                             rating.getId(),
                             order.getRestaurant().getId(),
                             order.getId(),
                             order.getClient().getId(),
-                            rating.getRating(),
+                            rating.getThumbsUp(),
                             rating.getComments(),
                             restaurantAverage,
-                            count,
+                            totalCount,
+                            thumbsUpCount,
+                            thumbsDownCount,
                             rating.getCreatedAt(),
                             rating.getUpdatedAt()
                     );
                 });
     }
 
-    private void validateRating(Integer value) {
-        if (value < 1 || value > 5) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rating must be between 1 and 5");
-        }
-    }
-
-    private double roundToHalf(double value) {
+    private double roundToOneDecimal(double value) {
         BigDecimal decimal = BigDecimal.valueOf(value);
         return decimal.setScale(1, RoundingMode.HALF_UP).doubleValue();
     }
