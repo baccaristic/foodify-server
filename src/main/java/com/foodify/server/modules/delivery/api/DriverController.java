@@ -4,6 +4,7 @@ import com.foodify.server.modules.delivery.dto.DeliverOrderDto;
 import com.foodify.server.modules.auth.security.DriverAuthenticationDetails;
 import com.foodify.server.modules.delivery.application.DriverFinancialService;
 import com.foodify.server.modules.delivery.application.DriverSessionService;
+import com.foodify.server.modules.delivery.application.DeliveryRatingService;
 import com.foodify.server.modules.delivery.dto.DriverHeartbeatRequest;
 import com.foodify.server.modules.delivery.dto.DriverLocationDto;
 import com.foodify.server.modules.delivery.dto.DriverShiftDto;
@@ -12,6 +13,8 @@ import com.foodify.server.modules.delivery.dto.DriverShiftEarningDetailsDto;
 import com.foodify.server.modules.delivery.dto.DriverDepositDto;
 import com.foodify.server.modules.delivery.dto.DriverDepositRequestDto;
 import com.foodify.server.modules.delivery.dto.DriverFinancialSummaryDto;
+import com.foodify.server.modules.delivery.dto.DeliveryRatingResponse;
+import com.foodify.server.modules.delivery.dto.DriverRatingSummaryDto;
 import com.foodify.server.modules.delivery.dto.PickUpOrderRequest;
 import com.foodify.server.modules.delivery.dto.StatusUpdateRequest;
 import com.foodify.server.modules.delivery.dto.DriverEarningsSummaryDto;
@@ -46,6 +49,7 @@ public class DriverController {
     private final WebSocketService webSocketService;
     private final DriverSessionService driverSessionService;
     private final DriverFinancialService driverFinancialService;
+    private final DeliveryRatingService deliveryRatingService;
 
     @PostMapping("/location")
     @PreAuthorize("hasAuthority('ROLE_DRIVER')")
@@ -259,6 +263,21 @@ public class DriverController {
     public List<OrderDto> getHisotry(Authentication authentication) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         return this.driverService.getOrderHistory(userId);
+    }
+
+    @GetMapping("/ratings/summary")
+    @PreAuthorize("hasAuthority('ROLE_DRIVER')")
+    public DriverRatingSummaryDto ratingSummary(Authentication authentication) {
+        Long userId = Long.parseLong((String) authentication.getPrincipal());
+        return deliveryRatingService.getDriverSummary(userId);
+    }
+
+    @GetMapping("/ratings")
+    @PreAuthorize("hasAuthority('ROLE_DRIVER')")
+    public List<DeliveryRatingResponse> ratings(Authentication authentication,
+                                               @RequestParam(value = "limit", defaultValue = "20") int limit) {
+        Long userId = Long.parseLong((String) authentication.getPrincipal());
+        return deliveryRatingService.getRatingsForDriver(userId, limit);
     }
 
     private LocalDate parseDate(String value) {

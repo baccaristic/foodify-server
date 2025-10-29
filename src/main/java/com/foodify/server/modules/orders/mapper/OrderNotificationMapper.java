@@ -2,6 +2,8 @@ package com.foodify.server.modules.orders.mapper;
 
 import com.foodify.server.modules.delivery.domain.Delivery;
 import com.foodify.server.modules.delivery.location.DriverLocationService;
+import com.foodify.server.modules.delivery.repository.DeliveryRatingRepository;
+import com.foodify.server.modules.delivery.domain.DeliveryRating;
 import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderItem;
@@ -31,11 +33,14 @@ public class OrderNotificationMapper {
 
     private final OrderStatusHistoryRepository statusHistoryRepository;
     private final DriverLocationService driverLocationService;
+    private final DeliveryRatingRepository deliveryRatingRepository;
 
     public OrderNotificationMapper(OrderStatusHistoryRepository statusHistoryRepository,
-                                   DriverLocationService driverLocationService) {
+                                   DriverLocationService driverLocationService,
+                                   DeliveryRatingRepository deliveryRatingRepository) {
         this.statusHistoryRepository = statusHistoryRepository;
         this.driverLocationService = driverLocationService;
+        this.deliveryRatingRepository = deliveryRatingRepository;
     }
 
     public OrderNotificationDTO toDto(Order order) {
@@ -109,6 +114,8 @@ public class OrderNotificationMapper {
                 .map(coupon -> coupon.getCode())
                 .orElse(null);
 
+        OrderNotificationDTO.DeliveryRating rating = resolveRating(order);
+
         return new OrderNotificationDTO(
                 order.getId(),
                 order.getDeliveryAddress(),
@@ -126,11 +133,34 @@ public class OrderNotificationMapper {
                 restaurantIcon,
                 restaurantSummary,
                 deliverySummary,
+                rating,
                 paymentSummary,
                 couponCode,
                 buildStatusHistory(order),
                 deliveryToken,
                 pickupToken
+        );
+    }
+
+    private OrderNotificationDTO.DeliveryRating resolveRating(Order order) {
+        if (order == null || order.getDelivery() == null) {
+            return null;
+        }
+
+        return deliveryRatingRepository.findByDelivery_Order_Id(order.getId())
+                .map(this::toDeliveryRating)
+                .orElse(null);
+    }
+
+    private OrderNotificationDTO.DeliveryRating toDeliveryRating(DeliveryRating rating) {
+        return new OrderNotificationDTO.DeliveryRating(
+                rating.getTimingRating(),
+                rating.getFoodConditionRating(),
+                rating.getProfessionalismRating(),
+                rating.getOverallRating(),
+                rating.getComments(),
+                rating.getCreatedAt(),
+                rating.getUpdatedAt()
         );
     }
 
