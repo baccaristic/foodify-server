@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS restaurant_ratings (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT fk_restaurant_ratings_restaurant FOREIGN KEY (restaurant_id) REFERENCES restaurant (id) ON DELETE CASCADE,
-    CONSTRAINT fk_restaurant_ratings_client FOREIGN KEY (client_id) REFERENCES client (id) ON DELETE CASCADE,
+    CONSTRAINT fk_restaurant_ratings_client FOREIGN KEY (client_id) REFERENCES app_users (id) ON DELETE CASCADE,
     CONSTRAINT fk_restaurant_ratings_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE
 );
 
