@@ -21,6 +21,7 @@ public record OrderNotificationDTO(
         String restaurantIcon,
         RestaurantSummary restaurant,
         DeliverySummary delivery,
+        DeliveryRating rating,
         PaymentSummary payment,
         String couponCode,
         List<OrderStatusHistoryDTO> statusHistory,
@@ -49,6 +50,16 @@ public record OrderNotificationDTO(
             String address,
             LocationDto location,
             SavedAddressSummaryDto savedAddress
+    ) {}
+
+    public record DeliveryRating(
+            Integer timing,
+            Integer foodCondition,
+            Integer professionalism,
+            Integer overall,
+            String comments,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt
     ) {}
 
     public record DriverSummary(

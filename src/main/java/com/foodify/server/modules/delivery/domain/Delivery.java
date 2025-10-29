@@ -1,6 +1,7 @@
 package com.foodify.server.modules.delivery.domain;
 
 import com.foodify.server.modules.identity.domain.Driver;
+import com.foodify.server.modules.delivery.domain.DeliveryRating;
 import com.foodify.server.modules.orders.domain.Order;
 import jakarta.persistence.*;
 import org.hibernate.annotations.OnDelete;
@@ -35,4 +36,7 @@ public class Delivery {
     private LocalDateTime assignedTime;
     private LocalDateTime pickupTime;
     private LocalDateTime deliveredTime;
+
+    @OneToOne(mappedBy = "delivery", fetch = FetchType.LAZY)
+    private DeliveryRating rating;
 }
