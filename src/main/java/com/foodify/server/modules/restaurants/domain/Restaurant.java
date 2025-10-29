@@ -86,4 +86,7 @@ public class Restaurant {
 
     @OneToMany(mappedBy = "restaurant", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<RestaurantSpecialDay> specialDays = new HashSet<>();
+
+    @OneToMany(mappedBy = "restaurant", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<RestaurantRating> ratings = new HashSet<>();
 }
