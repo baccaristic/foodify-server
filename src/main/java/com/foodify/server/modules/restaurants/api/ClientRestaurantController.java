@@ -2,15 +2,18 @@ package com.foodify.server.modules.restaurants.api;
 
 import com.foodify.server.modules.customers.application.ClientService;
 import com.foodify.server.modules.customers.dto.ClientFavoriteIds;
+import com.foodify.server.modules.restaurants.application.RestaurantDeliveryFeeService;
 import com.foodify.server.modules.restaurants.application.RestaurantSearchService;
 import com.foodify.server.modules.restaurants.domain.RestaurantCategory;
 import com.foodify.server.modules.restaurants.dto.PageResponse;
+import com.foodify.server.modules.restaurants.dto.DeliveryFeeResponse;
 import com.foodify.server.modules.restaurants.dto.RestaurantSearchItemDto;
 import com.foodify.server.modules.restaurants.dto.RestaurantSearchQuery;
 import com.foodify.server.modules.restaurants.dto.RestaurantSearchSort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,6 +33,7 @@ import static org.springframework.http.HttpStatus.BAD_REQUEST;
 public class ClientRestaurantController {
 
     private final RestaurantSearchService restaurantSearchService;
+    private final RestaurantDeliveryFeeService restaurantDeliveryFeeService;
     private final ClientService clientService;
 
     @GetMapping("/search")
@@ -67,6 +71,18 @@ public class ClientRestaurantController {
         );
         ClientFavoriteIds favoriteIds = resolveFavoriteIds(authentication);
         return restaurantSearchService.search(searchQuery, favoriteIds.restaurantIds(), favoriteIds.menuItemIds());
+    }
+
+    @GetMapping("/{restaurantId}/delivery-fee")
+    public DeliveryFeeResponse getDeliveryFee(
+            @PathVariable Long restaurantId,
+            @RequestParam Double lat,
+            @RequestParam Double lng
+    ) {
+        if (lat == null || lng == null) {
+            throw new ResponseStatusException(BAD_REQUEST, "Latitude and longitude are required");
+        }
+        return restaurantDeliveryFeeService.calculateDeliveryFee(restaurantId, lat, lng);
     }
 
     private ClientFavoriteIds resolveFavoriteIds(Authentication authentication) {
