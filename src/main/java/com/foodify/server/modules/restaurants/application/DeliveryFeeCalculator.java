@@ -12,14 +12,22 @@ public class DeliveryFeeCalculator {
 
     public Optional<Double> calculateFee(Double clientLatitude, Double clientLongitude,
                                          Double restaurantLatitude, Double restaurantLongitude) {
+        return calculateDistance(clientLatitude, clientLongitude, restaurantLatitude, restaurantLongitude)
+                .map(distance -> {
+                    long roundedKilometers = Math.max(1, Math.round(distance));
+                    double fee = roundedKilometers * COST_PER_KM;
+                    return fee;
+                });
+    }
+
+    public Optional<Double> calculateDistance(Double clientLatitude, Double clientLongitude,
+                                              Double restaurantLatitude, Double restaurantLongitude) {
         if (clientLatitude == null || clientLongitude == null
                 || restaurantLatitude == null || restaurantLongitude == null) {
             return Optional.empty();
         }
         double distance = haversine(clientLatitude, clientLongitude, restaurantLatitude, restaurantLongitude);
-        long roundedKilometers = Math.max(1, Math.round(distance));
-        double fee = roundedKilometers * COST_PER_KM;
-        return Optional.of(fee);
+        return Optional.of(distance);
     }
 
     private double haversine(double lat1, double lon1, double lat2, double lon2) {
