@@ -36,14 +36,25 @@ public class AdminDriverFinanceController {
         return driverFinancialService.getDepositsForAdmin(status);
     }
 
+    @PostMapping("/{driverId}/finance/deposits/confirm")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public DriverDepositAdminDto confirmDriverDeposit(@PathVariable Long driverId, Authentication authentication) {
+        Long adminId = resolveAdminId(authentication);
+        return driverFinancialService.confirmCashDeposit(adminId, driverId);
+    }
+
     @PostMapping("/deposits/{depositId}/confirm")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public DriverDepositAdminDto confirmDeposit(@PathVariable Long depositId, Authentication authentication) {
+        Long adminId = resolveAdminId(authentication);
+        return driverFinancialService.confirmDeposit(adminId, depositId);
+    }
+
+    private Long resolveAdminId(Authentication authentication) {
         Object principal = authentication != null ? authentication.getPrincipal() : null;
         if (!(principal instanceof String principalStr)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid administrator session");
         }
-        Long adminId = Long.parseLong(principalStr);
-        return driverFinancialService.confirmDeposit(adminId, depositId);
+        return Long.parseLong(principalStr);
     }
 }

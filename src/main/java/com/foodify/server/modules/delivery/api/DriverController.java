@@ -11,7 +11,6 @@ import com.foodify.server.modules.delivery.dto.DriverShiftDto;
 import com.foodify.server.modules.delivery.dto.DriverShiftBalanceDto;
 import com.foodify.server.modules.delivery.dto.DriverShiftEarningDetailsDto;
 import com.foodify.server.modules.delivery.dto.DriverDepositDto;
-import com.foodify.server.modules.delivery.dto.DriverDepositRequestDto;
 import com.foodify.server.modules.delivery.dto.DriverFinancialSummaryDto;
 import com.foodify.server.modules.delivery.dto.DeliveryRatingResponse;
 import com.foodify.server.modules.delivery.dto.DriverRatingSummaryDto;
@@ -235,10 +234,9 @@ public class DriverController {
 
     @PostMapping("/finance/deposits")
     @PreAuthorize("hasAuthority('ROLE_DRIVER')")
-    public DriverDepositDto createDeposit(Authentication authentication,
-                                          @RequestBody(required = false) DriverDepositRequestDto request) {
-        Long userId = Long.parseLong((String) authentication.getPrincipal());
-        return driverFinancialService.requestDeposit(userId, request != null ? request.getAmount() : null);
+    public DriverDepositDto createDeposit() {
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "Cash deposits must be confirmed by an administrator at the collection bureau.");
     }
 
     @GetMapping("/earnings/shifts/{shiftId}")
