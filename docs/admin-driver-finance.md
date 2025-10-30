@@ -5,7 +5,9 @@ are made in person at the partner bureau; the back office only validates the pap
 
 ## Overview
 - Drivers must deposit cash when their on-hand balance reaches **250 DT**. While the balance stays above the threshold they are automatically marked unavailable for dispatch.
-- Every new shift applies a **20 DT** daily fee that is deducted from the driver’s next payout.
+- Every new shift applies a **20 DT** daily fee that is deducted from the driver’s next payout. Fees accrue per day and are
+  always deducted in **20 DT** increments. If a driver has five unpaid days the next payout deducts **100 DT** (5 × 20) as soon
+  as their earnings cover that amount.
 - A deposit records two amounts:
   - `depositAmount`: cash returned by the driver.
   - `earningsPaid`: the 12% commission plus delivery fees owed to the driver after deducting outstanding daily fees.
@@ -31,6 +33,18 @@ are made in person at the partner bureau; the back office only validates the pap
 - **Side effects**:
   - Clears the driver’s unpaid earnings captured in the deposit record and deducts the recorded daily fees.
   - Keeps the cash-on-hand balance reduced so dispatch can immediately reuse the driver after the confirmation.
+
+### 4. Record a daily-fee payment
+- **Endpoint**: `POST /api/admin/drivers/{driverId}/finance/daily-fees/pay`
+- **Auth**: `ROLE_ADMIN`.
+- **Request body**:
+  ```json
+  {
+    "daysPaid": 1
+  }
+  ```
+- **Behavior**: Reduces the driver’s outstanding daily-fee balance by the provided number of days. The amount removed is `daysPaid × 20 DT`.
+- **Response**: Updated finance snapshot identical to the summary endpoint so the UI can refresh balances immediately.
 
 ## Implementation Tips for the Admin UI
 - Present deposits in three columns: cash returned, payout released, and fees deducted so finance teams can reconcile totals quickly.

@@ -120,7 +120,7 @@ All endpoints below require a valid driver access token and the `ROLE_DRIVER` au
 
 ### 2.11 Finance overview & deposits
 - **Deposit threshold**: When the driver’s collected cash (Cash on Delivery orders) reaches **250 DT**, they must deposit it before they can start a new shift or accept additional jobs. Failing to deposit automatically keeps the driver unavailable in dispatch.
-- **Daily fee**: Each day a shift starts, the platform charges a fixed **20 DT** service fee that is deducted from the driver’s next payout.
+- **Daily fee**: Each day a shift starts, the platform charges a fixed **20 DT** service fee that is deducted from the driver’s next payout. The platform tracks unpaid fees per day, so the next payout deducts `20 DT` for each unpaid day (for example 5 days → 100 DT) once the driver’s earnings cover the balance.
 - **Offline cash handling**: Drivers physically bring their cash to the partner bureau. After they hand over the funds they submit the deposit in the app so the admin team can validate it against the receipt.
 
 - **Endpoint**: `GET /api/driver/finance/summary`
