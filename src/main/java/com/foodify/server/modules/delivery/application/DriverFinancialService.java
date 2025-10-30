@@ -157,55 +157,21 @@ public class DriverFinancialService {
     }
 
     @Transactional
-    public DriverDepositDto requestDeposit(Long driverId, BigDecimal requestedAmount) {
+    public DriverDepositAdminDto confirmCashDeposit(Long adminId, Long driverId) {
+        adminRepository.findById(adminId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Admin not found"));
+
         Driver driver = driverRepository.findById(driverId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Driver not found"));
 
         driverDepositRepository.findFirstByDriver_IdAndStatusOrderByCreatedAtDesc(driverId, DriverDepositStatus.PENDING)
                 .ifPresent(existing -> {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Existing pending deposit must be confirmed first.");
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Existing pending deposit must be confirmed first.");
                 });
 
-        BigDecimal cashOnHand = normalize(driver.getCashOnHand());
-        if (cashOnHand.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "No cash available to deposit.");
-        }
-
-        BigDecimal amount = requestedAmount != null ? requestedAmount.setScale(2, RoundingMode.HALF_UP) : cashOnHand;
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Deposit amount must be positive.");
-        }
-        if (amount.compareTo(cashOnHand) > 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Deposit exceeds current cash on hand.");
-        }
-        if (cashOnHand.compareTo(DEPOSIT_THRESHOLD) >= 0 && amount.compareTo(cashOnHand) < 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Deposit the full cash on hand when exceeding the threshold.");
-        }
-
-        BigDecimal unpaidEarnings = normalize(driver.getUnpaidEarnings());
-        BigDecimal outstandingFees = normalize(driver.getOutstandingDailyFees());
-        BigDecimal feesDeducted = outstandingFees.min(unpaidEarnings).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal netPayout = unpaidEarnings.subtract(outstandingFees);
-        if (netPayout.compareTo(BigDecimal.ZERO) < 0) {
-            netPayout = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-        } else {
-            netPayout = netPayout.setScale(2, RoundingMode.HALF_UP);
-        }
-
-        DriverDeposit deposit = new DriverDeposit();
-        deposit.setDriver(driver);
-        deposit.setDepositAmount(amount);
-        deposit.setEarningsPaid(netPayout);
-        deposit.setFeesDeducted(feesDeducted);
-        deposit.setStatus(DriverDepositStatus.PENDING);
-        driverDepositRepository.save(deposit);
-
-        driver.setCashOnHand(cashOnHand.subtract(amount).setScale(2, RoundingMode.HALF_UP));
-        driverRepository.save(driver);
-        driverAvailabilityService.refreshAvailability(driverId);
-
-        return toDriverDepositDto(deposit);
+        DriverDeposit pendingDeposit = createPendingDepositForDriver(driver);
+        return confirmDeposit(adminId, pendingDeposit.getId());
     }
 
     @Transactional
@@ -237,6 +203,7 @@ public class DriverFinancialService {
             }
             driver.setOutstandingDailyFees(updatedFees);
             driverRepository.save(driver);
+            driverAvailabilityService.refreshAvailability(driver.getId());
         }
 
         driverDepositRepository.save(deposit);
@@ -257,6 +224,40 @@ public class DriverFinancialService {
         return deposits.stream()
                 .map(this::toAdminDto)
                 .collect(Collectors.toList());
+    }
+
+    private DriverDeposit createPendingDepositForDriver(Driver driver) {
+        if (driver == null || driver.getId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Driver is required to record a deposit.");
+        }
+
+        BigDecimal cashOnHand = normalize(driver.getCashOnHand());
+        if (cashOnHand.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "No cash available to deposit.");
+        }
+
+        BigDecimal unpaidEarnings = normalize(driver.getUnpaidEarnings());
+        BigDecimal outstandingFees = normalize(driver.getOutstandingDailyFees());
+        BigDecimal feesDeducted = outstandingFees.min(unpaidEarnings).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal netPayout = unpaidEarnings.subtract(outstandingFees);
+        if (netPayout.compareTo(BigDecimal.ZERO) < 0) {
+            netPayout = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        } else {
+            netPayout = netPayout.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        DriverDeposit deposit = new DriverDeposit();
+        deposit.setDriver(driver);
+        deposit.setDepositAmount(cashOnHand);
+        deposit.setEarningsPaid(netPayout);
+        deposit.setFeesDeducted(feesDeducted);
+        deposit.setStatus(DriverDepositStatus.PENDING);
+        driverDepositRepository.save(deposit);
+
+        driver.setCashOnHand(ZERO);
+        driverRepository.save(driver);
+
+        return deposit;
     }
 
     private DriverDepositDto toDriverDepositDto(DriverDeposit deposit) {
