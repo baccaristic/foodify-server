@@ -52,7 +52,7 @@ public class AdminService {
         if (dto.getCategories() != null) {
             restaurant.setCategories(new HashSet<>(dto.getCategories()));
         }
-        restaurant.setRestaurantShareRate(resolveShareRate(dto.getRestaurantShareRate(), null));
+        restaurant.setCommissionRate(resolveCommissionRate(dto.getCommissionRate(), null));
 
         if (image == null || image.isEmpty()) {
             throw new ResponseStatusException(BAD_REQUEST, "Restaurant image is required");
@@ -91,12 +91,12 @@ public class AdminService {
         Restaurant restaurant = this.restaurantRepository.findById(restaurantId)
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "Restaurant not found"));
 
-        BigDecimal previousShareRate = restaurant.getRestaurantShareRate();
+        BigDecimal previousCommissionRate = restaurant.getCommissionRate();
         this.restaurantMapper.updateEntity(dto, restaurant);
         if (dto.getCategories() != null) {
             restaurant.setCategories(new HashSet<>(dto.getCategories()));
         }
-        restaurant.setRestaurantShareRate(resolveShareRate(dto.getRestaurantShareRate(), previousShareRate));
+        restaurant.setCommissionRate(resolveCommissionRate(dto.getCommissionRate(), previousCommissionRate));
 
         if (image != null && !image.isEmpty()) {
             restaurant.setImageUrl(storeFile(image));
@@ -143,14 +143,25 @@ public class AdminService {
         return filename;
     }
 
-    private BigDecimal resolveShareRate(BigDecimal requestedRate, BigDecimal fallbackRate) {
-        BigDecimal defaultRestaurantShare = BigDecimal.valueOf(0.88).setScale(4, RoundingMode.HALF_UP);
-        if (requestedRate != null) {
-            return requestedRate.setScale(4, RoundingMode.HALF_UP);
+    private BigDecimal resolveCommissionRate(BigDecimal requestedRate, BigDecimal fallbackRate) {
+        BigDecimal defaultCommissionRate = BigDecimal.valueOf(0.17).setScale(4, RoundingMode.HALF_UP);
+        BigDecimal minimumCommissionRate = BigDecimal.valueOf(0.12).setScale(4, RoundingMode.HALF_UP);
+
+        BigDecimal resolved = requestedRate != null
+                ? requestedRate
+                : (fallbackRate != null ? fallbackRate : defaultCommissionRate);
+
+        BigDecimal normalized = resolved.setScale(4, RoundingMode.HALF_UP);
+        if (normalized.compareTo(minimumCommissionRate) < 0) {
+            normalized = minimumCommissionRate;
         }
-        if (fallbackRate != null) {
-            return fallbackRate.setScale(4, RoundingMode.HALF_UP);
+        if (normalized.compareTo(BigDecimal.ONE) > 0) {
+            normalized = BigDecimal.ONE.setScale(4, RoundingMode.HALF_UP);
         }
-        return defaultRestaurantShare;
+        if (normalized.compareTo(BigDecimal.ZERO) < 0) {
+            normalized = minimumCommissionRate;
+        }
+
+        return normalized;
     }
 }

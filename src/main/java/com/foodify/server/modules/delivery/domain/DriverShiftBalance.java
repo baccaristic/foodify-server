@@ -15,9 +15,7 @@ import java.util.Optional;
 @Setter
 public class DriverShiftBalance {
     private static final BigDecimal DEFAULT_DRIVER_COMMISSION_RATE = new BigDecimal("0.12");
-    private static final BigDecimal DEFAULT_RESTAURANT_SHARE_RATE = BigDecimal.ONE
-            .subtract(DEFAULT_DRIVER_COMMISSION_RATE)
-            .setScale(4, RoundingMode.HALF_UP);
+    private static final BigDecimal DEFAULT_TOTAL_COMMISSION_RATE = new BigDecimal("0.17");
     private static final BigDecimal ZERO_AMOUNT = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 
     @Id
@@ -43,7 +41,7 @@ public class DriverShiftBalance {
     @Column(name = "settled_at")
     private LocalDateTime settledAt;
 
-    public void recordOrder(BigDecimal itemsTotal, BigDecimal restaurantShareRate, BigDecimal deliveryFee) {
+    public void recordOrder(BigDecimal itemsTotal, BigDecimal commissionRate, BigDecimal deliveryFee) {
         BigDecimal safeItemsTotal = Optional.ofNullable(itemsTotal)
                 .orElse(BigDecimal.ZERO)
                 .setScale(2, RoundingMode.HALF_UP);
@@ -51,15 +49,20 @@ public class DriverShiftBalance {
                 .orElse(BigDecimal.ZERO)
                 .setScale(2, RoundingMode.HALF_UP);
         BigDecimal safeTotal = safeItemsTotal.add(safeDeliveryFee).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal normalizedRestaurantRate = normalizeRestaurantShareRate(restaurantShareRate);
-        BigDecimal driverRate = BigDecimal.ONE
-                .subtract(normalizedRestaurantRate)
-                .setScale(4, RoundingMode.HALF_UP);
-        BigDecimal driverCommission = safeItemsTotal.multiply(driverRate)
+        BigDecimal normalizedCommission = normalizeCommissionRate(commissionRate);
+        BigDecimal driverCommission = safeItemsTotal.multiply(DEFAULT_DRIVER_COMMISSION_RATE)
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal platformRate = normalizedCommission.subtract(DEFAULT_DRIVER_COMMISSION_RATE);
+        if (platformRate.compareTo(BigDecimal.ZERO) < 0) {
+            platformRate = BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+        }
+        BigDecimal platformCommission = safeItemsTotal.multiply(platformRate)
                 .setScale(2, RoundingMode.HALF_UP);
         BigDecimal driverTotal = driverCommission.add(safeDeliveryFee)
                 .setScale(2, RoundingMode.HALF_UP);
         BigDecimal restaurantPortion = safeItemsTotal.subtract(driverCommission)
+                .subtract(platformCommission)
+                .max(BigDecimal.ZERO)
                 .setScale(2, RoundingMode.HALF_UP);
 
         totalAmount = totalAmount.add(safeTotal).setScale(2, RoundingMode.HALF_UP);
@@ -69,14 +72,15 @@ public class DriverShiftBalance {
         settledAt = null;
     }
 
-    private BigDecimal normalizeRestaurantShareRate(BigDecimal restaurantShareRate) {
-        if (restaurantShareRate == null) {
-            return DEFAULT_RESTAURANT_SHARE_RATE;
+    private BigDecimal normalizeCommissionRate(BigDecimal commissionRate) {
+        BigDecimal normalized = Optional.ofNullable(commissionRate)
+                .orElse(DEFAULT_TOTAL_COMMISSION_RATE)
+                .setScale(4, RoundingMode.HALF_UP);
+        if (normalized.compareTo(DEFAULT_DRIVER_COMMISSION_RATE) < 0) {
+            return DEFAULT_DRIVER_COMMISSION_RATE.setScale(4, RoundingMode.HALF_UP);
         }
-
-        BigDecimal normalized = restaurantShareRate.setScale(4, RoundingMode.HALF_UP);
-        if (normalized.compareTo(BigDecimal.ZERO) < 0 || normalized.compareTo(BigDecimal.ONE) > 0) {
-            return DEFAULT_RESTAURANT_SHARE_RATE;
+        if (normalized.compareTo(BigDecimal.ONE) > 0) {
+            return BigDecimal.ONE.setScale(4, RoundingMode.HALF_UP);
         }
         return normalized;
     }

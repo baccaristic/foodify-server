@@ -56,7 +56,7 @@ public class Restaurant {
     private String deliveryTimeRange;
 
     @Column(name = "restaurant_share_rate", precision = 5, scale = 4, nullable = true)
-    private BigDecimal restaurantShareRate = BigDecimal.valueOf(0.88).setScale(4, RoundingMode.HALF_UP);
+    private BigDecimal commissionRate = BigDecimal.valueOf(0.17).setScale(4, RoundingMode.HALF_UP);
 
     @OneToOne
     @JoinColumn(name = "admin_id")
