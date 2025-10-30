@@ -53,6 +53,13 @@ public class Driver extends User {
     )
     private BigDecimal outstandingDailyFees = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
 
+    @Column(
+            name = "outstanding_daily_fee_days",
+            nullable = false,
+            columnDefinition = "integer not null default 0"
+    )
+    private Integer outstandingDailyFeeDays = 0;
+
     @Column(name = "last_daily_fee_date")
     private LocalDate lastDailyFeeDate;
 }

@@ -2,6 +2,7 @@ package com.foodify.server.modules.delivery.api;
 
 import com.foodify.server.modules.delivery.application.DriverFinancialService;
 import com.foodify.server.modules.delivery.domain.DriverDepositStatus;
+import com.foodify.server.modules.delivery.dto.DriverDailyFeePaymentRequest;
 import com.foodify.server.modules.delivery.dto.DriverDepositAdminDto;
 import com.foodify.server.modules.delivery.dto.DriverFinancialSummaryDto;
 import lombok.RequiredArgsConstructor;
@@ -11,11 +12,13 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
@@ -48,6 +51,15 @@ public class AdminDriverFinanceController {
     public DriverDepositAdminDto confirmDeposit(@PathVariable Long depositId, Authentication authentication) {
         Long adminId = resolveAdminId(authentication);
         return driverFinancialService.confirmDeposit(adminId, depositId);
+    }
+
+    @PostMapping("/{driverId}/finance/daily-fees/pay")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public DriverFinancialSummaryDto recordDailyFeePayment(
+            @PathVariable Long driverId,
+            @Valid @RequestBody DriverDailyFeePaymentRequest request
+    ) {
+        return driverFinancialService.recordDailyFeePayment(driverId, request.getDaysPaid());
     }
 
     private Long resolveAdminId(Authentication authentication) {

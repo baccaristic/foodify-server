@@ -24,6 +24,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -116,15 +117,24 @@ public class DriverFinancialService {
         if (driver == null) {
             return;
         }
+
         LocalDate today = LocalDate.now();
         LocalDate lastFeeDate = driver.getLastDailyFeeDate();
-        if (lastFeeDate != null && !lastFeeDate.isBefore(today)) {
+
+        LocalDate effectiveLastFeeDate = lastFeeDate != null ? lastFeeDate : today.minusDays(1);
+        if (!effectiveLastFeeDate.isBefore(today)) {
             return;
         }
-        BigDecimal updatedFees = normalize(driver.getOutstandingDailyFees())
-                .add(DAILY_FEE)
-                .setScale(2, RoundingMode.HALF_UP);
-        driver.setOutstandingDailyFees(updatedFees);
+
+        long daysToCharge = ChronoUnit.DAYS.between(effectiveLastFeeDate, today);
+        if (daysToCharge <= 0) {
+            return;
+        }
+
+        int currentOutstandingDays = Math.max(0, Optional.ofNullable(driver.getOutstandingDailyFeeDays()).orElse(0));
+        int updatedDays = Math.toIntExact(daysToCharge) + currentOutstandingDays;
+        driver.setOutstandingDailyFeeDays(updatedDays);
+        driver.setOutstandingDailyFees(calculateDailyFeeAmount(updatedDays));
         driver.setLastDailyFeeDate(today);
         driverRepository.save(driver);
     }
@@ -132,15 +142,17 @@ public class DriverFinancialService {
     public DriverFinancialSummaryDto getSummary(Long driverId) {
         Driver driver = driverRepository.findById(driverId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Driver not found"));
+        applyDailyFeeIfNeeded(driver);
         BigDecimal cashOnHand = normalize(driver.getCashOnHand());
         BigDecimal unpaidEarnings = normalize(driver.getUnpaidEarnings());
-        BigDecimal outstandingFees = normalize(driver.getOutstandingDailyFees());
+        int outstandingDays = Math.max(0, Optional.ofNullable(driver.getOutstandingDailyFeeDays()).orElse(0));
+        BigDecimal outstandingFees = calculateDailyFeeAmount(outstandingDays);
         boolean depositRequired = isDepositRequired(driver);
         boolean hasPending = driverDepositRepository
                 .findFirstByDriver_IdAndStatusOrderByCreatedAtDesc(driverId, DriverDepositStatus.PENDING)
                 .isPresent();
-        BigDecimal feesToDeduct = outstandingFees.min(unpaidEarnings);
-        BigDecimal nextPayout = unpaidEarnings.subtract(outstandingFees);
+        BigDecimal feesToDeduct = calculateDailyFeesToDeduct(unpaidEarnings, outstandingDays);
+        BigDecimal nextPayout = unpaidEarnings.subtract(feesToDeduct);
         if (nextPayout.compareTo(BigDecimal.ZERO) < 0) {
             nextPayout = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         }
@@ -163,6 +175,8 @@ public class DriverFinancialService {
 
         Driver driver = driverRepository.findById(driverId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Driver not found"));
+
+        applyDailyFeeIfNeeded(driver);
 
         driverDepositRepository.findFirstByDriver_IdAndStatusOrderByCreatedAtDesc(driverId, DriverDepositStatus.PENDING)
                 .ifPresent(existing -> {
@@ -196,18 +210,38 @@ public class DriverFinancialService {
             }
             driver.setUnpaidEarnings(updatedEarnings);
 
-            BigDecimal updatedFees = normalize(driver.getOutstandingDailyFees())
-                    .subtract(normalize(deposit.getFeesDeducted()));
-            if (updatedFees.compareTo(BigDecimal.ZERO) < 0) {
-                updatedFees = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-            }
-            driver.setOutstandingDailyFees(updatedFees);
+            BigDecimal deductedFees = normalize(deposit.getFeesDeducted());
+            int paidDays = deductedFees.divide(DAILY_FEE, 0, RoundingMode.DOWN).intValue();
+            int currentOutstandingDays = Math.max(0, Optional.ofNullable(driver.getOutstandingDailyFeeDays()).orElse(0));
+            int updatedOutstandingDays = Math.max(0, currentOutstandingDays - paidDays);
+            driver.setOutstandingDailyFeeDays(updatedOutstandingDays);
+            driver.setOutstandingDailyFees(calculateDailyFeeAmount(updatedOutstandingDays));
             driverRepository.save(driver);
             driverAvailabilityService.refreshAvailability(driver.getId());
         }
 
         driverDepositRepository.save(deposit);
         return toAdminDto(deposit);
+    }
+
+    @Transactional
+    public DriverFinancialSummaryDto recordDailyFeePayment(Long driverId, int daysPaid) {
+        if (daysPaid <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Days paid must be greater than zero.");
+        }
+        Driver driver = driverRepository.findById(driverId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Driver not found"));
+
+        applyDailyFeeIfNeeded(driver);
+
+        int outstandingDays = Math.max(0, Optional.ofNullable(driver.getOutstandingDailyFeeDays()).orElse(0));
+        int updatedDays = Math.max(0, outstandingDays - daysPaid);
+        driver.setOutstandingDailyFeeDays(updatedDays);
+        driver.setOutstandingDailyFees(calculateDailyFeeAmount(updatedDays));
+        driverRepository.save(driver);
+
+        return getSummary(driverId);
     }
 
     public List<DriverDepositDto> getDriverDeposits(Long driverId) {
@@ -237,9 +271,10 @@ public class DriverFinancialService {
         }
 
         BigDecimal unpaidEarnings = normalize(driver.getUnpaidEarnings());
-        BigDecimal outstandingFees = normalize(driver.getOutstandingDailyFees());
-        BigDecimal feesDeducted = outstandingFees.min(unpaidEarnings).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal netPayout = unpaidEarnings.subtract(outstandingFees);
+        int outstandingDays = Math.max(0, Optional.ofNullable(driver.getOutstandingDailyFeeDays()).orElse(0));
+        BigDecimal outstandingFees = calculateDailyFeeAmount(outstandingDays);
+        BigDecimal feesDeducted = calculateDailyFeesToDeduct(unpaidEarnings, outstandingDays);
+        BigDecimal netPayout = unpaidEarnings.subtract(feesDeducted);
         if (netPayout.compareTo(BigDecimal.ZERO) < 0) {
             netPayout = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         } else {
@@ -292,6 +327,26 @@ public class DriverFinancialService {
                 .createdAt(deposit.getCreatedAt())
                 .confirmedAt(deposit.getConfirmedAt())
                 .build();
+    }
+
+    private BigDecimal calculateDailyFeesToDeduct(BigDecimal unpaidEarnings, int outstandingDays) {
+        BigDecimal normalizedEarnings = normalize(unpaidEarnings);
+        if (outstandingDays <= 0 || normalizedEarnings.compareTo(BigDecimal.ZERO) <= 0) {
+            return ZERO;
+        }
+        BigDecimal maxDaysFromEarnings = normalizedEarnings.divideToIntegralValue(DAILY_FEE);
+        int payableDays = Math.min(outstandingDays, maxDaysFromEarnings.intValue());
+        if (payableDays <= 0) {
+            return ZERO;
+        }
+        return calculateDailyFeeAmount(payableDays);
+    }
+
+    private BigDecimal calculateDailyFeeAmount(int days) {
+        if (days <= 0) {
+            return ZERO;
+        }
+        return DAILY_FEE.multiply(BigDecimal.valueOf(days)).setScale(2, RoundingMode.HALF_UP);
     }
 
     private BigDecimal normalize(BigDecimal value) {
