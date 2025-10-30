@@ -70,10 +70,31 @@ public class AdminDriverFinanceController {
     }
 
     private Long resolveAdminId(Authentication authentication) {
-        Object principal = authentication != null ? authentication.getPrincipal() : null;
-        if (!(principal instanceof String principalStr)) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid administrator session");
+        if (authentication == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to resolve administrator session");
         }
-        return Long.parseLong(principalStr);
+
+        Object principal = authentication.getPrincipal();
+        String identifier = null;
+
+        if (principal instanceof Number number) {
+            return number.longValue();
+        }
+
+        if (principal instanceof String principalStr) {
+            identifier = principalStr;
+        } else if (principal != null) {
+            identifier = authentication.getName();
+        }
+
+        if (identifier == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to resolve administrator session");
+        }
+
+        try {
+            return Long.parseLong(identifier);
+        } catch (NumberFormatException ex) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to resolve administrator session", ex);
+        }
     }
 }
