@@ -4,6 +4,7 @@ import com.foodify.server.modules.delivery.application.DriverFinancialService;
 import com.foodify.server.modules.delivery.domain.DriverDepositStatus;
 import com.foodify.server.modules.delivery.dto.DriverDailyFeePaymentRequest;
 import com.foodify.server.modules.delivery.dto.DriverDepositAdminDto;
+import com.foodify.server.modules.delivery.dto.DriverDepositPreviewDto;
 import com.foodify.server.modules.delivery.dto.DriverFinancialSummaryDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -31,6 +32,12 @@ public class AdminDriverFinanceController {
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public DriverFinancialSummaryDto driverFinance(@PathVariable Long driverId) {
         return driverFinancialService.getSummary(driverId);
+    }
+
+    @GetMapping("/{driverId}/finance/deposits/confirm")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public DriverDepositPreviewDto previewDriverDeposit(@PathVariable Long driverId) {
+        return driverFinancialService.previewDeposit(driverId);
     }
 
     @GetMapping("/deposits")

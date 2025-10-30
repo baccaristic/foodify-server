@@ -26,7 +26,17 @@ are made in person at the partner bureau; the back office only validates the pap
 - **Response**: Array of deposit records ordered newest first. Each record includes driver identifiers (id, name, phone), deposit amount, earnings paid, fees deducted, status, and timestamps.
 - **Usage**: Poll with `status=PENDING` to power an approval queue in the admin UI.
 
-### 3. Confirm a deposit
+### 3. Preview deposit payout
+- **Endpoint**: `GET /api/admin/drivers/{driverId}/finance/deposits/confirm`
+- **Auth**: `ROLE_ADMIN`.
+- **Response**: Returns the calculated deposit amounts (cash on hand, unpaid earnings, fees to deduct, and payout to release)
+  so finance staff can review the figures before finalizing the deposit.
+- **Behavior**: Applies any outstanding daily fees to ensure the snapshot matches what the confirmation endpoint will persist.
+- **Errors**:
+  - `404 Not Found` if the driver does not exist.
+  - `409 Conflict` when no cash is available to deposit or an unconfirmed deposit already exists for the driver.
+
+### 4. Confirm a deposit
 - **Endpoint**: `POST /api/admin/drivers/deposits/{depositId}/confirm`
 - **Auth**: `ROLE_ADMIN`.
 - **Behavior**: Marks the deposit as `CONFIRMED`, stores the admin id and confirmation timestamp, and returns the updated deposit payload. Attempting to confirm a non-pending deposit returns `409 Conflict`.
@@ -34,7 +44,7 @@ are made in person at the partner bureau; the back office only validates the pap
   - Clears the driver’s unpaid earnings captured in the deposit record and deducts the recorded daily fees.
   - Keeps the cash-on-hand balance reduced so dispatch can immediately reuse the driver after the confirmation.
 
-### 4. Record a daily-fee payment
+### 5. Record a daily-fee payment
 - **Endpoint**: `POST /api/admin/drivers/{driverId}/finance/daily-fees/pay`
 - **Auth**: `ROLE_ADMIN`.
 - **Request body**:
