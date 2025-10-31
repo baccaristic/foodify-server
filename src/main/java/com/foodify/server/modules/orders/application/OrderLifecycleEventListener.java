@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.io.IOException;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -94,6 +95,11 @@ public class OrderLifecycleEventListener {
         }
 
         webSocketService.notifyClient(order.getClient().getId(), order);
+        try {
+            pushNotificationService.sendPushNotification(order.getClient().getId(), "Your order is updated", "Order has been updated");
+        } catch (IOException e) {
+            log.debug("Notification Service: Expo failed with reason: " + e.getMessage());
+        }
 
         NotificationTemplate template = CLIENT_NOTIFICATION_TEMPLATES.get(event.getNewStatus());
         if (template == null) {
