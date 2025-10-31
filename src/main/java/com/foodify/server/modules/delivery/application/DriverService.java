@@ -488,13 +488,16 @@ public class DriverService {
 
     private DriverShiftOrderEarningDto mapToOrderEarningDto(Delivery delivery, OrderEarningAggregate aggregate) {
         Order order = delivery.getOrder();
-        BigDecimal orderTotal = Optional.ofNullable(aggregate)
-                .map(OrderEarningAggregate::orderTotal)
+        BigDecimal orderValue = Optional.ofNullable(aggregate)
+                .map(OrderEarningAggregate::orderValue)
                 .orElse(ZERO_AMOUNT);
         Restaurant restaurant = order.getRestaurant();
         Integer itemsCount = Optional.ofNullable(aggregate)
                 .map(OrderEarningAggregate::itemCount)
                 .orElse(0);
+        BigDecimal deliveryFee = Optional.ofNullable(order.getDeliveryFee()).orElse(ZERO_AMOUNT);
+        BigDecimal orderTotal = Optional.ofNullable(order.getTotal())
+                .orElse(orderValue.add(deliveryFee).setScale(2, RoundingMode.HALF_UP));
 
         return DriverShiftOrderEarningDto.builder()
                 .orderId(order.getId())
@@ -502,8 +505,8 @@ public class DriverService {
                 .pickUpLocation(Optional.ofNullable(restaurant).map(Restaurant::getAddress).orElse(null))
                 .deliveryLocation(resolveDeliveryLocation(order))
                 .orderTotal(orderTotal)
-                .driverEarningFromOrder(calculateDriverShareForOrder(orderTotal, restaurant))
-                .deliveryFee(resolveDeliveryFee(restaurant))
+                .driverEarningFromOrder(calculateDriverShareForOrder(orderValue, deliveryFee))
+                .deliveryFee(deliveryFee)
                 .restaurantName(Optional.ofNullable(restaurant).map(Restaurant::getName).orElse(null))
                 .orderItemsCount(itemsCount)
                 .orderAcceptedAt(formatTime(delivery.getAssignedTime()))
@@ -557,35 +560,15 @@ public class DriverService {
         return aggregates;
     }
 
-    private record OrderEarningAggregate(BigDecimal orderTotal, int itemCount) {
+    private record OrderEarningAggregate(BigDecimal orderValue, int itemCount) {
     }
 
-    private BigDecimal calculateDriverShareForOrder(BigDecimal orderTotal, Restaurant restaurant) {
-        BigDecimal safeTotal = Optional.ofNullable(orderTotal).orElse(ZERO_AMOUNT);
-        BigDecimal restaurantShareRate = Optional.ofNullable(restaurant)
-                .map(Restaurant::getRestaurantShareRate)
-                .orElse(null);
-        BigDecimal normalizedRestaurantShare = normalizeRestaurantShareRate(restaurantShareRate);
-        BigDecimal driverRate = BigDecimal.ONE.subtract(normalizedRestaurantShare).setScale(4, RoundingMode.HALF_UP);
-        return safeTotal.multiply(driverRate).setScale(2, RoundingMode.HALF_UP);
-    }
-
-    private BigDecimal normalizeRestaurantShareRate(BigDecimal restaurantShareRate) {
-        if (restaurantShareRate == null) {
-            return BigDecimal.ONE.subtract(DEFAULT_DRIVER_COMMISSION_RATE).setScale(4, RoundingMode.HALF_UP);
-        }
-        BigDecimal normalized = restaurantShareRate.setScale(4, RoundingMode.HALF_UP);
-        if (normalized.compareTo(BigDecimal.ZERO) < 0 || normalized.compareTo(BigDecimal.ONE) > 0) {
-            return BigDecimal.ONE.subtract(DEFAULT_DRIVER_COMMISSION_RATE).setScale(4, RoundingMode.HALF_UP);
-        }
-        return normalized;
-    }
-
-    private BigDecimal resolveDeliveryFee(Restaurant restaurant) {
-        if (restaurant == null || restaurant.getDeliveryFee() == null) {
-            return ZERO_AMOUNT;
-        }
-        return BigDecimal.valueOf(restaurant.getDeliveryFee()).setScale(2, RoundingMode.HALF_UP);
+    private BigDecimal calculateDriverShareForOrder(BigDecimal orderValue, BigDecimal deliveryFee) {
+        BigDecimal safeOrderValue = Optional.ofNullable(orderValue).orElse(ZERO_AMOUNT);
+        BigDecimal safeDeliveryFee = Optional.ofNullable(deliveryFee).orElse(ZERO_AMOUNT).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal driverCommission = safeOrderValue.multiply(DEFAULT_DRIVER_COMMISSION_RATE)
+                .setScale(2, RoundingMode.HALF_UP);
+        return driverCommission.add(safeDeliveryFee).setScale(2, RoundingMode.HALF_UP);
     }
 
     private String resolveDeliveryLocation(Order order) {
@@ -710,13 +693,12 @@ public class DriverService {
                 return newBalance;
             });
         }
-        BigDecimal restaurantShareRate = Optional.ofNullable(order.getRestaurant())
-                .map(Restaurant::getRestaurantShareRate)
+        BigDecimal commissionRate = Optional.ofNullable(order.getRestaurant())
+                .map(Restaurant::getCommissionRate)
                 .orElse(null);
-
         BigDecimal deliveryFee = Optional.ofNullable(order.getDeliveryFee()).orElse(BigDecimal.ZERO);
 
-        balance.recordOrder(itemsTotal, restaurantShareRate, deliveryFee);
+        balance.recordOrder(itemsTotal, commissionRate, deliveryFee);
         driverShiftBalanceRepository.save(balance);
         shift.setBalance(balance);
     }

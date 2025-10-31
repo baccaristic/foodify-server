@@ -4,6 +4,7 @@ import com.foodify.server.modules.delivery.application.DriverFinancialService;
 import com.foodify.server.modules.delivery.domain.DriverDepositStatus;
 import com.foodify.server.modules.delivery.dto.DriverDailyFeePaymentRequest;
 import com.foodify.server.modules.delivery.dto.DriverDepositAdminDto;
+import com.foodify.server.modules.delivery.dto.DriverDepositPreviewDto;
 import com.foodify.server.modules.delivery.dto.DriverFinancialSummaryDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -31,6 +32,12 @@ public class AdminDriverFinanceController {
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public DriverFinancialSummaryDto driverFinance(@PathVariable Long driverId) {
         return driverFinancialService.getSummary(driverId);
+    }
+
+    @GetMapping("/{driverId}/finance/deposits/confirm")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public DriverDepositPreviewDto previewDriverDeposit(@PathVariable Long driverId) {
+        return driverFinancialService.previewDeposit(driverId);
     }
 
     @GetMapping("/deposits")
@@ -63,10 +70,31 @@ public class AdminDriverFinanceController {
     }
 
     private Long resolveAdminId(Authentication authentication) {
-        Object principal = authentication != null ? authentication.getPrincipal() : null;
-        if (!(principal instanceof String principalStr)) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid administrator session");
+        if (authentication == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to resolve administrator session");
         }
-        return Long.parseLong(principalStr);
+
+        Object principal = authentication.getPrincipal();
+        String identifier = null;
+
+        if (principal instanceof Number number) {
+            return number.longValue();
+        }
+
+        if (principal instanceof String principalStr) {
+            identifier = principalStr;
+        } else if (principal != null) {
+            identifier = authentication.getName();
+        }
+
+        if (identifier == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to resolve administrator session");
+        }
+
+        try {
+            return Long.parseLong(identifier);
+        } catch (NumberFormatException ex) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to resolve administrator session", ex);
+        }
     }
 }

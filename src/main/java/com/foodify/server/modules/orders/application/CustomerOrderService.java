@@ -258,10 +258,20 @@ public class CustomerOrderService {
         order.setItems(orderItems);
 
         OrderPricingBreakdown pricing = OrderPricingCalculator.calculatePricing(orderItems);
-        order.setItemsSubtotal(pricing.itemsSubtotal());
-        order.setExtrasTotal(pricing.extrasTotal());
-        order.setPromotionDiscount(pricing.promotionDiscount());
-        order.setItemsTotal(pricing.itemsTotal());
+        BigDecimal itemsSubtotal = pricing.itemsSubtotal().setScale(2, RoundingMode.HALF_UP);
+        BigDecimal extrasTotal = pricing.extrasTotal().setScale(2, RoundingMode.HALF_UP);
+        BigDecimal promotionDiscount = pricing.promotionDiscount().setScale(2, RoundingMode.HALF_UP);
+        BigDecimal itemsAfterPromotion = itemsSubtotal.subtract(promotionDiscount);
+        if (itemsAfterPromotion.compareTo(BigDecimal.ZERO) < 0) {
+            itemsAfterPromotion = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        itemsAfterPromotion = itemsAfterPromotion.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal itemsTotal = itemsAfterPromotion.add(extrasTotal).setScale(2, RoundingMode.HALF_UP);
+
+        order.setItemsSubtotal(itemsSubtotal);
+        order.setExtrasTotal(extrasTotal);
+        order.setPromotionDiscount(promotionDiscount);
+        order.setItemsTotal(itemsTotal);
 
         Double clientLatitude = order.getLat();
         Double clientLongitude = order.getLng();
@@ -271,7 +281,7 @@ public class CustomerOrderService {
             clientLongitude = null;
         }
 
-        BigDecimal deliveryFee = deliveryFeeCalculator.calculateFee(
+        BigDecimal baseDeliveryFee = deliveryFeeCalculator.calculateFee(
                         clientLatitude,
                         clientLongitude,
                         restaurant.getLatitude(),
@@ -280,14 +290,12 @@ public class CustomerOrderService {
                 .map(amount -> amount.setScale(2, RoundingMode.HALF_UP))
                 .orElse(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
 
-        order.setDeliveryFee(deliveryFee);
+        order.setDeliveryFee(baseDeliveryFee);
         order.setCouponDiscount(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
 
-        BigDecimal itemsTotal = Optional.ofNullable(order.getItemsTotal())
-                .orElse(pricing.itemsTotal())
-                .setScale(2, RoundingMode.HALF_UP);
-        BigDecimal orderTotal = itemsTotal.add(deliveryFee).setScale(2, RoundingMode.HALF_UP);
-        order.setTotal(orderTotal);
+        BigDecimal finalDeliveryFee = baseDeliveryFee;
+        BigDecimal baseTotal = itemsTotal.add(baseDeliveryFee).setScale(2, RoundingMode.HALF_UP);
+        order.setTotal(baseTotal);
 
         Coupon appliedCoupon = null;
         String couponCode = request.getCouponCode();
@@ -300,21 +308,30 @@ public class CustomerOrderService {
                     .setScale(2, RoundingMode.HALF_UP);
 
             if (applicationResult.deliveryFeeOverride() != null) {
-                order.setDeliveryFee(applicationResult.deliveryFeeOverride().setScale(2, RoundingMode.HALF_UP));
+                finalDeliveryFee = applicationResult.deliveryFeeOverride().setScale(2, RoundingMode.HALF_UP);
             }
 
-            BigDecimal currentDeliveryFee = Optional.ofNullable(order.getDeliveryFee())
-                    .orElse(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
-
-            BigDecimal recalculatedTotal = itemsTotal.add(currentDeliveryFee).setScale(2, RoundingMode.HALF_UP);
-            if (discount.compareTo(recalculatedTotal) > 0) {
-                discount = recalculatedTotal;
+            BigDecimal deliveryAdjustment = baseDeliveryFee.subtract(finalDeliveryFee).setScale(2, RoundingMode.HALF_UP);
+            if (deliveryAdjustment.compareTo(BigDecimal.ZERO) < 0) {
+                deliveryAdjustment = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
             }
+
+            BigDecimal adjustedTotal = baseTotal.subtract(discount)
+                    .subtract(deliveryAdjustment)
+                    .max(BigDecimal.ZERO)
+                    .setScale(2, RoundingMode.HALF_UP);
+
+            BigDecimal couponDiscount = itemsTotal.add(finalDeliveryFee)
+                    .subtract(adjustedTotal)
+                    .max(BigDecimal.ZERO)
+                    .setScale(2, RoundingMode.HALF_UP);
 
             order.setCoupon(appliedCoupon);
-            order.setCouponDiscount(discount);
-            order.setTotal(recalculatedTotal.subtract(discount).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP));
+            order.setCouponDiscount(couponDiscount);
+            order.setTotal(adjustedTotal);
         }
+
+        order.setDeliveryFee(finalDeliveryFee);
 
         Order savedOrder = orderRepository.save(order);
 

@@ -45,8 +45,8 @@ public class RestaurantDto {
     @Schema(description = "Tax identification number", example = "TIN-52-1234567")
     private String taxId;
 
-    @Schema(description = "Share of each order allocated to the restaurant", example = "0.8800")
-    private BigDecimal restaurantShareRate;
+    @Schema(description = "Commission rate applied to the restaurant's orders (driver + platform share)", example = "0.1700")
+    private BigDecimal commissionRate;
 
     @Valid
     @Schema(description = "Optional admin account information. Required when creating a restaurant")

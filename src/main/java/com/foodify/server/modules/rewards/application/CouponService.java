@@ -87,7 +87,7 @@ public class CouponService {
             discount = baseTotal.multiply(percent)
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
         } else if (coupon.getType() == CouponType.FREE_DELIVERY) {
-            discount = deliveryFee.setScale(2, RoundingMode.HALF_UP);
+            discount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
             deliveryFeeOverride = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         } else {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported coupon type");

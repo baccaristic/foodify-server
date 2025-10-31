@@ -5,6 +5,7 @@ import com.foodify.server.modules.delivery.domain.DriverDeposit;
 import com.foodify.server.modules.delivery.domain.DriverDepositStatus;
 import com.foodify.server.modules.delivery.dto.DriverDepositAdminDto;
 import com.foodify.server.modules.delivery.dto.DriverDepositDto;
+import com.foodify.server.modules.delivery.dto.DriverDepositPreviewDto;
 import com.foodify.server.modules.delivery.dto.DriverFinancialSummaryDto;
 import com.foodify.server.modules.delivery.repository.DriverDepositRepository;
 import com.foodify.server.modules.identity.domain.Admin;
@@ -184,8 +185,36 @@ public class DriverFinancialService {
                             "Existing pending deposit must be confirmed first.");
                 });
 
-        DriverDeposit pendingDeposit = createPendingDepositForDriver(driver);
+        DriverDepositCalculation calculation = calculateDepositForDriver(driver);
+        DriverDeposit pendingDeposit = createPendingDepositForDriver(driver, calculation);
         return confirmDeposit(adminId, pendingDeposit.getId());
+    }
+
+    @Transactional
+    public DriverDepositPreviewDto previewDeposit(Long driverId) {
+        Driver driver = driverRepository.findById(driverId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Driver not found"));
+
+        applyDailyFeeIfNeeded(driver);
+
+        driverDepositRepository.findFirstByDriver_IdAndStatusOrderByCreatedAtDesc(driverId, DriverDepositStatus.PENDING)
+                .ifPresent(existing -> {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Existing pending deposit must be confirmed first.");
+                });
+
+        DriverDepositCalculation calculation = calculateDepositForDriver(driver);
+        return DriverDepositPreviewDto.builder()
+                .driverId(driver.getId())
+                .driverName(driver.getName())
+                .cashOnHand(calculation.getCashOnHand())
+                .depositAmount(calculation.getCashOnHand())
+                .unpaidEarnings(calculation.getUnpaidEarnings())
+                .outstandingDailyFeeDays(calculation.getOutstandingDays())
+                .outstandingDailyFees(calculation.getOutstandingFees())
+                .feesToDeduct(calculation.getFeesDeducted())
+                .payoutAmount(calculation.getNetPayout())
+                .build();
     }
 
     @Transactional
@@ -260,8 +289,31 @@ public class DriverFinancialService {
                 .collect(Collectors.toList());
     }
 
-    private DriverDeposit createPendingDepositForDriver(Driver driver) {
+    private DriverDeposit createPendingDepositForDriver(Driver driver, DriverDepositCalculation calculation) {
         if (driver == null || driver.getId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Driver is required to record a deposit.");
+        }
+
+        if (calculation.getCashOnHand().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "No cash available to deposit.");
+        }
+
+        DriverDeposit deposit = new DriverDeposit();
+        deposit.setDriver(driver);
+        deposit.setDepositAmount(calculation.getCashOnHand());
+        deposit.setEarningsPaid(calculation.getNetPayout());
+        deposit.setFeesDeducted(calculation.getFeesDeducted());
+        deposit.setStatus(DriverDepositStatus.PENDING);
+        driverDepositRepository.save(deposit);
+
+        driver.setCashOnHand(ZERO);
+        driverRepository.save(driver);
+
+        return deposit;
+    }
+
+    private DriverDepositCalculation calculateDepositForDriver(Driver driver) {
+        if (driver == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Driver is required to record a deposit.");
         }
 
@@ -273,7 +325,8 @@ public class DriverFinancialService {
         BigDecimal unpaidEarnings = normalize(driver.getUnpaidEarnings());
         int outstandingDays = Math.max(0, Optional.ofNullable(driver.getOutstandingDailyFeeDays()).orElse(0));
         BigDecimal outstandingFees = calculateDailyFeeAmount(outstandingDays);
-        BigDecimal feesDeducted = calculateDailyFeesToDeduct(unpaidEarnings, outstandingDays);
+        BigDecimal feesDeducted = calculateDailyFeesToDeduct(unpaidEarnings, outstandingDays)
+                .setScale(2, RoundingMode.HALF_UP);
         BigDecimal netPayout = unpaidEarnings.subtract(feesDeducted);
         if (netPayout.compareTo(BigDecimal.ZERO) < 0) {
             netPayout = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
@@ -281,18 +334,50 @@ public class DriverFinancialService {
             netPayout = netPayout.setScale(2, RoundingMode.HALF_UP);
         }
 
-        DriverDeposit deposit = new DriverDeposit();
-        deposit.setDriver(driver);
-        deposit.setDepositAmount(cashOnHand);
-        deposit.setEarningsPaid(netPayout);
-        deposit.setFeesDeducted(feesDeducted);
-        deposit.setStatus(DriverDepositStatus.PENDING);
-        driverDepositRepository.save(deposit);
+        return new DriverDepositCalculation(cashOnHand, unpaidEarnings, outstandingDays, outstandingFees, feesDeducted, netPayout);
+    }
 
-        driver.setCashOnHand(ZERO);
-        driverRepository.save(driver);
+    private static class DriverDepositCalculation {
+        private final BigDecimal cashOnHand;
+        private final BigDecimal unpaidEarnings;
+        private final int outstandingDays;
+        private final BigDecimal outstandingFees;
+        private final BigDecimal feesDeducted;
+        private final BigDecimal netPayout;
 
-        return deposit;
+        private DriverDepositCalculation(BigDecimal cashOnHand, BigDecimal unpaidEarnings, int outstandingDays,
+                                         BigDecimal outstandingFees, BigDecimal feesDeducted, BigDecimal netPayout) {
+            this.cashOnHand = cashOnHand;
+            this.unpaidEarnings = unpaidEarnings;
+            this.outstandingDays = outstandingDays;
+            this.outstandingFees = outstandingFees;
+            this.feesDeducted = feesDeducted;
+            this.netPayout = netPayout;
+        }
+
+        public BigDecimal getCashOnHand() {
+            return cashOnHand;
+        }
+
+        public BigDecimal getUnpaidEarnings() {
+            return unpaidEarnings;
+        }
+
+        public int getOutstandingDays() {
+            return outstandingDays;
+        }
+
+        public BigDecimal getOutstandingFees() {
+            return outstandingFees;
+        }
+
+        public BigDecimal getFeesDeducted() {
+            return feesDeducted;
+        }
+
+        public BigDecimal getNetPayout() {
+            return netPayout;
+        }
     }
 
     private DriverDepositDto toDriverDepositDto(DriverDeposit deposit) {

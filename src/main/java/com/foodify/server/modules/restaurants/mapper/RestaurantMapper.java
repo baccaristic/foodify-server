@@ -22,7 +22,7 @@ public interface RestaurantMapper {
     @Mapping(target = "admin", ignore = true)
     @Mapping(target = "imageUrl", ignore = true)
     @Mapping(target = "iconUrl", ignore = true)
-    @Mapping(target = "restaurantShareRate", ignore = true)
+    @Mapping(target = "commissionRate", ignore = true)
     @Mapping(target = "categories", ignore = true)
     @Mapping(target = "menuCategories", ignore = true)
     @Mapping(target = "menu", ignore = true)
