@@ -136,6 +136,7 @@ public class OrderNotificationMapper {
                 rating,
                 paymentSummary,
                 couponCode,
+                order.getEstimatedReadyAt(),
                 buildStatusHistory(order),
                 deliveryToken,
                 pickupToken
@@ -297,6 +298,7 @@ public class OrderNotificationMapper {
                 driverSummary,
                 delivery.getTimeToPickUp(),
                 delivery.getDeliveryTime(),
+                order != null ? order.getEstimatedReadyAt() : null,
                 delivery.getPickupTime(),
                 delivery.getDeliveredTime(),
                 driverLocation,

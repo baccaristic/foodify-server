@@ -139,4 +139,7 @@ public class Order  {
 
     @Column(name = "loyalty_points_earned", precision = 19, scale = 2)
     private BigDecimal loyaltyPointsEarned;
+
+    @Column(name = "estimated_ready_at")
+    private LocalDateTime estimatedReadyAt;
 }

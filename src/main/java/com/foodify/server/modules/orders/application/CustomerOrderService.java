@@ -445,6 +445,7 @@ public class CustomerOrderService {
                 null,
                 null,
                 null,
+                order.getEstimatedReadyAt(),
                 null,
                 null,
                 null,
