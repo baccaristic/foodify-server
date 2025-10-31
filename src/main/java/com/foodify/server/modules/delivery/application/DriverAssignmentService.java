@@ -1,5 +1,6 @@
 package com.foodify.server.modules.delivery.application;
 
+import com.foodify.server.modules.delivery.application.DriverFinancialService;
 import com.foodify.server.modules.delivery.application.signals.DriverCapacityService;
 import com.foodify.server.modules.delivery.application.signals.DriverEngagementCache;
 import com.foodify.server.modules.delivery.application.signals.TravelTimeEstimator;
@@ -55,8 +56,9 @@ public class DriverAssignmentService {
     private final TravelTimeEstimator travelTimeEstimator;
     private final DriverCapacityService driverCapacityService;
     private final DriverEngagementCache driverEngagementCache;
+    private final DriverFinancialService driverFinancialService;
 
-    public Optional<DriverMatch> findBestDriver(Order order, Set<Long> excludedDriverIds) {
+    public Optional<DriverMatch> findBestDriver(Order order, Set<Long> deprioritizedDriverIds) {
         if (order.getRestaurant() == null) {
             log.debug("Skipping driver assignment for order {} because the restaurant is missing", order.getId());
             return Optional.empty();
@@ -65,8 +67,8 @@ public class DriverAssignmentService {
         double lat = order.getRestaurant().getLatitude();
         double lon = order.getRestaurant().getLongitude();
 
-        Set<Long> excluded = excludedDriverIds != null ? excludedDriverIds : Set.of();
-        Set<Long> evaluatedDrivers = new HashSet<>(excluded);
+        Set<Long> deprioritized = deprioritizedDriverIds != null ? deprioritizedDriverIds : Set.of();
+        Set<Long> evaluatedDrivers = new HashSet<>();
         DriverMatch bestMatch = null;
 
         for (double radius : properties.searchRadiiKm()) {
@@ -77,22 +79,26 @@ public class DriverAssignmentService {
             stats.recordCandidates(candidates.size());
 
             LinkedHashMap<Long, Double> candidateDistances = new LinkedHashMap<>();
+            LinkedHashMap<Long, Double> deprioritizedDistances = new LinkedHashMap<>();
             for (DriverLocationService.DriverCandidate candidate : candidates) {
                 Long driverId = parseDriverId(candidate.driverId());
                 if (driverId == null) {
                     stats.incrementInvalidIdentifiers();
                     continue;
                 }
-                if (excluded.contains(driverId)) {
-                    stats.incrementExcludedDrivers();
-                    continue;
-                }
                 if (!evaluatedDrivers.add(driverId)) {
                     stats.incrementDuplicateCandidates();
                     continue;
                 }
-                candidateDistances.put(driverId, candidate.distanceKm());
+                if (deprioritized.contains(driverId)) {
+                    stats.incrementDeprioritizedDrivers();
+                    deprioritizedDistances.put(driverId, candidate.distanceKm());
+                } else {
+                    candidateDistances.put(driverId, candidate.distanceKm());
+                }
             }
+
+            candidateDistances.putAll(deprioritizedDistances);
 
             if (candidateDistances.isEmpty()) {
                 stats.logSummary();
@@ -168,6 +174,11 @@ public class DriverAssignmentService {
                 }
                 if (activeOrders.getOrDefault(driverId, false)) {
                     stats.incrementActiveDeliveries();
+                    continue;
+                }
+                Driver driver = availableDrivers.get(driverId);
+                if (driverFinancialService.isDepositRequired(driver)) {
+                    stats.incrementDepositRestricted();
                     continue;
                 }
                 eligibleDriverIds.add(driverId);
@@ -295,12 +306,13 @@ public class DriverAssignmentService {
         private final double radiusKm;
         private int candidateCount;
         private int invalidIdentifiers;
-        private int excludedDrivers;
+        private int deprioritizedDrivers;
         private int duplicateCandidates;
         private int missingDrivers;
         private int unavailableDrivers;
         private int noActiveShift;
         private int activeDeliveries;
+        private int depositRestricted;
 
         private RadiusStats(double radiusKm) {
             this.radiusKm = radiusKm;
@@ -314,8 +326,8 @@ public class DriverAssignmentService {
             this.invalidIdentifiers++;
         }
 
-        void incrementExcludedDrivers() {
-            this.excludedDrivers++;
+        void incrementDeprioritizedDrivers() {
+            this.deprioritizedDrivers++;
         }
 
         void incrementDuplicateCandidates() {
@@ -338,10 +350,14 @@ public class DriverAssignmentService {
             this.activeDeliveries++;
         }
 
+        void incrementDepositRestricted() {
+            this.depositRestricted++;
+        }
+
         void logSummary() {
-            log.info("Radius {}km produced no matches (candidates={}, invalidIds={}, excluded={}, duplicates={}, missing={}, unavailable={}, noShift={}, activeDeliveries={})",
-                    radiusKm, candidateCount, invalidIdentifiers, excludedDrivers, duplicateCandidates,
-                    missingDrivers, unavailableDrivers, noActiveShift, activeDeliveries);
+            log.info("Radius {}km produced no matches (candidates={}, invalidIds={}, deprioritized={}, duplicates={}, missing={}, unavailable={}, noShift={}, activeDeliveries={}, depositRestricted={})",
+                    radiusKm, candidateCount, invalidIdentifiers, deprioritizedDrivers, duplicateCandidates,
+                    missingDrivers, unavailableDrivers, noActiveShift, activeDeliveries, depositRestricted);
         }
     }
 

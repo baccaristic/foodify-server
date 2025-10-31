@@ -181,9 +181,9 @@ public class DriverDispatchService {
                 return;
             }
 
-            Set<Long> excludedDriverIds = loadAttemptedDrivers(orderId);
+            Set<Long> deprioritizedDriverIds = loadAttemptedDrivers(orderId);
             Optional<DriverAssignmentService.DriverMatch> match = driverAssignmentService
-                    .findBestDriver(order, excludedDriverIds);
+                    .findBestDriver(order, deprioritizedDriverIds);
 
             match.ifPresentOrElse(driverMatch -> {
                 Long driverId = driverMatch.driver().getId();
@@ -194,7 +194,7 @@ public class DriverDispatchService {
                 notifyDriverAboutOrder(persisted, driverId);
                 schedulePendingTimeout(orderId, driverId);
             }, () -> {
-                log.info("No eligible drivers found for order {} (excluded: {}). Will retry", orderId, excludedDriverIds.size());
+                log.info("No eligible drivers found for order {} (recently attempted: {}). Will retry", orderId, deprioritizedDriverIds.size());
                 DispatchState state = states.computeIfAbsent(orderId, id -> new DispatchState());
                 scheduleRetry(orderId, state);
             });
