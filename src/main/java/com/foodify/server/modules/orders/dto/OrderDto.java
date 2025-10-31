@@ -42,6 +42,7 @@ public class OrderDto {
 
     private Long estimatedPickUpTime;
     private Long estimatedDeliveryTime;
+    private LocalDateTime estimatedReadyAt;
 
     private LocalDateTime driverAssignedAt;
     private LocalDateTime pickedUpAt;

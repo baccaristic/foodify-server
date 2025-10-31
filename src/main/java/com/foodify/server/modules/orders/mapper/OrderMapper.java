@@ -88,6 +88,7 @@ public class OrderMapper {
         // Other fields
         dto.setStatus(order.getStatus());
         dto.setCreatedAt(order.getOrderTime());
+        dto.setEstimatedReadyAt(order.getEstimatedReadyAt());
 
         OrderPricingBreakdown pricing = OrderPricingCalculator.calculatePricing(order);
 

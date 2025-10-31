@@ -24,6 +24,7 @@ public record OrderNotificationDTO(
         DeliveryRating rating,
         PaymentSummary payment,
         String couponCode,
+        LocalDateTime estimatedReadyAt,
         List<OrderStatusHistoryDTO> statusHistory,
         String deliveryToken,
         String pickupToken
@@ -44,6 +45,7 @@ public record OrderNotificationDTO(
             DriverSummary driver,
             Long estimatedPickupTime,
             Long estimatedDeliveryTime,
+            LocalDateTime estimatedReadyAt,
             LocalDateTime pickupTime,
             LocalDateTime deliveredTime,
             LocationDto driverLocation,
