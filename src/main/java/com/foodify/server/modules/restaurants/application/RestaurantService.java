@@ -1,6 +1,7 @@
 package com.foodify.server.modules.restaurants.application;
 
 import com.foodify.server.modules.delivery.application.DriverDispatchService;
+import com.foodify.server.modules.notifications.websocket.WebSocketService;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.config.OrderViewProperties;
 import com.foodify.server.modules.orders.domain.OrderStatus;
@@ -77,6 +78,7 @@ public class RestaurantService {
     private final OrderLifecycleService orderLifecycleService;
     private final OrderNotificationMapper orderNotificationMapper;
     private final OrderViewProperties orderViewProperties;
+    private final WebSocketService webSocketService;
 
     @Transactional(readOnly = true)
     public Page<OrderNotificationDTO> getAllOrders(
@@ -158,6 +160,32 @@ public class RestaurantService {
                     "restaurant:" + userId,
                     "Restaurant accepted order");
             driverDispatchService.beginSearch(savedOrder);
+            return loadOrderNotification(savedOrder.getId());
+        }).orElseThrow(() -> new RuntimeException("Order not found"));
+    }
+
+    @Transactional
+    public OrderNotificationDTO updatePreparationEstimate(Long orderId, Long userId, Integer minutes) {
+        if (minutes == null) {
+            throw new IllegalArgumentException("Estimated minutes are required");
+        }
+        if (minutes < 1) {
+            throw new IllegalArgumentException("Estimated minutes must be at least 1");
+        }
+
+        return orderRepository.findById(orderId).map(order -> {
+            if (order.getRestaurant() == null
+                    || order.getRestaurant().getAdmin() == null
+                    || !Objects.equals(order.getRestaurant().getAdmin().getId(), userId)) {
+                throw new RuntimeException("Unauthorized");
+            }
+            if (order.getStatus() != OrderStatus.PREPARING) {
+                throw new IllegalStateException("Ready time can only be updated while the order is preparing");
+            }
+
+            order.setEstimatedReadyAt(LocalDateTime.now().plusMinutes(minutes));
+            Order savedOrder = orderRepository.save(order);
+            notifyClientOfOrder(savedOrder);
             return loadOrderNotification(savedOrder.getId());
         }).orElseThrow(() -> new RuntimeException("Order not found"));
     }
@@ -481,6 +509,14 @@ public class RestaurantService {
         RestaurantSpecialDay specialDay = restaurantSpecialDayRepository.findByIdAndRestaurant_Id(specialDayId, restaurantId)
                 .orElseThrow(() -> new EntityNotFoundException("Special day not found"));
         restaurantSpecialDayRepository.delete(specialDay);
+    }
+
+    private void notifyClientOfOrder(Order order) {
+        if (order == null || order.getClient() == null) {
+            return;
+        }
+
+        webSocketService.notifyClient(order.getClient().getId(), order);
     }
 
     private OperatingHoursResponse.SpecialDay toSpecialDayDto(RestaurantSpecialDay specialDay) {

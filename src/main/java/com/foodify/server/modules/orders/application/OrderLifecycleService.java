@@ -66,6 +66,10 @@ public class OrderLifecycleService {
             ));
         }
 
+        if (newStatus == OrderStatus.PREPARING && order.getEstimatedReadyAt() == null) {
+            order.setEstimatedReadyAt(LocalDateTime.now().plusMinutes(20));
+        }
+
         order.setStatus(newStatus);
         order.setDate(LocalDateTime.now());
         Order saved = orderRepository.save(order);

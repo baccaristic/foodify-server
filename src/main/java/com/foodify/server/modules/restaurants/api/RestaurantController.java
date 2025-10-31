@@ -9,6 +9,7 @@ import com.foodify.server.modules.restaurants.dto.MenuItemRequestDTO;
 import com.foodify.server.modules.restaurants.dto.OperatingHoursResponse;
 import com.foodify.server.modules.restaurants.dto.PageResponse;
 import com.foodify.server.modules.restaurants.dto.SaveSpecialDayRequest;
+import com.foodify.server.modules.restaurants.dto.UpdatePreparationEstimateRequest;
 import com.foodify.server.modules.restaurants.dto.UpdateWeeklyScheduleRequest;
 import com.foodify.server.modules.identity.domain.RestaurantAdmin;
 import com.foodify.server.modules.identity.repository.RestaurantAdminRepository;
@@ -17,6 +18,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -217,6 +219,18 @@ public class RestaurantController {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         return this.restaurantService.acceptOrder(id, userId);
 
+    }
+
+    @PostMapping("/order/{id}/estimate")
+    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    public OrderNotificationDTO updateOrderEstimate(
+            Authentication authentication,
+            @PathVariable Long id,
+            @RequestBody @Valid UpdatePreparationEstimateRequest request
+    ) {
+        Long userId = Long.parseLong((String) authentication.getPrincipal());
+        Integer minutes = request != null ? request.minutes() : null;
+        return this.restaurantService.updatePreparationEstimate(id, userId, minutes);
     }
 
     @PostMapping("/order/ready/{id}")
