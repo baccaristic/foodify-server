@@ -31,6 +31,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RestaurantSearchService {
 
+    private static final double MAX_SEARCH_RADIUS_KM = 10.0;
+
     private final RestaurantRepository restaurantRepository;
     private final MenuItemRepository menuItemRepository;
     private final DeliveryFeeCalculator deliveryFeeCalculator;
@@ -44,13 +46,14 @@ public class RestaurantSearchService {
 
         Page<Restaurant> restaurants = restaurantRepository.findAll(specification, pageable);
         List<Restaurant> restaurantContent = restaurants.getContent();
-        Map<Long, List<MenuItem>> promotionsByRestaurant = groupPromotedItems(restaurantContent);
-        Set<Long> restaurantFavorites = favoriteRestaurantIds == null ? Set.of() : favoriteRestaurantIds;
-        Set<Long> menuFavorites = favoriteMenuItemIds == null ? Set.of() : favoriteMenuItemIds;
         Double clientLatitude = query.clientLatitude();
         Double clientLongitude = query.clientLongitude();
+        List<Restaurant> radiusFiltered = filterByRadius(restaurantContent, clientLatitude, clientLongitude);
+        Map<Long, List<MenuItem>> promotionsByRestaurant = groupPromotedItems(radiusFiltered);
+        Set<Long> restaurantFavorites = favoriteRestaurantIds == null ? Set.of() : favoriteRestaurantIds;
+        Set<Long> menuFavorites = favoriteMenuItemIds == null ? Set.of() : favoriteMenuItemIds;
 
-        List<RestaurantSearchItemDto> items = restaurantContent.stream()
+        List<RestaurantSearchItemDto> items = radiusFiltered.stream()
                 .map(restaurant -> toDto(
                         restaurant,
                         promotionsByRestaurant.getOrDefault(restaurant.getId(), List.of()),
@@ -67,7 +70,13 @@ public class RestaurantSearchService {
                     .toList();
         }
 
-        long totalElements = query.maxDeliveryFee() == null ? restaurants.getTotalElements() : items.size();
+        long totalElements = restaurants.getTotalElements();
+        if (clientLatitude != null && clientLongitude != null) {
+            totalElements = radiusFiltered.size();
+        }
+        if (query.maxDeliveryFee() != null) {
+            totalElements = items.size();
+        }
 
         return new PageResponse<>(items, page, pageSize, totalElements);
     }
@@ -193,6 +202,73 @@ public class RestaurantSearchService {
             });
         }
 
+        if (query.clientLatitude() != null && query.clientLongitude() != null) {
+            GeoBounds bounds = computeGeoBounds(query.clientLatitude(), query.clientLongitude(), MAX_SEARCH_RADIUS_KM);
+            specification = specification.and((root, cq, cb) -> cb.and(
+                    cb.between(root.get("latitude"), bounds.minLat(), bounds.maxLat()),
+                    cb.between(root.get("longitude"), bounds.minLng(), bounds.maxLng())
+            ));
+        }
+
         return specification;
+    }
+
+    private List<Restaurant> filterByRadius(List<Restaurant> restaurants,
+                                            Double clientLatitude,
+                                            Double clientLongitude) {
+        if (restaurants == null || restaurants.isEmpty()) {
+            return List.of();
+        }
+        if (clientLatitude == null || clientLongitude == null) {
+            return restaurants;
+        }
+        return restaurants.stream()
+                .filter(restaurant -> isWithinRadius(restaurant, clientLatitude, clientLongitude))
+                .toList();
+    }
+
+    private boolean isWithinRadius(Restaurant restaurant, Double clientLatitude, Double clientLongitude) {
+        if (restaurant == null) {
+            return false;
+        }
+        return deliveryFeeCalculator.calculateDistance(
+                        clientLatitude,
+                        clientLongitude,
+                        restaurant.getLatitude(),
+                        restaurant.getLongitude()
+                )
+                .map(distance -> distance <= MAX_SEARCH_RADIUS_KM)
+                .orElse(false);
+    }
+
+    private GeoBounds computeGeoBounds(double lat, double lng, double radiusKm) {
+        double latDelta = radiusKm / 111.0;
+        double minLat = clampLatitude(lat - latDelta);
+        double maxLat = clampLatitude(lat + latDelta);
+
+        double cosLat = Math.cos(Math.toRadians(lat));
+        double safeCosLat = Math.max(Math.abs(cosLat), 1e-6);
+        double lonDelta = radiusKm / (111.0 * safeCosLat);
+        double minLng = clampLongitude(lng - lonDelta);
+        double maxLng = clampLongitude(lng + lonDelta);
+
+        return new GeoBounds(minLat, maxLat, minLng, maxLng);
+    }
+
+    private double clampLatitude(double value) {
+        return Math.max(-90.0, Math.min(90.0, value));
+    }
+
+    private double clampLongitude(double value) {
+        if (value > 180.0) {
+            return 180.0;
+        }
+        if (value < -180.0) {
+            return -180.0;
+        }
+        return value;
+    }
+
+    private record GeoBounds(double minLat, double maxLat, double minLng, double maxLng) {
     }
 }

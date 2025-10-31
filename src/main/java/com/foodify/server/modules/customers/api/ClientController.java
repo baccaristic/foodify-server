@@ -51,7 +51,8 @@ import static org.springframework.http.HttpStatus.BAD_REQUEST;
 @RequestMapping("/api/client")
 @RequiredArgsConstructor
 public class ClientController {
-    private static final double CATEGORY_FILTER_RADIUS_KM = 10.0;
+    private static final double MAX_NEARBY_RADIUS_KM = 10.0;
+    private static final double CATEGORY_FILTER_RADIUS_KM = MAX_NEARBY_RADIUS_KM;
 
     private final RestaurantRepository restaurantRepository;
     private final ClientService clientService;
@@ -72,18 +73,19 @@ public class ClientController {
     public List<RestaurantDisplayDto> getTopNearbyRestaurants(
             @RequestParam double lat,
             @RequestParam double lng,
-            @RequestParam(defaultValue = "1000") double radiusKm,
+            @RequestParam(defaultValue = "10") double radiusKm,
             Authentication authentication
     ) {
         Long userId = extractUserId(authentication);
         Set<Long> favoriteRestaurantIds = clientService.getFavoriteIds(userId).restaurantIds();
-        GeoBounds searchBounds = computeGeoBounds(lat, lng, radiusKm);
+        double effectiveRadiusKm = normalizeRadius(radiusKm);
+        GeoBounds searchBounds = computeGeoBounds(lat, lng, effectiveRadiusKm);
 
         List<Restaurant> restaurants = restaurantRepository
                 .findNearby(
                         lat,
                         lng,
-                        radiusKm,
+                        effectiveRadiusKm,
                         searchBounds.minLat(),
                         searchBounds.maxLat(),
                         searchBounds.minLng(),
@@ -101,7 +103,7 @@ public class ClientController {
     public List<RestaurantDisplayDto> getFavoriteNearbyRestaurants(
             @RequestParam double lat,
             @RequestParam double lng,
-            @RequestParam(defaultValue = "1000") double radiusKm,
+            @RequestParam(defaultValue = "10") double radiusKm,
             Authentication authentication
     ) {
         Long userId = extractUserId(authentication);
@@ -111,13 +113,14 @@ public class ClientController {
             return List.of();
         }
 
-        GeoBounds searchBounds = computeGeoBounds(lat, lng, radiusKm);
+        double effectiveRadiusKm = normalizeRadius(radiusKm);
+        GeoBounds searchBounds = computeGeoBounds(lat, lng, effectiveRadiusKm);
 
         List<Restaurant> restaurants = restaurantRepository
                 .findNearbyByIds(
                         lat,
                         lng,
-                        radiusKm,
+                        effectiveRadiusKm,
                         favoriteRestaurantIds,
                         searchBounds.minLat(),
                         searchBounds.maxLat(),
@@ -136,12 +139,13 @@ public class ClientController {
     public List<RestaurantDisplayDto> getRecentlyOrderedNearbyRestaurants(
             @RequestParam double lat,
             @RequestParam double lng,
-            @RequestParam(defaultValue = "1000") double radiusKm,
+            @RequestParam(defaultValue = "10") double radiusKm,
             Authentication authentication
     ) {
         Long userId = extractUserId(authentication);
         Set<Long> favoriteRestaurantIds = clientService.getFavoriteIds(userId).restaurantIds();
-        return getOrderAgainRestaurants(userId, lat, lng, radiusKm, favoriteRestaurantIds);
+        double effectiveRadiusKm = normalizeRadius(radiusKm);
+        return getOrderAgainRestaurants(userId, lat, lng, effectiveRadiusKm, favoriteRestaurantIds);
     }
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
@@ -150,7 +154,7 @@ public class ClientController {
     public PageResponse<RestaurantDisplayDto> getAllNearbyRestaurants(
             @RequestParam double lat,
             @RequestParam double lng,
-            @RequestParam(defaultValue = "1000") double radiusKm,
+            @RequestParam(defaultValue = "10") double radiusKm,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int pageSize,
             Authentication authentication
@@ -161,12 +165,13 @@ public class ClientController {
         int effectivePage = Math.max(page, 0);
         int effectivePageSize = pageSize > 0 ? pageSize : 20;
         PageRequest pageRequest = PageRequest.of(effectivePage, effectivePageSize);
-        GeoBounds searchBounds = computeGeoBounds(lat, lng, radiusKm);
+        double effectiveRadiusKm = normalizeRadius(radiusKm);
+        GeoBounds searchBounds = computeGeoBounds(lat, lng, effectiveRadiusKm);
 
         Page<Restaurant> pageResult = restaurantRepository.findNearby(
                 lat,
                 lng,
-                radiusKm,
+                effectiveRadiusKm,
                 searchBounds.minLat(),
                 searchBounds.maxLat(),
                 searchBounds.minLng(),
@@ -189,7 +194,7 @@ public class ClientController {
     public PageResponse<RestaurantDisplayDto> getNearbyRestaurantsWithPromotions(
             @RequestParam double lat,
             @RequestParam double lng,
-            @RequestParam(defaultValue = "1000") double radiusKm,
+            @RequestParam(defaultValue = "10") double radiusKm,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int pageSize,
             Authentication authentication
@@ -200,12 +205,13 @@ public class ClientController {
         int effectivePage = Math.max(page, 0);
         int effectivePageSize = pageSize > 0 ? pageSize : 20;
         PageRequest pageRequest = PageRequest.of(effectivePage, effectivePageSize);
-        GeoBounds searchBounds = computeGeoBounds(lat, lng, radiusKm);
+        double effectiveRadiusKm = normalizeRadius(radiusKm);
+        GeoBounds searchBounds = computeGeoBounds(lat, lng, effectiveRadiusKm);
 
         Page<Restaurant> restaurants = restaurantRepository.findNearbyWithPromotions(
                 lat,
                 lng,
-                radiusKm,
+                effectiveRadiusKm,
                 searchBounds.minLat(),
                 searchBounds.maxLat(),
                 searchBounds.minLng(),
@@ -282,6 +288,13 @@ public class ClientController {
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(BAD_REQUEST, "Unknown restaurant category: " + value);
         }
+    }
+
+    private double normalizeRadius(double radiusKm) {
+        if (radiusKm <= 0) {
+            return 0.0;
+        }
+        return Math.min(radiusKm, MAX_NEARBY_RADIUS_KM);
     }
 
     private List<RestaurantDisplayDto> mapAndEnrich(List<Restaurant> restaurants,
