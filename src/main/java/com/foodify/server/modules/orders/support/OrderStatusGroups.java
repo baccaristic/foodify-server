@@ -13,7 +13,6 @@ public final class OrderStatusGroups {
             OrderStatus.PENDING,
             OrderStatus.ACCEPTED,
             OrderStatus.PREPARING,
-            OrderStatus.READY_FOR_PICK_UP,
-            OrderStatus.IN_DELIVERY
+            OrderStatus.READY_FOR_PICK_UP
     );
 }
