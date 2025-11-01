@@ -9,6 +9,7 @@ public class DeliveryFeeCalculator {
 
     private static final double EARTH_RADIUS_KM = 6371.0;
     private static final double COST_PER_KM = 0.5;
+    private static final double MAX_DELIVERY_FEE = 2.5;
 
     public Optional<Double> calculateFee(Double clientLatitude, Double clientLongitude,
                                          Double restaurantLatitude, Double restaurantLongitude) {
@@ -16,7 +17,7 @@ public class DeliveryFeeCalculator {
                 .map(distance -> {
                     long roundedKilometers = Math.max(1, Math.round(distance));
                     double fee = roundedKilometers * COST_PER_KM;
-                    return fee;
+                    return Math.min(fee, MAX_DELIVERY_FEE);
                 });
     }
 
