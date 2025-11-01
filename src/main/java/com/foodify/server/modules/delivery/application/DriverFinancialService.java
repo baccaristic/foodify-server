@@ -17,6 +17,7 @@ import com.foodify.server.modules.orders.support.OrderPricingCalculator;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -43,7 +44,7 @@ public class DriverFinancialService {
     private final DriverRepository driverRepository;
     private final DriverDepositRepository driverDepositRepository;
     private final AdminRepository adminRepository;
-    private final DriverAvailabilityService driverAvailabilityService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public void recordDelivery(Order order) {
@@ -246,7 +247,10 @@ public class DriverFinancialService {
             driver.setOutstandingDailyFeeDays(updatedOutstandingDays);
             driver.setOutstandingDailyFees(calculateDailyFeeAmount(updatedOutstandingDays));
             driverRepository.save(driver);
-            driverAvailabilityService.refreshAvailability(driver.getId());
+            Long driverId = driver.getId();
+            if (driverId != null) {
+                eventPublisher.publishEvent(new DriverDepositConfirmedEvent(driverId));
+            }
         }
 
         driverDepositRepository.save(deposit);

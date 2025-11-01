@@ -6,6 +6,7 @@ import com.foodify.server.modules.delivery.repository.DriverShiftRepository;
 import com.foodify.server.modules.identity.repository.DriverRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,5 +48,13 @@ public class DriverAvailabilityService {
             log.debug("Marking driver {} as unavailable after order update", driverId);
             driverLocationService.markUnavailable(String.valueOf(driverId));
         }
+    }
+
+    @EventListener
+    public void handleDriverDepositConfirmed(DriverDepositConfirmedEvent event) {
+        if (event == null || event.driverId() == null) {
+            return;
+        }
+        refreshAvailability(event.driverId());
     }
 }
