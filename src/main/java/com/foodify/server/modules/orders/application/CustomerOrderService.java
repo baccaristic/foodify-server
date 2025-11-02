@@ -484,7 +484,7 @@ public class CustomerOrderService {
                 .orElse(BigDecimal.ZERO)
                 .setScale(2, RoundingMode.HALF_UP);
         BigDecimal orderTotal = Optional.ofNullable(order.getTotal())
-                .orElse(itemsTotal.add(deliveryFee).add(serviceFee))
+                .orElse(itemsTotal.add(deliveryFee).add(order.getServiceFee()))
                 .setScale(2, RoundingMode.HALF_UP);
         BigDecimal couponDiscount = Optional.ofNullable(order.getCouponDiscount())
                 .orElse(BigDecimal.ZERO)
@@ -547,7 +547,7 @@ public class CustomerOrderService {
                 couponDiscount,
                 itemsTotal,
                 deliveryFee,
-                serviceFee,
+                order.getServiceFee(),
                 tipPercentage,
                 tipAmount,
                 totalBeforeTip,
