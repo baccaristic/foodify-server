@@ -333,6 +333,8 @@ public class CustomerOrderService {
 
         order.setDeliveryFee(finalDeliveryFee);
 
+        applyTipAndCashPreferences(order, request);
+
         Order savedOrder = orderRepository.save(order);
 
         if (requiresOnlinePayment(savedOrder.getPaymentMethod())) {
@@ -388,6 +390,46 @@ public class CustomerOrderService {
         }
     }
 
+    private void applyTipAndCashPreferences(Order order, OrderRequest request) {
+        if (order == null) {
+            return;
+        }
+
+        BigDecimal totalBeforeTip = Optional.ofNullable(order.getTotal())
+                .orElse(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP))
+                .setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal tipPercentage = Optional.ofNullable(request)
+                .map(OrderRequest::getTipPercentage)
+                .map(value -> value.setScale(2, RoundingMode.HALF_UP))
+                .orElse(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+
+        if (tipPercentage.compareTo(BigDecimal.ZERO) < 0) {
+            tipPercentage = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        if (tipPercentage.compareTo(BigDecimal.valueOf(100)) > 0) {
+            tipPercentage = BigDecimal.valueOf(100).setScale(2, RoundingMode.HALF_UP);
+        }
+
+        BigDecimal tipAmount = totalBeforeTip.multiply(tipPercentage)
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+
+        order.setTipPercentage(tipPercentage);
+        order.setTipAmount(tipAmount);
+        order.setTotal(totalBeforeTip.add(tipAmount).setScale(2, RoundingMode.HALF_UP));
+
+        BigDecimal cashToCollect = Optional.ofNullable(request)
+                .map(OrderRequest::getCashToCollect)
+                .map(value -> value.setScale(2, RoundingMode.HALF_UP))
+                .orElse(null);
+
+        if (cashToCollect != null && cashToCollect.compareTo(BigDecimal.ZERO) < 0) {
+            cashToCollect = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        order.setCashToCollect(cashToCollect);
+    }
+
     private CreateOrderResponse mapToResponse(Order order) {
         List<CreateOrderResponse.OrderedItem> orderedItems = new ArrayList<>();
 
@@ -438,6 +480,21 @@ public class CustomerOrderService {
         BigDecimal couponDiscount = Optional.ofNullable(order.getCouponDiscount())
                 .orElse(BigDecimal.ZERO)
                 .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal tipPercentage = Optional.ofNullable(order.getTipPercentage())
+                .orElse(BigDecimal.ZERO)
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal tipAmount = Optional.ofNullable(order.getTipAmount())
+                .orElse(BigDecimal.ZERO)
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalBeforeTip = orderTotal.subtract(tipAmount);
+        if (totalBeforeTip.compareTo(BigDecimal.ZERO) < 0) {
+            totalBeforeTip = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        } else {
+            totalBeforeTip = totalBeforeTip.setScale(2, RoundingMode.HALF_UP);
+        }
+        BigDecimal cashToCollect = Optional.ofNullable(order.getCashToCollect())
+                .map(amount -> amount.setScale(2, RoundingMode.HALF_UP))
+                .orElse(null);
 
         BigDecimal promotionalSubtotal = itemsSubtotal.subtract(promotionDiscount);
         if (promotionalSubtotal.compareTo(BigDecimal.ZERO) < 0) {
@@ -481,6 +538,10 @@ public class CustomerOrderService {
                 couponDiscount,
                 itemsTotal,
                 deliveryFee,
+                tipPercentage,
+                tipAmount,
+                totalBeforeTip,
+                cashToCollect,
                 order.getPaymentStatus(),
                 order.getPaymentUrl(),
                 order.getPaymentReference(),

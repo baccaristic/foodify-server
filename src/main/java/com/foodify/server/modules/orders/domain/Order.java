@@ -129,6 +129,15 @@ public class Order  {
     @Column(name = "order_total", precision = 12, scale = 2)
     private BigDecimal total;
 
+    @Column(name = "tip_percentage", precision = 5, scale = 2)
+    private BigDecimal tipPercentage;
+
+    @Column(name = "tip_amount", precision = 12, scale = 2)
+    private BigDecimal tipAmount;
+
+    @Column(name = "cash_to_collect", precision = 12, scale = 2)
+    private BigDecimal cashToCollect;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "coupon_id")
     @JsonIgnoreProperties({"assignments", "redemptions"})

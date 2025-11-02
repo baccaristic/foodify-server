@@ -32,6 +32,10 @@ public class OrderDto {
     private BigDecimal itemsTotal;
     private BigDecimal deliveryFee;
     private BigDecimal total;
+    private BigDecimal totalBeforeTip;
+    private BigDecimal tipPercentage;
+    private BigDecimal tipAmount;
+    private BigDecimal cashToCollect;
     private OrderStatus status;
     private LocalDateTime createdAt;
     private List<OrderItemDTO> items = new ArrayList<>();
