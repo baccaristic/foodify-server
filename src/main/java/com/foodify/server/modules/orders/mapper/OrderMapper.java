@@ -99,9 +99,12 @@ public class OrderMapper {
         BigDecimal deliveryFee = Optional.ofNullable(order.getDeliveryFee())
                 .map(amount -> amount.setScale(2, RoundingMode.HALF_UP))
                 .orElse(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+        BigDecimal serviceFee = Optional.ofNullable(order.getServiceFee())
+                .map(amount -> amount.setScale(2, RoundingMode.HALF_UP))
+                .orElse(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
         BigDecimal total = Optional.ofNullable(order.getTotal())
                 .map(amount -> amount.setScale(2, RoundingMode.HALF_UP))
-                .orElse(itemsTotal.add(deliveryFee).setScale(2, RoundingMode.HALF_UP));
+                .orElse(itemsTotal.add(deliveryFee).add(serviceFee).setScale(2, RoundingMode.HALF_UP));
         BigDecimal tipPercentage = Optional.ofNullable(order.getTipPercentage())
                 .orElse(BigDecimal.ZERO)
                 .setScale(2, RoundingMode.HALF_UP);
@@ -123,6 +126,7 @@ public class OrderMapper {
         dto.setPromotionDiscount(promotionDiscount);
         dto.setItemsTotal(itemsTotal);
         dto.setDeliveryFee(deliveryFee);
+        dto.setServiceFee(serviceFee);
         dto.setTotal(total);
         dto.setTotalBeforeTip(totalBeforeTip);
         dto.setTipPercentage(tipPercentage);
@@ -194,3 +198,4 @@ public class OrderMapper {
         return OrderPricingCalculator.calculateItemPricing(item);
     }
 }
+

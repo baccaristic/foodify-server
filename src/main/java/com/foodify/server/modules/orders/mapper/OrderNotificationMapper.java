@@ -82,8 +82,11 @@ public class OrderNotificationMapper {
         BigDecimal deliveryFee = Optional.ofNullable(order.getDeliveryFee())
                 .orElse(BigDecimal.ZERO)
                 .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal serviceFee = Optional.ofNullable(order.getServiceFee())
+                .orElse(BigDecimal.ZERO)
+                .setScale(2, RoundingMode.HALF_UP);
         BigDecimal orderTotal = Optional.ofNullable(order.getTotal())
-                .orElse(itemsTotal.add(deliveryFee))
+                .orElse(itemsTotal.add(deliveryFee).add(serviceFee))
                 .setScale(2, RoundingMode.HALF_UP);
         BigDecimal couponDiscount = Optional.ofNullable(order.getCouponDiscount())
                 .orElse(BigDecimal.ZERO)
@@ -119,6 +122,7 @@ public class OrderNotificationMapper {
                 couponDiscount,
                 itemsTotal,
                 deliveryFee,
+                serviceFee,
                 tipPercentage,
                 tipAmount,
                 totalBeforeTip,
@@ -352,3 +356,4 @@ public class OrderNotificationMapper {
                 .toList();
     }
 }
+

@@ -31,6 +31,7 @@ public class OrderDto {
     private BigDecimal promotionDiscount;
     private BigDecimal itemsTotal;
     private BigDecimal deliveryFee;
+    private BigDecimal serviceFee;
     private BigDecimal total;
     private BigDecimal totalBeforeTip;
     private BigDecimal tipPercentage;
@@ -54,3 +55,5 @@ public class OrderDto {
 
     private boolean upcoming;
 }
+
+

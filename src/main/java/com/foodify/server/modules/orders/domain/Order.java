@@ -126,6 +126,9 @@ public class Order  {
     @Column(name = "delivery_fee", precision = 12, scale = 2)
     private BigDecimal deliveryFee;
 
+    @Column(name = "service_fee", precision = 12, scale = 2)
+    private BigDecimal serviceFee;
+
     @Column(name = "order_total", precision = 12, scale = 2)
     private BigDecimal total;
 
@@ -152,3 +155,4 @@ public class Order  {
     @Column(name = "estimated_ready_at")
     private LocalDateTime estimatedReadyAt;
 }
+

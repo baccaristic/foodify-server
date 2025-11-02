@@ -79,6 +79,7 @@ public record OrderNotificationDTO(
             BigDecimal couponDiscount,
             BigDecimal itemsTotal,
             BigDecimal deliveryFee,
+            BigDecimal serviceFee,
             BigDecimal tipPercentage,
             BigDecimal tipAmount,
             BigDecimal totalBeforeTip,
@@ -99,3 +100,4 @@ public record OrderNotificationDTO(
             LocalDateTime changedAt
     ) {}
 }
+

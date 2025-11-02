@@ -20,6 +20,7 @@ import com.foodify.server.modules.orders.repository.OrderRepository;
 import com.foodify.server.modules.orders.support.OrderPricingCalculator;
 import com.foodify.server.modules.orders.support.OrderPricingCalculator.OrderItemPricing;
 import com.foodify.server.modules.orders.support.OrderPricingCalculator.OrderPricingBreakdown;
+import com.foodify.server.modules.orders.fee.application.ServiceFeeService;
 import com.foodify.server.modules.payments.konnect.KonnectPaymentService;
 import com.foodify.server.modules.payments.konnect.KonnectPaymentService.KonnectPaymentSummary;
 import com.foodify.server.modules.restaurants.application.DeliveryFeeCalculator;
@@ -115,6 +116,7 @@ public class CustomerOrderService {
     private final DeliveryFeeCalculator deliveryFeeCalculator;
     private final CouponService couponService;
     private final KonnectPaymentService konnectPaymentService;
+    private final ServiceFeeService serviceFeeService;
 
     @Transactional
     @Timed(value = "orders.place.sync", description = "Time spent placing orders via API", histogram = true)
@@ -273,6 +275,9 @@ public class CustomerOrderService {
         order.setPromotionDiscount(promotionDiscount);
         order.setItemsTotal(itemsTotal);
 
+        BigDecimal serviceFee = serviceFeeService.getCurrentFeeAmount();
+        order.setServiceFee(serviceFee);
+
         Double clientLatitude = order.getLat();
         Double clientLongitude = order.getLng();
         if (clientLatitude != null && clientLongitude != null
@@ -294,7 +299,8 @@ public class CustomerOrderService {
         order.setCouponDiscount(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
 
         BigDecimal finalDeliveryFee = baseDeliveryFee;
-        BigDecimal baseTotal = itemsTotal.add(baseDeliveryFee).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal baseSubtotal = itemsTotal.add(baseDeliveryFee).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal baseTotal = baseSubtotal.add(serviceFee).setScale(2, RoundingMode.HALF_UP);
         order.setTotal(baseTotal);
 
         Coupon appliedCoupon = null;
@@ -316,14 +322,17 @@ public class CustomerOrderService {
                 deliveryAdjustment = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
             }
 
-            BigDecimal adjustedTotal = baseTotal.subtract(discount)
+            BigDecimal adjustedSubtotal = baseSubtotal.subtract(discount)
                     .subtract(deliveryAdjustment)
                     .max(BigDecimal.ZERO)
                     .setScale(2, RoundingMode.HALF_UP);
 
             BigDecimal couponDiscount = itemsTotal.add(finalDeliveryFee)
-                    .subtract(adjustedTotal)
+                    .subtract(adjustedSubtotal)
                     .max(BigDecimal.ZERO)
+                    .setScale(2, RoundingMode.HALF_UP);
+
+            BigDecimal adjustedTotal = adjustedSubtotal.add(serviceFee)
                     .setScale(2, RoundingMode.HALF_UP);
 
             order.setCoupon(appliedCoupon);
@@ -475,7 +484,7 @@ public class CustomerOrderService {
                 .orElse(BigDecimal.ZERO)
                 .setScale(2, RoundingMode.HALF_UP);
         BigDecimal orderTotal = Optional.ofNullable(order.getTotal())
-                .orElse(itemsTotal.add(deliveryFee))
+                .orElse(itemsTotal.add(deliveryFee).add(serviceFee))
                 .setScale(2, RoundingMode.HALF_UP);
         BigDecimal couponDiscount = Optional.ofNullable(order.getCouponDiscount())
                 .orElse(BigDecimal.ZERO)
@@ -538,6 +547,7 @@ public class CustomerOrderService {
                 couponDiscount,
                 itemsTotal,
                 deliveryFee,
+                serviceFee,
                 tipPercentage,
                 tipAmount,
                 totalBeforeTip,
@@ -642,3 +652,4 @@ public class CustomerOrderService {
         return Character.toUpperCase(name.charAt(0)) + name.substring(1);
     }
 }
+

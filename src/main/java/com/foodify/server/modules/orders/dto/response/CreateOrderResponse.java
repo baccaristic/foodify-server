@@ -28,6 +28,7 @@ public record CreateOrderResponse(
             BigDecimal couponDiscount,
             BigDecimal itemsTotal,
             BigDecimal deliveryFee,
+            BigDecimal serviceFee,
             BigDecimal tipPercentage,
             BigDecimal tipAmount,
             BigDecimal totalBeforeTip,
@@ -56,3 +57,4 @@ public record CreateOrderResponse(
 
     public record Extra(Long id, String name, BigDecimal price) {}
 }
+
