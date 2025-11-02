@@ -1,0 +1,4 @@
+ALTER TABLE orders
+    ADD COLUMN IF NOT EXISTS tip_percentage NUMERIC(5, 2),
+    ADD COLUMN IF NOT EXISTS tip_amount NUMERIC(12, 2),
+    ADD COLUMN IF NOT EXISTS cash_to_collect NUMERIC(12, 2);

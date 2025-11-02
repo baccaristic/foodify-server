@@ -67,7 +67,12 @@ public class DriverFinancialService {
         BigDecimal orderTotal = Optional.ofNullable(order.getTotal())
                 .orElse(itemsTotal.add(deliveryFee)).setScale(2, RoundingMode.HALF_UP);
         BigDecimal commission = itemsTotal.multiply(COMMISSION_RATE).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal driverEarnings = commission.add(deliveryFee).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal tipAmount = Optional.ofNullable(order.getTipAmount())
+                .orElse(ZERO)
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal driverEarnings = commission.add(deliveryFee)
+                .add(tipAmount)
+                .setScale(2, RoundingMode.HALF_UP);
 
         if (isCashOrder(order)) {
             BigDecimal updatedCash = normalize(driver.getCashOnHand()).add(orderTotal).setScale(2, RoundingMode.HALF_UP);

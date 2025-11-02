@@ -102,6 +102,21 @@ public class OrderMapper {
         BigDecimal total = Optional.ofNullable(order.getTotal())
                 .map(amount -> amount.setScale(2, RoundingMode.HALF_UP))
                 .orElse(itemsTotal.add(deliveryFee).setScale(2, RoundingMode.HALF_UP));
+        BigDecimal tipPercentage = Optional.ofNullable(order.getTipPercentage())
+                .orElse(BigDecimal.ZERO)
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal tipAmount = Optional.ofNullable(order.getTipAmount())
+                .orElse(BigDecimal.ZERO)
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalBeforeTip = total.subtract(tipAmount);
+        if (totalBeforeTip.compareTo(BigDecimal.ZERO) < 0) {
+            totalBeforeTip = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        } else {
+            totalBeforeTip = totalBeforeTip.setScale(2, RoundingMode.HALF_UP);
+        }
+        BigDecimal cashToCollect = Optional.ofNullable(order.getCashToCollect())
+                .map(amount -> amount.setScale(2, RoundingMode.HALF_UP))
+                .orElse(null);
 
         dto.setItemsSubtotal(itemsSubtotal);
         dto.setExtrasTotal(extrasTotal);
@@ -109,6 +124,10 @@ public class OrderMapper {
         dto.setItemsTotal(itemsTotal);
         dto.setDeliveryFee(deliveryFee);
         dto.setTotal(total);
+        dto.setTotalBeforeTip(totalBeforeTip);
+        dto.setTipPercentage(tipPercentage);
+        dto.setTipAmount(tipAmount);
+        dto.setCashToCollect(cashToCollect);
 
         return dto;
     }
