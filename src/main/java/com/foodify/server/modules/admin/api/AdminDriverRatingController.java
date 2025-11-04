@@ -1,8 +1,8 @@
 package com.foodify.server.modules.admin.api;
 
-import com.foodify.server.modules.delivery.application.DeliveryRatingService;
-import com.foodify.server.modules.delivery.dto.DeliveryRatingRequest;
-import com.foodify.server.modules.delivery.dto.DeliveryRatingResponse;
+import com.foodify.server.modules.admin.application.AdminDeliveryRatingService;
+import com.foodify.server.modules.admin.dto.DeliveryRatingRequest;
+import com.foodify.server.modules.admin.dto.DeliveryRatingResponse;
 import com.foodify.server.modules.delivery.dto.DriverRatingSummaryDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +24,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminDriverRatingController {
 
-    private final DeliveryRatingService deliveryRatingService;
+    private final AdminDeliveryRatingService deliveryRatingService;
 
     @GetMapping("/{driverId}/ratings/summary")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")

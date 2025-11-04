@@ -2,8 +2,8 @@ package com.foodify.server.modules.admin.api;
 
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderStatus;
-import com.foodify.server.modules.restaurants.application.AdminRestaurantManagementService;
-import com.foodify.server.modules.restaurants.dto.*;
+import com.foodify.server.modules.admin.application.RestaurantManagementService;
+import com.foodify.server.modules.admin.dto.*;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +21,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminRestaurantManagementController {
 
-    private final AdminRestaurantManagementService adminRestaurantManagementService;
+    private final RestaurantManagementService adminRestaurantManagementService;
 
     /**
      * Get restaurants by pagination with filters

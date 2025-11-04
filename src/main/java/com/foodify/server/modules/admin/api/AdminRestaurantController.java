@@ -1,6 +1,6 @@
 package com.foodify.server.modules.admin.api;
 
-import com.foodify.server.modules.restaurants.application.AdminService;
+import com.foodify.server.modules.admin.application.AdminRestaurantService;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
 import com.foodify.server.modules.restaurants.dto.RestaurantDto;
 import jakarta.validation.Valid;
@@ -22,7 +22,7 @@ import java.io.IOException;
 @RequestMapping("/api/admin")
 public class AdminRestaurantController {
 
-    private final AdminService adminService;
+    private final AdminRestaurantService adminService;
 
     @PostMapping(value = {"/restaurant/add", "/restaurants"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")

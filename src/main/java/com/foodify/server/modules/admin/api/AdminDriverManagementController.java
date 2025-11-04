@@ -1,7 +1,9 @@
 package com.foodify.server.modules.admin.api;
 
-import com.foodify.server.modules.delivery.application.AdminDriverManagementService;
-import com.foodify.server.modules.delivery.dto.*;
+import com.foodify.server.modules.admin.application.DriverManagementService;
+import com.foodify.server.modules.admin.dto.*;
+import com.foodify.server.modules.delivery.dto.DriverRatingSummaryDto;
+import com.foodify.server.modules.delivery.dto.DeliveryRatingResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -21,7 +23,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class AdminDriverManagementController {
 
-    private final AdminDriverManagementService adminDriverManagementService;
+    private final DriverManagementService adminDriverManagementService;
 
     /**
      * Get today's revenue with percentage change from yesterday

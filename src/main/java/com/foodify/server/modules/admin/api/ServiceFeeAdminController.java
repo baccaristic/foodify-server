@@ -1,8 +1,8 @@
 package com.foodify.server.modules.admin.api;
 
-import com.foodify.server.modules.orders.fee.application.ServiceFeeService;
-import com.foodify.server.modules.orders.fee.dto.ServiceFeeResponse;
-import com.foodify.server.modules.orders.fee.dto.UpdateServiceFeeRequest;
+import com.foodify.server.modules.admin.application.AdminServiceFeeService;
+import com.foodify.server.modules.admin.dto.fee.ServiceFeeResponse;
+import com.foodify.server.modules.admin.dto.fee.UpdateServiceFeeRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class ServiceFeeAdminController {
 
-    private final ServiceFeeService serviceFeeService;
+    private final AdminServiceFeeService serviceFeeService;
 
     @PutMapping
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
