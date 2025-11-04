@@ -129,4 +129,55 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     AND o.status = :status
     """)
     long countByDriverIdAndStatus(@Param("driverId") Long driverId, @Param("status") OrderStatus status);
+    
+    @Query("""
+    SELECT COALESCE(SUM(o.total), 0) FROM Order o
+    WHERE o.restaurant.id = :restaurantId
+    AND o.status = 'DELIVERED'
+    AND o.date >= :startDate AND o.date < :endDate
+    """)
+    java.math.BigDecimal getTotalRevenueByRestaurantAndDateRange(
+            @Param("restaurantId") Long restaurantId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+    
+    @Query("""
+    SELECT COUNT(o) FROM Order o
+    WHERE o.restaurant.id = :restaurantId
+    AND o.status = 'DELIVERED'
+    AND o.date >= :startDate AND o.date < :endDate
+    """)
+    long countDeliveredOrdersByRestaurantAndDateRange(
+            @Param("restaurantId") Long restaurantId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+    
+    @Query("""
+    SELECT COALESCE(AVG(o.total), 0) FROM Order o
+    WHERE o.restaurant.id = :restaurantId
+    AND o.status = 'DELIVERED'
+    AND o.date >= :startDate AND o.date < :endDate
+    """)
+    Double getAverageOrderValueByRestaurantAndDateRange(
+            @Param("restaurantId") Long restaurantId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+    
+    @EntityGraph(value = Order.SUMMARY_GRAPH, type = EntityGraphType.LOAD)
+    @Query("""
+    SELECT o FROM Order o
+    WHERE o.restaurant.id = :restaurantId
+    AND (:status IS NULL OR o.status = :status)
+    AND CAST(o.date AS date) = CAST(:date AS date)
+    ORDER BY o.date DESC
+    """)
+    Page<Order> findByRestaurantIdAndDateAndStatus(
+            @Param("restaurantId") Long restaurantId,
+            @Param("date") LocalDateTime date,
+            @Param("status") OrderStatus status,
+            Pageable pageable
+    );
 }

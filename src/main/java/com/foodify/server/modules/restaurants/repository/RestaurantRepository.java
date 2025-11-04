@@ -141,4 +141,19 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long>, J
     );
 
     Restaurant getRestaurantByAdmin(RestaurantAdmin admin);
+    
+    @Query("""
+            SELECT r FROM Restaurant r
+            WHERE (:query IS NULL OR 
+                   LOWER(r.name) LIKE LOWER(CONCAT('%', :query, '%')) OR 
+                   LOWER(r.address) LIKE LOWER(CONCAT('%', :query, '%')))
+            AND (:cuisine IS NULL OR EXISTS (
+                SELECT 1 FROM r.categories c WHERE CAST(c AS string) = :cuisine
+            ))
+            """)
+    Page<Restaurant> findRestaurantsWithFilters(
+            @Param("query") String query,
+            @Param("cuisine") String cuisine,
+            Pageable pageable
+    );
 }
