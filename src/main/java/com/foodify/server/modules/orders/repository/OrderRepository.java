@@ -121,4 +121,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("date") LocalDateTime date,
             Pageable pageable
     );
+    
+    @Query("""
+    SELECT COUNT(o) FROM Order o
+    JOIN o.delivery d
+    WHERE d.driver.id = :driverId
+    AND o.status = :status
+    """)
+    long countByDriverIdAndStatus(@Param("driverId") Long driverId, @Param("status") OrderStatus status);
 }

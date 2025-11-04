@@ -2,6 +2,8 @@ package com.foodify.server.modules.delivery.repository;
 
 import com.foodify.server.modules.delivery.domain.DriverShift;
 import com.foodify.server.modules.delivery.domain.DriverShiftStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -97,5 +99,18 @@ public interface DriverShiftRepository extends JpaRepository<DriverShift, Long> 
     Optional<DriverShift> findByIdAndDriverIdWithDetails(
             @Param("shiftId") Long shiftId,
             @Param("driverId") Long driverId
+    );
+    
+    @EntityGraph(attributePaths = {"balance", "deliveries", "deliveries.order", "deliveries.order.restaurant"})
+    @Query("""
+            SELECT s FROM DriverShift s
+            WHERE s.driver.id = :driverId
+            AND CAST(s.startedAt AS date) = CAST(:date AS date)
+            ORDER BY s.startedAt DESC
+            """)
+    Page<DriverShift> findByDriverIdAndDate(
+            @Param("driverId") Long driverId,
+            @Param("date") LocalDateTime date,
+            Pageable pageable
     );
 }
