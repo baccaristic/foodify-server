@@ -1,4 +1,4 @@
-package com.foodify.server.modules.delivery.api;
+package com.foodify.server.modules.admin.api;
 
 import com.foodify.server.modules.delivery.application.DriverFinancialService;
 import com.foodify.server.modules.delivery.domain.DriverDepositStatus;

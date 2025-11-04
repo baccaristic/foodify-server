@@ -1,4 +1,4 @@
-package com.foodify.server.modules.restaurants.api;
+package com.foodify.server.modules.admin.api;
 
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderStatus;

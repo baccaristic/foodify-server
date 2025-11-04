@@ -1,4 +1,4 @@
-package com.foodify.server.modules.restaurants.api;
+package com.foodify.server.modules.admin.api;
 
 import com.foodify.server.modules.restaurants.application.AdminService;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
@@ -20,7 +20,7 @@ import java.io.IOException;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/admin")
-public class AdminController {
+public class AdminRestaurantController {
 
     private final AdminService adminService;
 

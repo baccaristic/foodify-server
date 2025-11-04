@@ -1,4 +1,4 @@
-package com.foodify.server.modules.orders.fee.api;
+package com.foodify.server.modules.admin.api;
 
 import com.foodify.server.modules.orders.fee.application.ServiceFeeService;
 import com.foodify.server.modules.orders.fee.dto.ServiceFeeResponse;

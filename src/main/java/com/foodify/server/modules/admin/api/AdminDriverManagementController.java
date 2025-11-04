@@ -1,4 +1,4 @@
-package com.foodify.server.modules.delivery.api;
+package com.foodify.server.modules.admin.api;
 
 import com.foodify.server.modules.delivery.application.AdminDriverManagementService;
 import com.foodify.server.modules.delivery.dto.*;
