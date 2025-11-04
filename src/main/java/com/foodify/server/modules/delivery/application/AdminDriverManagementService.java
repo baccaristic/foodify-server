@@ -36,6 +36,12 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class AdminDriverManagementService {
+    
+    // Configuration constants
+    private static final BigDecimal DAILY_FEE = BigDecimal.valueOf(5.0);
+    private static final BigDecimal CASH_PAYMENT_RATIO = BigDecimal.valueOf(0.3);
+    private static final BigDecimal CARD_PAYMENT_RATIO = BigDecimal.valueOf(0.7);
+    private static final BigDecimal COMMISSION_RATE = BigDecimal.valueOf(0.15);
 
     private final DriverRepository driverRepository;
     private final DeliveryRepository deliveryRepository;
@@ -109,12 +115,12 @@ public class AdminDriverManagementService {
 
         for (Driver driver : allDrivers) {
             if (driver.getLastDailyFeeDate() != null && driver.getLastDailyFeeDate().equals(today)) {
-                totalCollected = totalCollected.add(BigDecimal.valueOf(5.0)); // Assuming 5 per day
+                totalCollected = totalCollected.add(DAILY_FEE);
                 driversWithPayment++;
             }
         }
 
-        BigDecimal expectedTotal = BigDecimal.valueOf(allDrivers.size() * 5.0);
+        BigDecimal expectedTotal = DAILY_FEE.multiply(BigDecimal.valueOf(allDrivers.size()));
         double percentage = expectedTotal.compareTo(BigDecimal.ZERO) > 0
                 ? totalCollected.divide(expectedTotal, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)).doubleValue()
                 : 0.0;
@@ -215,7 +221,7 @@ public class AdminDriverManagementService {
                 .unpaidEarnings(driver.getUnpaidEarnings())
                 .outstandingDailyFees(driver.getOutstandingDailyFees())
                 .lastDailyFeeDate(driver.getLastDailyFeeDate())
-                .joinedAt(null) // User entity might have this field
+                .joinedAt(null) // Note: joinedAt field not available in current Driver entity
                 .build();
     }
 
@@ -279,10 +285,11 @@ public class AdminDriverManagementService {
         long totalOnTime = deliveryRepository.countOnTimeByDriverId(driverId);
         Double avgDuration = deliveryRepository.getAverageDeliveryTimeByDriverId(driverId);
 
-        // For acceptance and completion rates, we need more data
-        // Simplifying for now - these would need tracking of offered vs accepted orders
-        long totalOffered = totalCompleted; // Placeholder
-        long totalAccepted = totalCompleted; // Placeholder
+        // Note: Actual implementation would require tracking of order offers to drivers
+        // For now, using completed orders as a baseline
+        // Future enhancement: Track order assignments separately
+        long totalOffered = totalCompleted; // Simplified assumption
+        long totalAccepted = totalCompleted; // Simplified assumption
 
         double acceptanceRate = totalOffered > 0 ? (totalAccepted * 100.0 / totalOffered) : 0.0;
         double completionRate = totalAccepted > 0 ? (totalCompleted * 100.0 / totalAccepted) : 0.0;
@@ -457,16 +464,16 @@ public class AdminDriverManagementService {
         for (DriverShift shift : todayShifts) {
             if (shift.getBalance() != null) {
                 totalEarnings = totalEarnings.add(shift.getBalance().getDriverShare());
-                // For cash and card, we need to track payment methods separately
-                // Simplifying here - this would need order payment method tracking
+                // Note: Payment method tracking per order not currently available in the model
+                // Using estimated ratios for cash/card breakdown
                 deliveryCount += shift.getDeliveries().size();
             }
         }
 
-        // Simplified - actual implementation would need to check payment methods per order
-        cashEarnings = totalEarnings.multiply(BigDecimal.valueOf(0.3)); // Estimate
-        cardEarnings = totalEarnings.multiply(BigDecimal.valueOf(0.7)); // Estimate
-        BigDecimal commission = totalEarnings.multiply(BigDecimal.valueOf(0.15)); // Assuming 15% commission
+        // Estimated breakdown - actual implementation would need payment method per order
+        cashEarnings = totalEarnings.multiply(CASH_PAYMENT_RATIO);
+        cardEarnings = totalEarnings.multiply(CARD_PAYMENT_RATIO);
+        BigDecimal commission = totalEarnings.multiply(COMMISSION_RATE);
 
         return TodayEarningsDto.builder()
                 .totalEarnings(totalEarnings)
