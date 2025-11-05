@@ -190,6 +190,21 @@ public class RestaurantService {
         }).orElseThrow(() -> new RuntimeException("Order not found"));
     }
 
+
+    /**
+     * Starts preparing an order by transitioning it from ACCEPTED to PREPARING status.
+     * This method should be called by the restaurant when they begin preparing the order
+     * after a driver has accepted the delivery.
+     *
+     * @param orderId the ID of the order to start preparing
+     * @param userId the ID of the restaurant admin user
+     * @param minutes the estimated time in minutes until the order will be ready
+     * @return the updated order notification DTO
+     * @throws IllegalArgumentException if minutes is null or less than 1
+     * @throws RuntimeException if the user is not authorized to modify this order
+     * @throws IllegalStateException if the order is not in ACCEPTED status
+     * @throws RuntimeException if the order is not found
+     */
     @Transactional
     public OrderNotificationDTO startPreparingOrder(Long orderId, Long userId, Integer minutes) {
         if (minutes == null) {
@@ -217,6 +232,7 @@ public class RestaurantService {
             return loadOrderNotification(savedOrder.getId());
         }).orElseThrow(() -> new RuntimeException("Order not found"));
     }
+
 
     @Transactional(readOnly = true)
     public OrderNotificationDTO getOrderForRestaurant(Long orderId, Long restaurantId) {

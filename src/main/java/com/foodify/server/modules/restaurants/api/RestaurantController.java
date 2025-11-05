@@ -241,8 +241,7 @@ public class RestaurantController {
             @RequestBody @Valid UpdatePreparationEstimateRequest request
     ) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
-        Integer minutes = request != null ? request.minutes() : null;
-        return this.restaurantService.startPreparingOrder(id, userId, minutes);
+        return this.restaurantService.startPreparingOrder(id, userId, request.minutes());
     }
 
     @PostMapping("/order/ready/{id}")
