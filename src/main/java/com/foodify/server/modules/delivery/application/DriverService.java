@@ -143,12 +143,10 @@ public class DriverService {
         deliveryRepository.save(delivery);
         driverRepository.save(driver);
         order.setPendingDriver(null);
-        Order updatedOrder = orderLifecycleService.transition(order, OrderStatus.PREPARING,
-                "driver:" + driverId,
-                "Driver accepted order");
+        orderRepository.save(order);
         driverDispatchService.markDriverAccepted(order.getId());
         driverLocationService.markBusy(String.valueOf(driverId), orderId);
-        return OrderMapper.toDto(updatedOrder);
+        return OrderMapper.toDto(order);
     }
 
     @Transactional
