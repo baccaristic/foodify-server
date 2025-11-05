@@ -189,6 +189,35 @@ public class RestaurantService {
             return loadOrderNotification(savedOrder.getId());
         }).orElseThrow(() -> new RuntimeException("Order not found"));
     }
+
+    @Transactional
+    public OrderNotificationDTO startPreparingOrder(Long orderId, Long userId, Integer minutes) {
+        if (minutes == null) {
+            throw new IllegalArgumentException("Estimated minutes are required");
+        }
+        if (minutes < 1) {
+            throw new IllegalArgumentException("Estimated minutes must be at least 1");
+        }
+
+        return orderRepository.findById(orderId).map(order -> {
+            if (order.getRestaurant() == null
+                    || order.getRestaurant().getAdmin() == null
+                    || !Objects.equals(order.getRestaurant().getAdmin().getId(), userId)) {
+                throw new RuntimeException("Unauthorized");
+            }
+            if (order.getStatus() != OrderStatus.ACCEPTED) {
+                throw new IllegalStateException("Only accepted orders can be started for preparation");
+            }
+
+            order.setEstimatedReadyAt(LocalDateTime.now().plusMinutes(minutes));
+            Order savedOrder = orderLifecycleService.transition(order, OrderStatus.PREPARING,
+                    "restaurant:" + userId,
+                    "Restaurant started preparing order");
+            notifyClientOfOrder(savedOrder);
+            return loadOrderNotification(savedOrder.getId());
+        }).orElseThrow(() -> new RuntimeException("Order not found"));
+    }
+
     @Transactional(readOnly = true)
     public OrderNotificationDTO getOrderForRestaurant(Long orderId, Long restaurantId) {
         return orderRepository.findDetailedById(orderId)

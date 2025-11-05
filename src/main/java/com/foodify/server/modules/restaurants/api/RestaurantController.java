@@ -233,6 +233,18 @@ public class RestaurantController {
         return this.restaurantService.updatePreparationEstimate(id, userId, minutes);
     }
 
+    @PostMapping("/order/{id}/start-preparing")
+    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    public OrderNotificationDTO startPreparingOrder(
+            Authentication authentication,
+            @PathVariable Long id,
+            @RequestBody @Valid UpdatePreparationEstimateRequest request
+    ) {
+        Long userId = Long.parseLong((String) authentication.getPrincipal());
+        Integer minutes = request != null ? request.minutes() : null;
+        return this.restaurantService.startPreparingOrder(id, userId, minutes);
+    }
+
     @PostMapping("/order/ready/{id}")
     @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
     public OrderNotificationDTO readyOrder(Authentication authentication, @PathVariable Long id) {
