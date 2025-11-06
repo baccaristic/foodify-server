@@ -55,8 +55,14 @@ public class Restaurant {
     @Column(name = "delivery_time_range")
     private String deliveryTimeRange;
 
+    /**
+     * Restaurant's commission rate (x) where x > 18%.
+     * This represents the restaurant's margin.
+     * Foodify's actual share is (x - 12)% of the order plus service fee,
+     * since drivers get 12% commission of the order total (excluding delivery fee).
+     */
     @Column(name = "restaurant_share_rate", precision = 5, scale = 4, nullable = true)
-    private BigDecimal commissionRate = BigDecimal.valueOf(0.17).setScale(4, RoundingMode.HALF_UP);
+    private BigDecimal commissionRate = BigDecimal.valueOf(0.20).setScale(4, RoundingMode.HALF_UP);
 
     @OneToOne
     @JoinColumn(name = "admin_id")
