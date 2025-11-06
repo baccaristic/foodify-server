@@ -19,6 +19,7 @@ public class DriverAvailabilityService {
     private final DriverLocationService driverLocationService;
     private final DriverDispatchService driverDispatchService;
     private final DriverRepository driverRepository;
+    private final DriverFinancialService driverFinancialService;
 
     @Transactional
     public void refreshAvailability(Long driverId) {
@@ -31,13 +32,18 @@ public class DriverAvailabilityService {
                 .isPresent();
 
         if (hasActiveShift) {
-            boolean depositRequired = driverRepository.findById(driverId)
-                    .map(driver -> driver.getCashOnHand() != null
-                            && driver.getCashOnHand().setScale(2, java.math.RoundingMode.HALF_UP)
-                            .compareTo(DriverFinancialService.DEPOSIT_THRESHOLD) >= 0)
+            boolean canWork = driverRepository.findById(driverId)
+                    .map(driver -> {
+                        boolean depositRequired = driverFinancialService.isDepositRequired(driver);
+                        boolean deadlinePassed = driverFinancialService.hasDepositDeadlinePassed(driver);
+                        
+                        // Driver cannot work if deposit is required AND deadline has passed
+                        return !(depositRequired && deadlinePassed);
+                    })
                     .orElse(false);
-            if (depositRequired) {
-                log.debug("Keeping driver {} unavailable due to pending cash deposit", driverId);
+                    
+            if (!canWork) {
+                log.debug("Keeping driver {} unavailable due to deposit deadline passed", driverId);
                 driverLocationService.markUnavailable(String.valueOf(driverId));
                 return;
             }

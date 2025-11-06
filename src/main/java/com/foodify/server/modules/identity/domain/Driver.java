@@ -10,6 +10,7 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -62,4 +63,7 @@ public class Driver extends User {
 
     @Column(name = "last_daily_fee_date")
     private LocalDate lastDailyFeeDate;
+
+    @Column(name = "deposit_warning_sent_at")
+    private LocalDateTime depositWarningSentAt;
 }
