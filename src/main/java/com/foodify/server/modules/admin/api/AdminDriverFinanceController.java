@@ -1,11 +1,11 @@
-package com.foodify.server.modules.delivery.api;
+package com.foodify.server.modules.admin.api;
 
-import com.foodify.server.modules.delivery.application.DriverFinancialService;
+import com.foodify.server.modules.admin.application.AdminDriverFinancialService;
 import com.foodify.server.modules.delivery.domain.DriverDepositStatus;
-import com.foodify.server.modules.delivery.dto.DriverDailyFeePaymentRequest;
-import com.foodify.server.modules.delivery.dto.DriverDepositAdminDto;
-import com.foodify.server.modules.delivery.dto.DriverDepositPreviewDto;
-import com.foodify.server.modules.delivery.dto.DriverFinancialSummaryDto;
+import com.foodify.server.modules.admin.dto.DriverDailyFeePaymentRequest;
+import com.foodify.server.modules.admin.dto.DriverDepositAdminDto;
+import com.foodify.server.modules.admin.dto.DriverDepositPreviewDto;
+import com.foodify.server.modules.admin.dto.DriverFinancialSummaryDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,7 +26,7 @@ import java.util.List;
 @RequestMapping("/api/admin/drivers")
 @RequiredArgsConstructor
 public class AdminDriverFinanceController {
-    private final DriverFinancialService driverFinancialService;
+    private final AdminDriverFinancialService driverFinancialService;
 
     @GetMapping("/{driverId}/finance")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")

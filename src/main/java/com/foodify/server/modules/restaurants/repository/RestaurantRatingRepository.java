@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 public interface RestaurantRatingRepository extends JpaRepository<RestaurantRating, Long> {
@@ -20,6 +21,21 @@ public interface RestaurantRatingRepository extends JpaRepository<RestaurantRati
             WHERE r.restaurant.id = :restaurantId
             """)
     RatingAggregate findAggregateByRestaurantId(@Param("restaurantId") Long restaurantId);
+    
+    @Query("""
+            SELECT new com.foodify.server.modules.restaurants.repository.RestaurantRatingRepository$RatingAggregate(
+                COUNT(r),
+                COALESCE(SUM(CASE WHEN r.thumbsUp = true THEN 1 ELSE 0 END), 0)
+            )
+            FROM RestaurantRating r
+            WHERE r.restaurant.id = :restaurantId
+            AND r.createdAt >= :startDate AND r.createdAt < :endDate
+            """)
+    RatingAggregate findAggregateByRestaurantIdAndDateRange(
+            @Param("restaurantId") Long restaurantId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
 
     record RatingAggregate(long totalCount, long thumbsUpCount) {
     }
