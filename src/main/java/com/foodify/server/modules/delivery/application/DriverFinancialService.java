@@ -37,7 +37,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class DriverFinancialService {
     public static final BigDecimal DEPOSIT_THRESHOLD = new BigDecimal("250.00").setScale(2, RoundingMode.HALF_UP);
-    public static final BigDecimal DAILY_FEE = new BigDecimal("20.00").setScale(2, RoundingMode.HALF_UP);
+    public static final BigDecimal DAILY_FEE = new BigDecimal("5.00").setScale(2, RoundingMode.HALF_UP);
+    public static final long DEPOSIT_DEADLINE_HOURS = 24;
     private static final BigDecimal ZERO = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
     private static final BigDecimal COMMISSION_RATE = new BigDecimal("0.12");
 
@@ -84,6 +85,9 @@ public class DriverFinancialService {
                 .setScale(2, RoundingMode.HALF_UP);
         driver.setUnpaidEarnings(updatedEarnings);
         driverRepository.save(driver);
+        
+        // Check if deposit warning needs to be sent
+        checkAndSendDepositWarning(driver);
     }
 
     private boolean isCashOrder(Order order) {
@@ -113,9 +117,35 @@ public class DriverFinancialService {
         return normalize(driver.getCashOnHand()).compareTo(DEPOSIT_THRESHOLD) >= 0;
     }
 
+    public boolean hasDepositDeadlinePassed(Driver driver) {
+        if (driver == null || driver.getDepositWarningSentAt() == null) {
+            return false;
+        }
+        LocalDateTime deadline = driver.getDepositWarningSentAt().plusHours(DEPOSIT_DEADLINE_HOURS);
+        return LocalDateTime.now().isAfter(deadline);
+    }
+
     public void assertCanWork(Driver driver) {
-        if (isDepositRequired(driver)) {
-            throw new IllegalStateException("Deposit required before accepting new orders or starting a shift.");
+        if (isDepositRequired(driver) && hasDepositDeadlinePassed(driver)) {
+            throw new IllegalStateException("Driver cannot work. Deposit deadline has passed. Please deposit cash to continue working.");
+        }
+    }
+
+    public void checkAndSendDepositWarning(Driver driver) {
+        if (driver == null) {
+            return;
+        }
+        
+        boolean depositRequired = isDepositRequired(driver);
+        boolean alreadyWarned = driver.getDepositWarningSentAt() != null;
+        
+        if (depositRequired && !alreadyWarned) {
+            // Mark as warned to prevent duplicate notifications
+            driver.setDepositWarningSentAt(LocalDateTime.now());
+            driverRepository.save(driver);
+            
+            // Publish event for notification services to handle
+            eventPublisher.publishEvent(new DriverDepositWarningEvent(driver.getId()));
         }
     }
 
@@ -251,6 +281,10 @@ public class DriverFinancialService {
             int updatedOutstandingDays = Math.max(0, currentOutstandingDays - paidDays);
             driver.setOutstandingDailyFeeDays(updatedOutstandingDays);
             driver.setOutstandingDailyFees(calculateDailyFeeAmount(updatedOutstandingDays));
+            
+            // Clear the deposit warning timestamp since deposit is confirmed
+            driver.setDepositWarningSentAt(null);
+            
             driverRepository.save(driver);
             Long driverId = driver.getId();
             if (driverId != null) {
