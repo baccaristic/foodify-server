@@ -36,7 +36,9 @@ public class DriverDepositWarningListener {
 
         String title = "Deposit Required";
         String body = String.format(
-            "You have reached 250dt cash on hand. Please deposit the cash within 24 hours to continue working."
+            "You have reached %sdt cash on hand. Please deposit the cash within %d hours to continue working.",
+            DriverFinancialService.DEPOSIT_THRESHOLD,
+            DriverFinancialService.DEPOSIT_DEADLINE_HOURS
         );
 
         // Send push notification
