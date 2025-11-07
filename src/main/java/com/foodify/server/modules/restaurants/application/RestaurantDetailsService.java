@@ -234,27 +234,20 @@ public class RestaurantDetailsService {
     }
 
     private List<RestaurantDetailsResponse.MenuCategory> mapCategories(Map<String, List<MenuItem>> itemsByCategory, Set<Long> favoriteMenuItemIds) {
+        // Pre-process category translations for O(1) lookup
+        Map<String, MenuCategory> categoryMap = new java.util.HashMap<>();
+        itemsByCategory.values().stream()
+                .flatMap(List::stream)
+                .flatMap(item -> item.getCategories() != null ? item.getCategories().stream() : java.util.stream.Stream.empty())
+                .forEach(cat -> categoryMap.putIfAbsent(cat.getName(), cat));
+        
         return itemsByCategory.entrySet().stream()
                 .map(entry -> {
-                    // Get the first category from the list to extract translation fields
-                    String nameEn = null;
-                    String nameFr = null;
-                    String nameAr = null;
-                    
-                    if (!entry.getValue().isEmpty()) {
-                        MenuItem firstItem = entry.getValue().get(0);
-                        if (firstItem.getCategories() != null && !firstItem.getCategories().isEmpty()) {
-                            Optional<MenuCategory> matchingCategory = firstItem.getCategories().stream()
-                                    .filter(cat -> entry.getKey().equals(cat.getName()))
-                                    .findFirst();
-                            if (matchingCategory.isPresent()) {
-                                MenuCategory cat = matchingCategory.get();
-                                nameEn = cat.getNameEn();
-                                nameFr = cat.getNameFr();
-                                nameAr = cat.getNameAr();
-                            }
-                        }
-                    }
+                    // Efficient O(1) lookup for category translations
+                    MenuCategory category = categoryMap.get(entry.getKey());
+                    String nameEn = category != null ? category.getNameEn() : null;
+                    String nameFr = category != null ? category.getNameFr() : null;
+                    String nameAr = category != null ? category.getNameAr() : null;
                     
                     return new RestaurantDetailsResponse.MenuCategory(
                             entry.getKey(),
