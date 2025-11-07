@@ -7,6 +7,7 @@ import com.foodify.server.modules.identity.repository.ClientRepository;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.restaurants.application.DeliveryFeeCalculator;
+import com.foodify.server.modules.restaurants.application.RestaurantDeliveryMetricsService;
 import com.foodify.server.modules.restaurants.application.RestaurantDetailsService;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
@@ -60,6 +61,7 @@ public class ClientController {
     private final RestaurantMapper restaurantMapper;
     private final RestaurantDetailsService restaurantDetailsService;
     private final DeliveryFeeCalculator deliveryFeeCalculator;
+    private final RestaurantDeliveryMetricsService deliveryMetricsService;
     private final OrderRepository orderRepository;
     private final MenuItemRepository menuItemRepository;
 
@@ -306,6 +308,7 @@ public class ClientController {
         }
         List<RestaurantDisplayDto> dtos = restaurantMapper.toDto(restaurants);
         Map<Long, List<MenuItem>> promotionsByRestaurant = groupPromotions(restaurants);
+        
         for (int i = 0; i < restaurants.size(); i++) {
             Restaurant entity = restaurants.get(i);
             RestaurantDisplayDto dto = dtos.get(i);
@@ -315,8 +318,25 @@ public class ClientController {
             deliveryFeeCalculator.calculateFee(clientLat, clientLng, entity.getLatitude(), entity.getLongitude())
                     .ifPresent(dto::setDeliveryFee);
             applyPromotionInfo(dto, entity, promotionsByRestaurant);
+            
+            // Add estimated delivery time
+            enrichWithDeliveryTime(dto, entity, clientLat, clientLng);
         }
         return dtos;
+    }
+    
+    private void enrichWithDeliveryTime(RestaurantDisplayDto dto,
+                                        Restaurant restaurant,
+                                        double clientLat,
+                                        double clientLng) {
+        if (restaurant.getId() == null) {
+            return;
+        }
+        
+        // Calculate distance and estimated delivery time
+        double distance = haversine(clientLat, clientLng, restaurant.getLatitude(), restaurant.getLongitude());
+        Integer estimatedTime = deliveryMetricsService.calculateEstimatedDeliveryTime(restaurant.getId(), distance);
+        dto.setEstimatedDeliveryTime(estimatedTime);
     }
 
     private Map<Long, List<MenuItem>> groupPromotions(List<Restaurant> restaurants) {

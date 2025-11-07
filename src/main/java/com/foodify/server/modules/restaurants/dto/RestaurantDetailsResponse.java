@@ -30,6 +30,7 @@ public record RestaurantDetailsResponse(
         double latitude,
         double longitude,
         Double deliveryFee,
+        Integer estimatedDeliveryTime,
         boolean favorite,
         List<RestaurantBadge> highlights,
         List<String> quickFilters,

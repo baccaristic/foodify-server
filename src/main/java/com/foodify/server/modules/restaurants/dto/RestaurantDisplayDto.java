@@ -35,4 +35,7 @@ public class RestaurantDisplayDto {
     private Double deliveryFee;
     private boolean hasPromotion;
     private String promotionSummary;
+    
+    // Delivery time estimation in minutes
+    private Integer estimatedDeliveryTime;
 }

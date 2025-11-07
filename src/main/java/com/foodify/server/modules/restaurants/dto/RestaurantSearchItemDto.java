@@ -21,6 +21,8 @@ public record RestaurantSearchItemDto(
         String imageUrl,
         String iconUrl,
         Set<RestaurantCategory> categories,
-        List<MenuItemPromotionDto> promotedMenuItems
+        List<MenuItemPromotionDto> promotedMenuItems,
+        // Delivery time estimation in minutes
+        Integer estimatedDeliveryTime
 ) {
 }

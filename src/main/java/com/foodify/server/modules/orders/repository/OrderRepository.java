@@ -121,4 +121,22 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("date") LocalDateTime date,
             Pageable pageable
     );
+    
+    @Query("""
+    SELECT o.restaurant.id as restaurantId,
+           COUNT(o) as totalOrders,
+           SUM(CASE WHEN o.status = 'DELIVERED' THEN 1 ELSE 0 END) as completedOrders,
+           AVG(CASE WHEN o.delivery.deliveryTime IS NOT NULL 
+               THEN o.delivery.deliveryTime / 60000.0 ELSE NULL END) as avgDeliveryMinutes,
+           AVG(CASE WHEN o.delivery.timeToPickUp IS NOT NULL 
+               THEN o.delivery.timeToPickUp / 60000.0 ELSE NULL END) as avgPreparationMinutes
+    FROM Order o
+    LEFT JOIN o.delivery d
+    WHERE o.restaurant.id = :restaurantId
+      AND o.archivedAt IS NULL
+    GROUP BY o.restaurant.id
+    """)
+    List<com.foodify.server.modules.restaurants.application.RestaurantDeliveryMetricsService.OrderStats> getRestaurantOrderStats(
+            @Param("restaurantId") Long restaurantId
+    );
 }
