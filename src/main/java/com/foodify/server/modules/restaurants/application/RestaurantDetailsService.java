@@ -44,6 +44,7 @@ public class RestaurantDetailsService {
     private final RestaurantOperatingHourRepository restaurantOperatingHourRepository;
     private final RestaurantSpecialDayRepository restaurantSpecialDayRepository;
     private final DeliveryFeeCalculator deliveryFeeCalculator;
+    private final RestaurantDeliveryMetricsService deliveryMetricsService;
 
     @Transactional()
     public RestaurantDetailsResponse getRestaurantDetails(Long restaurantId) {
@@ -111,6 +112,21 @@ public class RestaurantDetailsService {
                 restaurant.getLatitude(),
                 restaurant.getLongitude()
         ).orElse(null);
+        
+        // Calculate estimated delivery time
+        Integer estimatedDeliveryTime = null;
+        if (clientLatitude != null && clientLongitude != null && restaurant.getId() != null) {
+            double distance = deliveryFeeCalculator.calculateDistance(
+                    clientLatitude,
+                    clientLongitude,
+                    restaurant.getLatitude(),
+                    restaurant.getLongitude()
+            ).orElse(0.0);
+            estimatedDeliveryTime = deliveryMetricsService.calculateEstimatedDeliveryTime(
+                    restaurant.getId(),
+                    distance
+            );
+        }
 
         return new RestaurantDetailsResponse(
                 restaurant.getId(),
@@ -133,6 +149,7 @@ public class RestaurantDetailsService {
                 restaurant.getLatitude(),
                 restaurant.getLongitude(),
                 deliveryFee,
+                estimatedDeliveryTime,
                 restaurantFavorites.contains(restaurant.getId()),
                 highlights,
                 quickFilters,
