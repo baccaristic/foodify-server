@@ -30,6 +30,20 @@ Many endpoints require a JWT access token. You can obtain a token by calling one
 - The OpenAPI specification is available at `/v3/api-docs` (JSON) or `/v3/api-docs.yaml` (YAML).
 - Swagger UI and the OpenAPI documents are publicly accessible while the rest of the API remains protected by the existing security configuration.
 
+## Admin Push Notification APIs
+
+Admins can send push notifications through the following endpoints:
+
+- `POST /api/admin/notifications/push/bulk` - Send notifications to all users or filter by role (CLIENT, DRIVER, RESTAURANT_ADMIN)
+- `POST /api/admin/notifications/push/user/{userId}` - Send notification to a specific user
+
+Both endpoints support:
+- Customizable title and message body
+- Optional data payload (JSON object with custom key-value pairs)
+- Detailed response with success/failure counts
+
+These endpoints require ADMIN role authentication.
+
 ## Client nearby restaurant APIs
 
 The consolidated `/api/client/nearby` endpoint has been split into focused endpoints so clients can
