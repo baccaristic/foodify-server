@@ -116,6 +116,12 @@ public class RestaurantDetailsService {
                 restaurant.getId(),
                 restaurant.getName(),
                 restaurant.getDescription(),
+                restaurant.getNameEn(),
+                restaurant.getNameFr(),
+                restaurant.getNameAr(),
+                restaurant.getDescriptionEn(),
+                restaurant.getDescriptionFr(),
+                restaurant.getDescriptionAr(),
                 restaurant.getImageUrl(),
                 restaurant.getIconUrl(),
                 restaurant.getAddress(),
@@ -210,6 +216,12 @@ public class RestaurantDetailsService {
                 item.getId(),
                 item.getName(),
                 item.getDescription(),
+                item.getNameEn(),
+                item.getNameFr(),
+                item.getNameAr(),
+                item.getDescriptionEn(),
+                item.getDescriptionFr(),
+                item.getDescriptionAr(),
                 item.getPrice(),
                 firstImage(item),
                 item.isPopular(),
@@ -223,12 +235,37 @@ public class RestaurantDetailsService {
 
     private List<RestaurantDetailsResponse.MenuCategory> mapCategories(Map<String, List<MenuItem>> itemsByCategory, Set<Long> favoriteMenuItemIds) {
         return itemsByCategory.entrySet().stream()
-                .map(entry -> new RestaurantDetailsResponse.MenuCategory(
-                        entry.getKey(),
-                        entry.getValue().stream()
-                                .map(item -> toDetails(item, favoriteMenuItemIds))
-                                .toList()
-                ))
+                .map(entry -> {
+                    // Get the first category from the list to extract translation fields
+                    String nameEn = null;
+                    String nameFr = null;
+                    String nameAr = null;
+                    
+                    if (!entry.getValue().isEmpty()) {
+                        MenuItem firstItem = entry.getValue().get(0);
+                        if (firstItem.getCategories() != null && !firstItem.getCategories().isEmpty()) {
+                            Optional<MenuCategory> matchingCategory = firstItem.getCategories().stream()
+                                    .filter(cat -> entry.getKey().equals(cat.getName()))
+                                    .findFirst();
+                            if (matchingCategory.isPresent()) {
+                                MenuCategory cat = matchingCategory.get();
+                                nameEn = cat.getNameEn();
+                                nameFr = cat.getNameFr();
+                                nameAr = cat.getNameAr();
+                            }
+                        }
+                    }
+                    
+                    return new RestaurantDetailsResponse.MenuCategory(
+                            entry.getKey(),
+                            nameEn,
+                            nameFr,
+                            nameAr,
+                            entry.getValue().stream()
+                                    .map(item -> toDetails(item, favoriteMenuItemIds))
+                                    .toList()
+                    );
+                })
                 .toList();
     }
 
@@ -238,6 +275,12 @@ public class RestaurantDetailsService {
                 item.getId(),
                 item.getName(),
                 item.getDescription(),
+                item.getNameEn(),
+                item.getNameFr(),
+                item.getNameAr(),
+                item.getDescriptionEn(),
+                item.getDescriptionFr(),
+                item.getDescriptionAr(),
                 item.getPrice(),
                 firstImage(item),
                 item.isPopular(),
@@ -256,6 +299,9 @@ public class RestaurantDetailsService {
         return new RestaurantDetailsResponse.MenuOptionGroupDto(
                 group.getId(),
                 group.getName(),
+                group.getNameEn(),
+                group.getNameFr(),
+                group.getNameAr(),
                 group.getMinSelect(),
                 group.getMaxSelect(),
                 group.isRequired(),
@@ -269,6 +315,9 @@ public class RestaurantDetailsService {
         return new RestaurantDetailsResponse.MenuItemExtraDto(
                 extra.getId(),
                 extra.getName(),
+                extra.getNameEn(),
+                extra.getNameFr(),
+                extra.getNameAr(),
                 extra.getPrice(),
                 extra.isDefault()
         );

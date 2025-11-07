@@ -11,6 +11,15 @@ public class MenuItemRequestDTO {
     private Long id;
     private String name;
     private String description;
+    
+    // Multi-language support
+    private String nameEn;
+    private String nameFr;
+    private String nameAr;
+    private String descriptionEn;
+    private String descriptionFr;
+    private String descriptionAr;
+    
     private double price;
     private List<Long> categoryIds;
     private boolean popular;

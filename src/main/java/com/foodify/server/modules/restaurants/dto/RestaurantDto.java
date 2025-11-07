@@ -18,6 +18,14 @@ public class RestaurantDto {
     @NotBlank
     @Schema(description = "Restaurant display name", example = "La Piazza")
     private String name;
+    
+    // Multi-language support
+    @Schema(description = "Restaurant name in English", example = "La Piazza")
+    private String nameEn;
+    @Schema(description = "Restaurant name in French", example = "La Piazza")
+    private String nameFr;
+    @Schema(description = "Restaurant name in Arabic", example = "لا بيازا")
+    private String nameAr;
 
     @NotBlank
     @Schema(description = "Street address of the restaurant", example = "742 Evergreen Terrace")
@@ -29,6 +37,14 @@ public class RestaurantDto {
 
     @Schema(description = "Short description visible to customers", example = "Authentic Italian cuisine with a modern twist")
     private String description;
+    
+    // Multi-language support for description
+    @Schema(description = "Restaurant description in English")
+    private String descriptionEn;
+    @Schema(description = "Restaurant description in French")
+    private String descriptionFr;
+    @Schema(description = "Restaurant description in Arabic")
+    private String descriptionAr;
 
     @Schema(description = "Restaurant categories", example = "[\"ITALIAN\", \"PASTA\"]")
     private Set<RestaurantCategory> categories;

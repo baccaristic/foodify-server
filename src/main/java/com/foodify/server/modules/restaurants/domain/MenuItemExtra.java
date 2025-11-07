@@ -14,6 +14,15 @@ public class MenuItemExtra {
     private Long id;
 
     private String name;       // e.g. "Onion +", "Cordon bleu", "Cheddar ++"
+    
+    // Multi-language support
+    @Column(name = "name_en")
+    private String nameEn;
+    @Column(name = "name_fr")
+    private String nameFr;
+    @Column(name = "name_ar")
+    private String nameAr;
+    
     private double price;      // 0 if included, >0 if extra cost
     private boolean isDefault; // optional: pre-selected in frontend
 

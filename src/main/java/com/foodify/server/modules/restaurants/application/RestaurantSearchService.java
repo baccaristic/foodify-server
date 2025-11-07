@@ -121,6 +121,9 @@ public class RestaurantSearchService {
         return new RestaurantSearchItemDto(
                 restaurant.getId(),
                 restaurant.getName(),
+                restaurant.getNameEn(),
+                restaurant.getNameFr(),
+                restaurant.getNameAr(),
                 restaurant.getDeliveryTimeRange(),
                 restaurant.getRating(),
                 Boolean.TRUE.equals(restaurant.getTopChoice()),
@@ -138,6 +141,9 @@ public class RestaurantSearchService {
         return new MenuItemPromotionDto(
                 menuItem.getId(),
                 menuItem.getName(),
+                menuItem.getNameEn(),
+                menuItem.getNameFr(),
+                menuItem.getNameAr(),
                 menuItem.getPrice(),
                 menuItem.getPromotionPrice(),
                 menuItem.getPromotionLabel(),

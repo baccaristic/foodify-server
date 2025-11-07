@@ -12,6 +12,13 @@ public record RestaurantDetailsResponse(
         Long id,
         String name,
         String description,
+        // Multi-language support
+        String nameEn,
+        String nameFr,
+        String nameAr,
+        String descriptionEn,
+        String descriptionFr,
+        String descriptionAr,
         String imageUrl,
         String iconUrl,
         String address,
@@ -37,6 +44,13 @@ public record RestaurantDetailsResponse(
             Long id,
             String name,
             String description,
+            // Multi-language support
+            String nameEn,
+            String nameFr,
+            String nameAr,
+            String descriptionEn,
+            String descriptionFr,
+            String descriptionAr,
             double price,
             String imageUrl,
             boolean popular,
@@ -47,12 +61,19 @@ public record RestaurantDetailsResponse(
             boolean favorite
     ) {}
 
-    public record MenuCategory(String name, List<MenuItemDetails> items) {}
+    public record MenuCategory(String name, String nameEn, String nameFr, String nameAr, List<MenuItemDetails> items) {}
 
     public record MenuItemDetails(
             Long id,
             String name,
             String description,
+            // Multi-language support
+            String nameEn,
+            String nameFr,
+            String nameAr,
+            String descriptionEn,
+            String descriptionFr,
+            String descriptionAr,
             double price,
             String imageUrl,
             boolean popular,
@@ -67,13 +88,17 @@ public record RestaurantDetailsResponse(
     public record MenuOptionGroupDto(
             Long id,
             String name,
+            // Multi-language support
+            String nameEn,
+            String nameFr,
+            String nameAr,
             int minSelect,
             int maxSelect,
             boolean required,
             List<MenuItemExtraDto> extras
     ) {}
 
-    public record MenuItemExtraDto(Long id, String name, double price, boolean defaultOption) {}
+    public record MenuItemExtraDto(Long id, String name, String nameEn, String nameFr, String nameAr, double price, boolean defaultOption) {}
 
     public record WeeklyScheduleEntry(
             DayOfWeek day,

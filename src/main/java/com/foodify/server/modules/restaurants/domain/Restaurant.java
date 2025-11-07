@@ -36,6 +36,21 @@ public class Restaurant {
     private String openingHours;
     private String closingHours;
     private String description;
+    
+    // Multi-language support
+    @Column(name = "name_en")
+    private String nameEn;
+    @Column(name = "name_fr")
+    private String nameFr;
+    @Column(name = "name_ar")
+    private String nameAr;
+    @Column(name = "description_en")
+    private String descriptionEn;
+    @Column(name = "description_fr")
+    private String descriptionFr;
+    @Column(name = "description_ar")
+    private String descriptionAr;
+    
     private String licenseNumber;
     private String taxId;
     private double latitude;
