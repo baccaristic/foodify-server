@@ -3,6 +3,8 @@ package com.foodify.server.modules.restaurants.application;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
 import com.foodify.server.modules.restaurants.domain.RestaurantCategory;
+import com.foodify.server.modules.restaurants.domain.RestaurantSpecialDay;
+import com.foodify.server.modules.restaurants.domain.RestaurantWeeklyOperatingHour;
 import com.foodify.server.modules.restaurants.dto.PageResponse;
 import com.foodify.server.modules.restaurants.dto.MenuItemPromotionDto;
 import com.foodify.server.modules.restaurants.dto.RestaurantSearchItemDto;
@@ -10,6 +12,8 @@ import com.foodify.server.modules.restaurants.dto.RestaurantSearchQuery;
 import com.foodify.server.modules.restaurants.dto.RestaurantSearchSort;
 import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
+import com.foodify.server.modules.restaurants.repository.RestaurantOperatingHourRepository;
+import com.foodify.server.modules.restaurants.repository.RestaurantSpecialDayRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -20,6 +24,8 @@ import org.springframework.stereotype.Service;
 
 import jakarta.persistence.criteria.JoinType;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -37,6 +43,9 @@ public class RestaurantSearchService {
     private final MenuItemRepository menuItemRepository;
     private final DeliveryFeeCalculator deliveryFeeCalculator;
     private final RestaurantDeliveryMetricsService deliveryMetricsService;
+    private final RestaurantOperatingStatusService operatingStatusService;
+    private final RestaurantOperatingHourRepository operatingHourRepository;
+    private final RestaurantSpecialDayRepository specialDayRepository;
 
     public PageResponse<RestaurantSearchItemDto> search(RestaurantSearchQuery query, Set<Long> favoriteRestaurantIds, Set<Long> favoriteMenuItemIds) {
         Specification<Restaurant> specification = buildSpecification(query);
@@ -132,6 +141,23 @@ public class RestaurantSearchService {
             );
         }
         
+        // Calculate isOpen status and get operating hours from weekly schedule
+        LocalDate currentDate = LocalDate.now();
+        LocalTime currentTime = LocalTime.now();
+        List<RestaurantWeeklyOperatingHour> weeklyHours = restaurant.getId() != null
+                ? operatingHourRepository.findByRestaurant_IdOrderByDayOfWeekAsc(restaurant.getId())
+                : List.of();
+        List<RestaurantSpecialDay> specialDays = restaurant.getId() != null
+                ? specialDayRepository.findByRestaurant_IdOrderByDateAsc(restaurant.getId())
+                : List.of();
+        
+        boolean isOpen = operatingStatusService.isRestaurantOpen(weeklyHours, specialDays, currentDate, currentTime);
+        RestaurantOperatingStatusService.OperatingHours operatingHours = 
+                operatingStatusService.getOperatingHoursForDate(weeklyHours, specialDays, currentDate);
+        
+        String openingHours = operatingHours != null ? operatingHours.getOpeningHoursFormatted() : restaurant.getOpeningHours();
+        String closingHours = operatingHours != null ? operatingHours.getClosingHoursFormatted() : restaurant.getClosingHours();
+        
         Set<RestaurantCategory> categories = restaurant.getCategories() == null || restaurant.getCategories().isEmpty()
                 ? Set.of()
                 : Set.copyOf(restaurant.getCategories());
@@ -151,7 +177,10 @@ public class RestaurantSearchService {
                 restaurant.getIconUrl(),
                 categories,
                 promotedMenuItems,
-                estimatedDeliveryTime
+                estimatedDeliveryTime,
+                isOpen,
+                openingHours,
+                closingHours
         );
     }
 

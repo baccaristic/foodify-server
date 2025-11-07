@@ -32,6 +32,7 @@ public record RestaurantDetailsResponse(
         Double deliveryFee,
         Integer estimatedDeliveryTime,
         boolean favorite,
+        boolean isOpen,
         List<RestaurantBadge> highlights,
         List<String> quickFilters,
         List<MenuItemSummary> topSales,

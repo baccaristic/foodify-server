@@ -38,4 +38,7 @@ public class RestaurantDisplayDto {
     
     // Delivery time estimation in minutes
     private Integer estimatedDeliveryTime;
+    
+    // Operating status
+    private boolean isOpen;
 }

@@ -9,15 +9,20 @@ import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.restaurants.application.DeliveryFeeCalculator;
 import com.foodify.server.modules.restaurants.application.RestaurantDeliveryMetricsService;
 import com.foodify.server.modules.restaurants.application.RestaurantDetailsService;
+import com.foodify.server.modules.restaurants.application.RestaurantOperatingStatusService;
 import com.foodify.server.modules.restaurants.domain.MenuItem;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
 import com.foodify.server.modules.restaurants.domain.RestaurantCategory;
+import com.foodify.server.modules.restaurants.domain.RestaurantSpecialDay;
+import com.foodify.server.modules.restaurants.domain.RestaurantWeeklyOperatingHour;
 import com.foodify.server.modules.restaurants.dto.RestaurantDetailsResponse;
 import com.foodify.server.modules.restaurants.dto.RestaurantDisplayDto;
 import com.foodify.server.modules.restaurants.dto.PageResponse;
 import com.foodify.server.modules.restaurants.mapper.RestaurantMapper;
 import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
+import com.foodify.server.modules.restaurants.repository.RestaurantOperatingHourRepository;
+import com.foodify.server.modules.restaurants.repository.RestaurantSpecialDayRepository;
 import com.foodify.server.modules.orders.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import io.micrometer.core.annotation.Timed;
@@ -35,6 +40,8 @@ import jakarta.persistence.EntityNotFoundException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -64,6 +71,9 @@ public class ClientController {
     private final RestaurantDeliveryMetricsService deliveryMetricsService;
     private final OrderRepository orderRepository;
     private final MenuItemRepository menuItemRepository;
+    private final RestaurantOperatingStatusService operatingStatusService;
+    private final RestaurantOperatingHourRepository operatingHourRepository;
+    private final RestaurantSpecialDayRepository specialDayRepository;
 
     private Long extractUserId(Authentication authentication) {
         return Long.parseLong((String) authentication.getPrincipal());
@@ -309,6 +319,9 @@ public class ClientController {
         List<RestaurantDisplayDto> dtos = restaurantMapper.toDto(restaurants);
         Map<Long, List<MenuItem>> promotionsByRestaurant = groupPromotions(restaurants);
         
+        LocalDate currentDate = LocalDate.now();
+        LocalTime currentTime = LocalTime.now();
+        
         for (int i = 0; i < restaurants.size(); i++) {
             Restaurant entity = restaurants.get(i);
             RestaurantDisplayDto dto = dtos.get(i);
@@ -321,8 +334,36 @@ public class ClientController {
             
             // Add estimated delivery time
             enrichWithDeliveryTime(dto, entity, clientLat, clientLng);
+            
+            // Add operating status and hours from weekly schedule
+            enrichWithOperatingStatus(dto, entity, currentDate, currentTime);
         }
         return dtos;
+    }
+    
+    private void enrichWithOperatingStatus(RestaurantDisplayDto dto,
+                                           Restaurant restaurant,
+                                           LocalDate currentDate,
+                                           LocalTime currentTime) {
+        if (restaurant.getId() == null) {
+            dto.setOpen(false);
+            return;
+        }
+        
+        List<RestaurantWeeklyOperatingHour> weeklyHours = operatingHourRepository
+                .findByRestaurant_IdOrderByDayOfWeekAsc(restaurant.getId());
+        List<RestaurantSpecialDay> specialDays = specialDayRepository
+                .findByRestaurant_IdOrderByDateAsc(restaurant.getId());
+        
+        boolean isOpen = operatingStatusService.isRestaurantOpen(weeklyHours, specialDays, currentDate, currentTime);
+        RestaurantOperatingStatusService.OperatingHours operatingHours = 
+                operatingStatusService.getOperatingHoursForDate(weeklyHours, specialDays, currentDate);
+        
+        dto.setOpen(isOpen);
+        if (operatingHours != null) {
+            dto.setOpeningHours(operatingHours.getOpeningHoursFormatted());
+            dto.setClosingHours(operatingHours.getClosingHoursFormatted());
+        }
     }
     
     private void enrichWithDeliveryTime(RestaurantDisplayDto dto,
