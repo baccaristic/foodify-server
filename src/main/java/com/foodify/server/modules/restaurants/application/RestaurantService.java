@@ -598,20 +598,14 @@ public class RestaurantService {
         specialDay.setName(request.name().trim());
         specialDay.setDate(request.date());
         specialDay.setOpen(request.open());
-
-        if (request.open()) {
-            if (request.opensAt() == null || request.closesAt() == null) {
-                throw new IllegalArgumentException("Open special days must include opening and closing times");
-            }
-            if (!request.opensAt().isBefore(request.closesAt())) {
-                throw new IllegalArgumentException("Opening time must be before closing time");
-            }
-            specialDay.setOpensAt(request.opensAt());
-            specialDay.setClosesAt(request.closesAt());
-        } else {
-            specialDay.setOpensAt(null);
-            specialDay.setClosesAt(null);
+        if (request.opensAt() == null || request.closesAt() == null) {
+            throw new IllegalArgumentException("Open special days must include opening and closing times");
         }
+        if (!request.opensAt().isBefore(request.closesAt())) {
+            throw new IllegalArgumentException("Opening time must be before closing time");
+        }
+        specialDay.setOpensAt(request.opensAt());
+        specialDay.setClosesAt(request.closesAt());
     }
 
     private void updateRestaurantSummaryHours(Restaurant restaurant) {
