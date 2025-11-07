@@ -23,6 +23,10 @@ public record RestaurantSearchItemDto(
         Set<RestaurantCategory> categories,
         List<MenuItemPromotionDto> promotedMenuItems,
         // Delivery time estimation in minutes
-        Integer estimatedDeliveryTime
+        Integer estimatedDeliveryTime,
+        // Operating status
+        boolean isOpen,
+        String openingHours,
+        String closingHours
 ) {
 }

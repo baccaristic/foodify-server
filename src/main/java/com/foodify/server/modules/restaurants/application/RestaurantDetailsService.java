@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
@@ -45,6 +46,7 @@ public class RestaurantDetailsService {
     private final RestaurantSpecialDayRepository restaurantSpecialDayRepository;
     private final DeliveryFeeCalculator deliveryFeeCalculator;
     private final RestaurantDeliveryMetricsService deliveryMetricsService;
+    private final RestaurantOperatingStatusService operatingStatusService;
 
     @Transactional()
     public RestaurantDetailsResponse getRestaurantDetails(Long restaurantId) {
@@ -92,11 +94,15 @@ public class RestaurantDetailsService {
                 .map(this::toSpecialDayDto)
                 .toList();
 
-        Optional<RestaurantWeeklyOperatingHour> firstOpen = firstOpenDay(weeklyHours);
-        String openingHours = firstOpen.map(RestaurantWeeklyOperatingHour::getOpensAt).map(this::formatTime)
-                .orElse(restaurant.getOpeningHours());
-        String closingHours = firstOpen.map(RestaurantWeeklyOperatingHour::getClosesAt).map(this::formatTime)
-                .orElse(restaurant.getClosingHours());
+        // Calculate isOpen status and get operating hours from weekly schedule for current day
+        LocalDate currentDate = LocalDate.now();
+        LocalTime currentTime = LocalTime.now();
+        boolean isOpen = operatingStatusService.isRestaurantOpen(weeklyHours, specialDays, currentDate, currentTime);
+        RestaurantOperatingStatusService.OperatingHours operatingHours = 
+                operatingStatusService.getOperatingHoursForDate(weeklyHours, specialDays, currentDate);
+        
+        String openingHours = operatingHours != null ? operatingHours.getOpeningHoursFormatted() : restaurant.getOpeningHours();
+        String closingHours = operatingHours != null ? operatingHours.getClosingHoursFormatted() : restaurant.getClosingHours();
 
         List<RestaurantDetailsResponse.RestaurantBadge> highlights = buildHighlights(restaurant, weeklyHours);
         Map<String, List<MenuItem>> itemsByCategory = groupByCategory(menuItems);
@@ -151,6 +157,7 @@ public class RestaurantDetailsService {
                 deliveryFee,
                 estimatedDeliveryTime,
                 restaurantFavorites.contains(restaurant.getId()),
+                isOpen,
                 highlights,
                 quickFilters,
                 topSales,
