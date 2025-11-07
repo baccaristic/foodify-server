@@ -18,6 +18,14 @@ public class MenuCategory {
     private Long id;
 
     private String name;
+    
+    // Multi-language support
+    @Column(name = "name_en")
+    private String nameEn;
+    @Column(name = "name_fr")
+    private String nameFr;
+    @Column(name = "name_ar")
+    private String nameAr;
 
     @JsonIgnore
     @ManyToOne

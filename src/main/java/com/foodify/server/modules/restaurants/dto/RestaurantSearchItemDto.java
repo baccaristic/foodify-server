@@ -8,6 +8,10 @@ import java.util.Set;
 public record RestaurantSearchItemDto(
         Long id,
         String name,
+        // Multi-language support
+        String nameEn,
+        String nameFr,
+        String nameAr,
         String deliveryTimeRange,
         Double rating,
         boolean isTopChoice,

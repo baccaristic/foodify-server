@@ -7,4 +7,9 @@ import lombok.Setter;
 @Setter
 public class MenuCategoryRequestDTO {
     private String name;
+    
+    // Multi-language support
+    private String nameEn;
+    private String nameFr;
+    private String nameAr;
 }

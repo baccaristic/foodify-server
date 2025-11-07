@@ -20,6 +20,21 @@ public class MenuItem {
 
     private String name;
     private String description;
+    
+    // Multi-language support
+    @Column(name = "name_en")
+    private String nameEn;
+    @Column(name = "name_fr")
+    private String nameFr;
+    @Column(name = "name_ar")
+    private String nameAr;
+    @Column(name = "description_en")
+    private String descriptionEn;
+    @Column(name = "description_fr")
+    private String descriptionFr;
+    @Column(name = "description_ar")
+    private String descriptionAr;
+    
     private boolean isPopular;
     private double price;
 

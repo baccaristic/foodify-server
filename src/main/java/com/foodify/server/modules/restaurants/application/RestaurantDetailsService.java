@@ -116,6 +116,12 @@ public class RestaurantDetailsService {
                 restaurant.getId(),
                 restaurant.getName(),
                 restaurant.getDescription(),
+                restaurant.getNameEn(),
+                restaurant.getNameFr(),
+                restaurant.getNameAr(),
+                restaurant.getDescriptionEn(),
+                restaurant.getDescriptionFr(),
+                restaurant.getDescriptionAr(),
                 restaurant.getImageUrl(),
                 restaurant.getIconUrl(),
                 restaurant.getAddress(),
@@ -210,6 +216,12 @@ public class RestaurantDetailsService {
                 item.getId(),
                 item.getName(),
                 item.getDescription(),
+                item.getNameEn(),
+                item.getNameFr(),
+                item.getNameAr(),
+                item.getDescriptionEn(),
+                item.getDescriptionFr(),
+                item.getDescriptionAr(),
                 item.getPrice(),
                 firstImage(item),
                 item.isPopular(),
@@ -222,13 +234,31 @@ public class RestaurantDetailsService {
     }
 
     private List<RestaurantDetailsResponse.MenuCategory> mapCategories(Map<String, List<MenuItem>> itemsByCategory, Set<Long> favoriteMenuItemIds) {
+        // Pre-process category translations for O(1) lookup
+        Map<String, MenuCategory> categoryMap = new java.util.HashMap<>();
+        itemsByCategory.values().stream()
+                .flatMap(List::stream)
+                .flatMap(item -> item.getCategories() != null ? item.getCategories().stream() : java.util.stream.Stream.empty())
+                .forEach(cat -> categoryMap.putIfAbsent(cat.getName(), cat));
+        
         return itemsByCategory.entrySet().stream()
-                .map(entry -> new RestaurantDetailsResponse.MenuCategory(
-                        entry.getKey(),
-                        entry.getValue().stream()
-                                .map(item -> toDetails(item, favoriteMenuItemIds))
-                                .toList()
-                ))
+                .map(entry -> {
+                    // Efficient O(1) lookup for category translations
+                    MenuCategory category = categoryMap.get(entry.getKey());
+                    String nameEn = category != null ? category.getNameEn() : null;
+                    String nameFr = category != null ? category.getNameFr() : null;
+                    String nameAr = category != null ? category.getNameAr() : null;
+                    
+                    return new RestaurantDetailsResponse.MenuCategory(
+                            entry.getKey(),
+                            nameEn,
+                            nameFr,
+                            nameAr,
+                            entry.getValue().stream()
+                                    .map(item -> toDetails(item, favoriteMenuItemIds))
+                                    .toList()
+                    );
+                })
                 .toList();
     }
 
@@ -238,6 +268,12 @@ public class RestaurantDetailsService {
                 item.getId(),
                 item.getName(),
                 item.getDescription(),
+                item.getNameEn(),
+                item.getNameFr(),
+                item.getNameAr(),
+                item.getDescriptionEn(),
+                item.getDescriptionFr(),
+                item.getDescriptionAr(),
                 item.getPrice(),
                 firstImage(item),
                 item.isPopular(),
@@ -256,6 +292,9 @@ public class RestaurantDetailsService {
         return new RestaurantDetailsResponse.MenuOptionGroupDto(
                 group.getId(),
                 group.getName(),
+                group.getNameEn(),
+                group.getNameFr(),
+                group.getNameAr(),
                 group.getMinSelect(),
                 group.getMaxSelect(),
                 group.isRequired(),
@@ -269,6 +308,9 @@ public class RestaurantDetailsService {
         return new RestaurantDetailsResponse.MenuItemExtraDto(
                 extra.getId(),
                 extra.getName(),
+                extra.getNameEn(),
+                extra.getNameFr(),
+                extra.getNameAr(),
                 extra.getPrice(),
                 extra.isDefault()
         );
