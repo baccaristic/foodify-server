@@ -36,6 +36,7 @@ public class RestaurantSearchService {
     private final RestaurantRepository restaurantRepository;
     private final MenuItemRepository menuItemRepository;
     private final DeliveryFeeCalculator deliveryFeeCalculator;
+    private final RestaurantDeliveryMetricsService deliveryMetricsService;
 
     public PageResponse<RestaurantSearchItemDto> search(RestaurantSearchQuery query, Set<Long> favoriteRestaurantIds, Set<Long> favoriteMenuItemIds) {
         Specification<Restaurant> specification = buildSpecification(query);
@@ -115,6 +116,22 @@ public class RestaurantSearchService {
                 restaurant.getLatitude(),
                 restaurant.getLongitude()
         ).orElse(null);
+        
+        // Calculate estimated delivery time
+        Integer estimatedDeliveryTime = null;
+        if (clientLatitude != null && clientLongitude != null && restaurant.getId() != null) {
+            double distance = deliveryFeeCalculator.calculateDistance(
+                    clientLatitude,
+                    clientLongitude,
+                    restaurant.getLatitude(),
+                    restaurant.getLongitude()
+            ).orElse(0.0);
+            estimatedDeliveryTime = deliveryMetricsService.calculateEstimatedDeliveryTime(
+                    restaurant.getId(),
+                    distance
+            );
+        }
+        
         Set<RestaurantCategory> categories = restaurant.getCategories() == null || restaurant.getCategories().isEmpty()
                 ? Set.of()
                 : Set.copyOf(restaurant.getCategories());
@@ -133,7 +150,8 @@ public class RestaurantSearchService {
                 restaurant.getImageUrl(),
                 restaurant.getIconUrl(),
                 categories,
-                promotedMenuItems
+                promotedMenuItems,
+                estimatedDeliveryTime
         );
     }
 
