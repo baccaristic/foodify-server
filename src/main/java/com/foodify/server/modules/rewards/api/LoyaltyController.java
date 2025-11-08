@@ -1,10 +1,7 @@
 package com.foodify.server.modules.rewards.api;
 
 import com.foodify.server.modules.rewards.application.LoyaltyService;
-import com.foodify.server.modules.rewards.dto.CouponDto;
-import com.foodify.server.modules.rewards.dto.LoyaltyBalanceResponse;
-import com.foodify.server.modules.rewards.dto.LoyaltyTransactionDto;
-import com.foodify.server.modules.rewards.dto.RedeemCouponRequest;
+import com.foodify.server.modules.rewards.dto.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -50,5 +47,14 @@ public class LoyaltyController {
         Long userId = extractUserId(authentication);
         CouponDto coupon = loyaltyService.redeemCouponWithPoints(userId, request);
         return ResponseEntity.ok(coupon);
+    }
+
+    @PostMapping("/coupons/redeem-code")
+    @PreAuthorize("hasAuthority('ROLE_CLIENT')")
+    public ResponseEntity<Boolean> redeemCouponCode(@Valid @RequestBody RedeemCouponCodeRequest request,
+                                                    Authentication authentication) {
+        Long userId = extractUserId(authentication);
+        boolean result = loyaltyService.redeemCouponWithCode(userId, request);
+        return ResponseEntity.ok(result);
     }
 }

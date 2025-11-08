@@ -8,10 +8,7 @@ import com.foodify.server.modules.rewards.domain.CouponAssignment;
 import com.foodify.server.modules.rewards.domain.CouponType;
 import com.foodify.server.modules.rewards.domain.LoyaltyPointTransaction;
 import com.foodify.server.modules.rewards.domain.LoyaltyPointTransactionType;
-import com.foodify.server.modules.rewards.dto.CouponDto;
-import com.foodify.server.modules.rewards.dto.LoyaltyBalanceResponse;
-import com.foodify.server.modules.rewards.dto.LoyaltyTransactionDto;
-import com.foodify.server.modules.rewards.dto.RedeemCouponRequest;
+import com.foodify.server.modules.rewards.dto.*;
 import com.foodify.server.modules.rewards.repository.CouponAssignmentRepository;
 import com.foodify.server.modules.rewards.repository.CouponRepository;
 import com.foodify.server.modules.rewards.repository.LoyaltyPointTransactionRepository;
@@ -134,6 +131,28 @@ public class LoyaltyService {
                         tx.getCreatedAt()
                 ))
                 .collect(Collectors.toList());
+    }
+
+    public boolean redeemCouponWithCode(Long clientId, RedeemCouponCodeRequest request) {
+        if (clientId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Client id is required");
+        }
+        if (request == null || request.getCouponCode() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Coupon type is required");
+        }
+        Client client = clientRepository.findById(clientId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Client not found"));
+        Coupon coupon = couponRepository.findByCode(request.getCouponCode());
+        if (coupon == null || !coupon.isActive()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or inactive coupon code");
+        }
+        CouponAssignment assignment = new CouponAssignment();
+        assignment.setClient(client);
+        assignment.setCoupon(coupon);
+        assignment.setAssignedAt(LocalDateTime.now());
+        assignmentRepository.save(assignment);
+        return true;
+
     }
 
     public CouponDto redeemCouponWithPoints(Long clientId, RedeemCouponRequest request) {
