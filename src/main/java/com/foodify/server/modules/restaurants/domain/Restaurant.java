@@ -20,7 +20,11 @@ import java.util.Set;
         indexes = {
                 @Index(name = "idx_restaurant_lat_lng", columnList = "latitude, longitude"),
                 @Index(name = "idx_restaurant_top_choice", columnList = "top_choice, latitude, longitude"),
-                @Index(name = "idx_restaurant_free_delivery", columnList = "free_delivery, latitude, longitude")
+                @Index(name = "idx_restaurant_free_delivery", columnList = "free_delivery, latitude, longitude"),
+                @Index(name = "idx_restaurant_sponsored", columnList = "sponsored")
+        },
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_restaurant_position", columnNames = {"position"})
         }
 )
 @Getter
@@ -78,6 +82,12 @@ public class Restaurant {
      */
     @Column(name = "restaurant_share_rate", precision = 5, scale = 4, nullable = true)
     private BigDecimal commissionRate = BigDecimal.valueOf(0.20).setScale(4, RoundingMode.HALF_UP);
+
+    @Column(name = "sponsored", nullable = false)
+    private Boolean sponsored = Boolean.FALSE;
+
+    @Column(name = "position", unique = true)
+    private Integer position;
 
     @OneToOne
     @JoinColumn(name = "admin_id")

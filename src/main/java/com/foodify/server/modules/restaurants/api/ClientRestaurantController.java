@@ -10,6 +10,9 @@ import com.foodify.server.modules.restaurants.dto.DeliveryFeeResponse;
 import com.foodify.server.modules.restaurants.dto.RestaurantSearchItemDto;
 import com.foodify.server.modules.restaurants.dto.RestaurantSearchQuery;
 import com.foodify.server.modules.restaurants.dto.RestaurantSearchSort;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.util.StringUtils;
@@ -33,6 +36,7 @@ import static org.springframework.http.HttpStatus.BAD_REQUEST;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/client/restaurants")
+@Tag(name = "Client Restaurant", description = "Restaurant discovery and search APIs for clients")
 public class ClientRestaurantController {
 
     private final RestaurantSearchService restaurantSearchService;
@@ -134,5 +138,41 @@ public class ClientRestaurantController {
             }
         }
         return parsed;
+    }
+
+    @GetMapping("/promotions")
+    @Operation(
+            summary = "Get sponsored/promoted restaurants",
+            description = "Returns a list of sponsored restaurants ordered by their position. These are restaurants that are promoted by the app."
+    )
+    public PageResponse<RestaurantSearchItemDto> getPromotions(
+            @Parameter(description = "Page number (starts at 1)", example = "1")
+            @RequestParam(required = false) Integer page,
+            @Parameter(description = "Number of items per page", example = "20")
+            @RequestParam(required = false) Integer pageSize,
+            @Parameter(description = "Client latitude for calculating delivery fee and time", example = "40.7128")
+            @RequestParam(required = false) Double lat,
+            @Parameter(description = "Client longitude for calculating delivery fee and time", example = "-74.0060")
+            @RequestParam(required = false) Double lng,
+            @Parameter(description = "Client date for checking restaurant operating hours (ISO format: yyyy-MM-dd)")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate clientDate,
+            @Parameter(description = "Client time for checking restaurant operating hours (ISO format: HH:mm:ss)")
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime clientTime,
+            Authentication authentication
+    ) {
+        int effectivePage = page != null && page > 0 ? page : 1;
+        int effectivePageSize = pageSize != null && pageSize > 0 ? pageSize : 20;
+        ClientFavoriteIds favoriteIds = resolveFavoriteIds(authentication);
+        
+        return restaurantSearchService.getPromotions(
+                effectivePage,
+                effectivePageSize,
+                lat,
+                lng,
+                favoriteIds.restaurantIds(),
+                favoriteIds.menuItemIds(),
+                clientDate,
+                clientTime
+        );
     }
 }
