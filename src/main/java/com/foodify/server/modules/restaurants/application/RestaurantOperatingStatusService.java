@@ -21,11 +21,15 @@ public class RestaurantOperatingStatusService {
     /**
      * Determines if a restaurant is currently open based on weekly schedule and special days.
      * Special days override weekly schedule for specific dates.
+     * 
+     * <p><b>Important:</b> The currentDate and currentTime should be in the restaurant's local timezone.
+     * Clients calling restaurant APIs should provide their current date/time in the restaurant's timezone
+     * to ensure accurate operating status calculation.</p>
      *
-     * @param weeklyHours List of weekly operating hours
-     * @param specialDays List of special days
-     * @param currentDate Current date
-     * @param currentTime Current time
+     * @param weeklyHours List of weekly operating hours (stored in restaurant's local timezone)
+     * @param specialDays List of special days (dates stored in restaurant's local timezone)
+     * @param currentDate Current date (should be in restaurant's local timezone)
+     * @param currentTime Current time (should be in restaurant's local timezone)
      * @return true if restaurant is open, false otherwise
      */
     public boolean isRestaurantOpen(
