@@ -349,4 +349,42 @@ public class RestaurantSearchService {
 
     private record GeoBounds(double minLat, double maxLat, double minLng, double maxLng) {
     }
+
+    public PageResponse<RestaurantSearchItemDto> getPromotions(
+            int page,
+            int pageSize,
+            Double clientLatitude,
+            Double clientLongitude,
+            Set<Long> favoriteRestaurantIds,
+            Set<Long> favoriteMenuItemIds,
+            LocalDate currentDate,
+            LocalTime currentTime
+    ) {
+        Pageable pageable = PageRequest.of(Math.max(page - 1, 0), pageSize);
+        Page<Restaurant> restaurants = restaurantRepository.findSponsored(pageable);
+        List<Restaurant> restaurantContent = restaurants.getContent();
+        
+        Map<Long, List<MenuItem>> promotionsByRestaurant = groupPromotedItems(restaurantContent);
+        Set<Long> restaurantFavorites = favoriteRestaurantIds == null ? Set.of() : favoriteRestaurantIds;
+        Set<Long> menuFavorites = favoriteMenuItemIds == null ? Set.of() : favoriteMenuItemIds;
+        
+        // Use provided date/time or server time
+        LocalDate effectiveDate = currentDate != null ? currentDate : LocalDate.now();
+        LocalTime effectiveTime = currentTime != null ? currentTime : LocalTime.now();
+        
+        List<RestaurantSearchItemDto> items = restaurantContent.stream()
+                .map(restaurant -> toDto(
+                        restaurant,
+                        promotionsByRestaurant.getOrDefault(restaurant.getId(), List.of()),
+                        restaurantFavorites,
+                        menuFavorites,
+                        clientLatitude,
+                        clientLongitude,
+                        effectiveDate,
+                        effectiveTime
+                ))
+                .toList();
+        
+        return new PageResponse<>(items, page, pageSize, restaurants.getTotalElements());
+    }
 }

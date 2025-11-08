@@ -141,4 +141,7 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, Long>, J
     );
 
     Restaurant getRestaurantByAdmin(RestaurantAdmin admin);
+
+    @Query("SELECT r FROM Restaurant r WHERE r.sponsored = true ORDER BY r.position ASC NULLS LAST")
+    Page<Restaurant> findSponsored(Pageable pageable);
 }
