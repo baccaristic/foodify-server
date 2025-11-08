@@ -50,21 +50,38 @@ public class RestaurantDetailsService {
 
     @Transactional()
     public RestaurantDetailsResponse getRestaurantDetails(Long restaurantId) {
-        return getRestaurantDetails(restaurantId, null, null, Set.of(), Set.of());
+        return getRestaurantDetails(restaurantId, null, null, Set.of(), Set.of(), null, null);
     }
 
     @Transactional()
     public RestaurantDetailsResponse getRestaurantDetails(Long restaurantId, Double clientLatitude, Double clientLongitude) {
-        return getRestaurantDetails(restaurantId, clientLatitude, clientLongitude, Set.of(), Set.of());
+        return getRestaurantDetails(restaurantId, clientLatitude, clientLongitude, Set.of(), Set.of(), null, null);
     }
 
     @Transactional()
     public RestaurantDetailsResponse getRestaurantDetails(Long restaurantId, Set<Long> favoriteRestaurantIds, Set<Long> favoriteMenuItemIds) {
-        return getRestaurantDetails(restaurantId, null, null, favoriteRestaurantIds, favoriteMenuItemIds);
+        return getRestaurantDetails(restaurantId, null, null, favoriteRestaurantIds, favoriteMenuItemIds, null, null);
     }
 
     @Transactional()
     public RestaurantDetailsResponse getRestaurantDetails(Long restaurantId, Double clientLatitude, Double clientLongitude, Set<Long> favoriteRestaurantIds, Set<Long> favoriteMenuItemIds) {
+        return getRestaurantDetails(restaurantId, clientLatitude, clientLongitude, favoriteRestaurantIds, favoriteMenuItemIds, null, null);
+    }
+
+    /**
+     * Get detailed restaurant information including menu, operating hours, and status.
+     * 
+     * @param restaurantId The restaurant ID
+     * @param clientLatitude Client's latitude for delivery fee calculation
+     * @param clientLongitude Client's longitude for delivery fee calculation
+     * @param favoriteRestaurantIds Set of favorite restaurant IDs
+     * @param favoriteMenuItemIds Set of favorite menu item IDs
+     * @param clientDate Client's current date (in restaurant's timezone) for accurate operating status
+     * @param clientTime Client's current time (in restaurant's timezone) for accurate operating status
+     * @return Restaurant details including isOpen status based on client's time
+     */
+    @Transactional()
+    public RestaurantDetailsResponse getRestaurantDetails(Long restaurantId, Double clientLatitude, Double clientLongitude, Set<Long> favoriteRestaurantIds, Set<Long> favoriteMenuItemIds, LocalDate clientDate, LocalTime clientTime) {
         Restaurant restaurant = restaurantRepository.findById(restaurantId)
                 .orElseThrow(() -> new EntityNotFoundException("Restaurant not found"));
 
@@ -95,8 +112,9 @@ public class RestaurantDetailsService {
                 .toList();
 
         // Calculate isOpen status and get operating hours from weekly schedule for current day
-        LocalDate currentDate = LocalDate.now();
-        LocalTime currentTime = LocalTime.now();
+        // Use client-provided date/time if available, otherwise use server time
+        LocalDate currentDate = clientDate != null ? clientDate : LocalDate.now();
+        LocalTime currentTime = clientTime != null ? clientTime : LocalTime.now();
         boolean isOpen = operatingStatusService.isRestaurantOpen(weeklyHours, specialDays, currentDate, currentTime);
         RestaurantOperatingStatusService.OperatingHours operatingHours = 
                 operatingStatusService.getOperatingHoursForDate(weeklyHours, specialDays, currentDate);

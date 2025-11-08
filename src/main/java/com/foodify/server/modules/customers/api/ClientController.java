@@ -29,6 +29,7 @@ import io.micrometer.core.annotation.Timed;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -86,6 +87,8 @@ public class ClientController {
             @RequestParam double lat,
             @RequestParam double lng,
             @RequestParam(defaultValue = "10") double radiusKm,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate clientDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime clientTime,
             Authentication authentication
     ) {
         Long userId = extractUserId(authentication);
@@ -106,7 +109,7 @@ public class ClientController {
                 )
                 .getContent();
 
-        return mapAndEnrich(restaurants, favoriteRestaurantIds, lat, lng);
+        return mapAndEnrich(restaurants, favoriteRestaurantIds, lat, lng, clientDate, clientTime);
     }
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
@@ -116,6 +119,8 @@ public class ClientController {
             @RequestParam double lat,
             @RequestParam double lng,
             @RequestParam(defaultValue = "10") double radiusKm,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate clientDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime clientTime,
             Authentication authentication
     ) {
         Long userId = extractUserId(authentication);
@@ -142,7 +147,7 @@ public class ClientController {
                 )
                 .getContent();
 
-        return mapAndEnrich(restaurants, favoriteRestaurantIds, lat, lng);
+        return mapAndEnrich(restaurants, favoriteRestaurantIds, lat, lng, clientDate, clientTime);
     }
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
@@ -152,12 +157,14 @@ public class ClientController {
             @RequestParam double lat,
             @RequestParam double lng,
             @RequestParam(defaultValue = "10") double radiusKm,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate clientDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime clientTime,
             Authentication authentication
     ) {
         Long userId = extractUserId(authentication);
         Set<Long> favoriteRestaurantIds = clientService.getFavoriteIds(userId).restaurantIds();
         double effectiveRadiusKm = normalizeRadius(radiusKm);
-        return getOrderAgainRestaurants(userId, lat, lng, effectiveRadiusKm, favoriteRestaurantIds);
+        return getOrderAgainRestaurants(userId, lat, lng, effectiveRadiusKm, favoriteRestaurantIds, clientDate, clientTime);
     }
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")
@@ -169,6 +176,8 @@ public class ClientController {
             @RequestParam(defaultValue = "10") double radiusKm,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int pageSize,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate clientDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime clientTime,
             Authentication authentication
     ) {
         Long userId = extractUserId(authentication);
@@ -191,7 +200,7 @@ public class ClientController {
                 pageRequest
         );
 
-        List<RestaurantDisplayDto> items = mapAndEnrich(pageResult.getContent(), favoriteRestaurantIds, lat, lng);
+        List<RestaurantDisplayDto> items = mapAndEnrich(pageResult.getContent(), favoriteRestaurantIds, lat, lng, clientDate, clientTime);
 
         return new PageResponse<>(
                 items,
@@ -209,6 +218,8 @@ public class ClientController {
             @RequestParam(defaultValue = "10") double radiusKm,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int pageSize,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate clientDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime clientTime,
             Authentication authentication
     ) {
         Long userId = extractUserId(authentication);
@@ -231,7 +242,7 @@ public class ClientController {
                 pageRequest
         );
 
-        List<RestaurantDisplayDto> items = mapAndEnrich(restaurants.getContent(), favoriteRestaurantIds, lat, lng);
+        List<RestaurantDisplayDto> items = mapAndEnrich(restaurants.getContent(), favoriteRestaurantIds, lat, lng, clientDate, clientTime);
 
         return new PageResponse<>(
                 items,
@@ -249,6 +260,8 @@ public class ClientController {
             @RequestParam String category,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int pageSize,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate clientDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime clientTime,
             Authentication authentication
     ) {
         String normalizedCategory = category != null ? category.trim() : "";
@@ -279,7 +292,7 @@ public class ClientController {
                 pageRequest
         );
 
-        List<RestaurantDisplayDto> items = mapAndEnrich(restaurants.getContent(), favoriteRestaurantIds, lat, lng);
+        List<RestaurantDisplayDto> items = mapAndEnrich(restaurants.getContent(), favoriteRestaurantIds, lat, lng, clientDate, clientTime);
 
         PageResponse<RestaurantDisplayDto> response = new PageResponse<>(
                 items,
@@ -309,18 +322,32 @@ public class ClientController {
         return Math.min(radiusKm, MAX_NEARBY_RADIUS_KM);
     }
 
+    /**
+     * Maps and enriches restaurant entities with additional client-specific information.
+     * 
+     * @param restaurants List of restaurants to enrich
+     * @param favoriteRestaurantIds Set of favorite restaurant IDs
+     * @param clientLat Client's latitude
+     * @param clientLng Client's longitude
+     * @param clientDate Client's current date (in restaurant's timezone) for accurate operating status
+     * @param clientTime Client's current time (in restaurant's timezone) for accurate operating status
+     * @return List of enriched restaurant DTOs
+     */
     private List<RestaurantDisplayDto> mapAndEnrich(List<Restaurant> restaurants,
                                                     Set<Long> favoriteRestaurantIds,
                                                     double clientLat,
-                                                    double clientLng) {
+                                                    double clientLng,
+                                                    LocalDate clientDate,
+                                                    LocalTime clientTime) {
         if (restaurants.isEmpty()) {
             return Collections.emptyList();
         }
         List<RestaurantDisplayDto> dtos = restaurantMapper.toDto(restaurants);
         Map<Long, List<MenuItem>> promotionsByRestaurant = groupPromotions(restaurants);
         
-        LocalDate currentDate = LocalDate.now();
-        LocalTime currentTime = LocalTime.now();
+        // Use client-provided date/time if available, otherwise use server time
+        LocalDate currentDate = clientDate != null ? clientDate : LocalDate.now();
+        LocalTime currentTime = clientTime != null ? clientTime : LocalTime.now();
         
         for (int i = 0; i < restaurants.size(); i++) {
             Restaurant entity = restaurants.get(i);
@@ -456,7 +483,9 @@ public class ClientController {
                                                                 double lat,
                                                                 double lng,
                                                                 double radiusKm,
-                                                                Set<Long> favoriteRestaurantIds) {
+                                                                Set<Long> favoriteRestaurantIds,
+                                                                LocalDate clientDate,
+                                                                LocalTime clientTime) {
         return clientRepository.findById(userId)
                 .map(client -> {
                     Page<Order> recentOrders = orderRepository.findAllByClient(
@@ -482,7 +511,7 @@ public class ClientController {
                         }
                     }
 
-                    return mapAndEnrich(restaurants, favoriteRestaurantIds, lat, lng);
+                    return mapAndEnrich(restaurants, favoriteRestaurantIds, lat, lng, clientDate, clientTime);
                 })
                 .orElseGet(Collections::emptyList);
     }
@@ -576,6 +605,8 @@ public class ClientController {
             @PathVariable Long id,
             @RequestParam(required = false) Double lat,
             @RequestParam(required = false) Double lng,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate clientDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime clientTime,
             Authentication authentication
     ) {
         Long userId = extractUserId(authentication);
@@ -585,7 +616,9 @@ public class ClientController {
                 lat,
                 lng,
                 favoriteIds.restaurantIds(),
-                favoriteIds.menuItemIds()
+                favoriteIds.menuItemIds(),
+                clientDate,
+                clientTime
         );
     }
 
