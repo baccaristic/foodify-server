@@ -63,6 +63,10 @@ public class RestaurantSearchService {
         Set<Long> restaurantFavorites = favoriteRestaurantIds == null ? Set.of() : favoriteRestaurantIds;
         Set<Long> menuFavorites = favoriteMenuItemIds == null ? Set.of() : favoriteMenuItemIds;
 
+        // Use client-provided date/time if available, otherwise use server time
+        LocalDate currentDate = query.clientDate() != null ? query.clientDate() : LocalDate.now();
+        LocalTime currentTime = query.clientTime() != null ? query.clientTime() : LocalTime.now();
+
         List<RestaurantSearchItemDto> items = radiusFiltered.stream()
                 .map(restaurant -> toDto(
                         restaurant,
@@ -70,7 +74,9 @@ public class RestaurantSearchService {
                         restaurantFavorites,
                         menuFavorites,
                         clientLatitude,
-                        clientLongitude
+                        clientLongitude,
+                        currentDate,
+                        currentTime
                 ))
                 .toList();
 
@@ -114,7 +120,9 @@ public class RestaurantSearchService {
             Set<Long> favoriteRestaurantIds,
             Set<Long> favoriteMenuItemIds,
             Double clientLatitude,
-            Double clientLongitude
+            Double clientLongitude,
+            LocalDate currentDate,
+            LocalTime currentTime
     ) {
         List<MenuItemPromotionDto> promotedMenuItems = promotedItems == null ? List.of() : promotedItems.stream()
                 .map(item -> toPromotionDto(item, favoriteMenuItemIds))
@@ -142,8 +150,6 @@ public class RestaurantSearchService {
         }
         
         // Calculate isOpen status and get operating hours from weekly schedule
-        LocalDate currentDate = LocalDate.now();
-        LocalTime currentTime = LocalTime.now();
         List<RestaurantWeeklyOperatingHour> weeklyHours = restaurant.getId() != null
                 ? operatingHourRepository.findByRestaurant_IdOrderByDayOfWeekAsc(restaurant.getId())
                 : List.of();

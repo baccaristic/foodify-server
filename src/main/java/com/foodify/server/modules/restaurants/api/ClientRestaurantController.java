@@ -11,6 +11,7 @@ import com.foodify.server.modules.restaurants.dto.RestaurantSearchItemDto;
 import com.foodify.server.modules.restaurants.dto.RestaurantSearchQuery;
 import com.foodify.server.modules.restaurants.dto.RestaurantSearchSort;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,6 +22,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import org.springframework.security.core.Authentication;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Set;
 import java.util.LinkedHashSet;
 import java.util.Locale;
@@ -50,6 +53,8 @@ public class ClientRestaurantController {
             @RequestParam(required = false) Double lat,
             @RequestParam(required = false) Double lng,
             @RequestParam(required = false, name = "categories") Set<String> categoryFilters,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate clientDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime clientTime,
             Authentication authentication
     ) {
         int effectivePage = page != null && page > 0 ? page : 1;
@@ -67,7 +72,9 @@ public class ClientRestaurantController {
                 lng,
                 categories,
                 effectivePage,
-                effectivePageSize
+                effectivePageSize,
+                clientDate,
+                clientTime
         );
         ClientFavoriteIds favoriteIds = resolveFavoriteIds(authentication);
         return restaurantSearchService.search(searchQuery, favoriteIds.restaurantIds(), favoriteIds.menuItemIds());
