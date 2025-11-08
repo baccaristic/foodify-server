@@ -186,7 +186,9 @@ public class RestaurantSearchService {
                 estimatedDeliveryTime,
                 isOpen,
                 openingHours,
-                closingHours
+                closingHours,
+                Boolean.TRUE.equals(restaurant.getSponsored()),
+                restaurant.getPosition()
         );
     }
 
@@ -214,9 +216,26 @@ public class RestaurantSearchService {
     private Sort toSort(RestaurantSearchSort sort) {
         RestaurantSearchSort effectiveSort = sort == null ? RestaurantSearchSort.PICKED : sort;
         return switch (effectiveSort) {
-            case POPULAR -> Sort.by(Sort.Order.desc("topEat"), Sort.Order.desc("rating"), Sort.Order.asc("name"));
-            case RATING -> Sort.by(Sort.Order.desc("rating"), Sort.Order.asc("name"));
-            case PICKED -> Sort.by(Sort.Order.desc("topChoice"), Sort.Order.desc("rating"), Sort.Order.asc("name"));
+            case POPULAR -> Sort.by(
+                    Sort.Order.desc("sponsored"),
+                    Sort.Order.asc("position").nullsLast(),
+                    Sort.Order.desc("topEat"), 
+                    Sort.Order.desc("rating"), 
+                    Sort.Order.asc("name")
+            );
+            case RATING -> Sort.by(
+                    Sort.Order.desc("sponsored"),
+                    Sort.Order.asc("position").nullsLast(),
+                    Sort.Order.desc("rating"), 
+                    Sort.Order.asc("name")
+            );
+            case PICKED -> Sort.by(
+                    Sort.Order.desc("sponsored"),
+                    Sort.Order.asc("position").nullsLast(),
+                    Sort.Order.desc("topChoice"), 
+                    Sort.Order.desc("rating"), 
+                    Sort.Order.asc("name")
+            );
         };
     }
 

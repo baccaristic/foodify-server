@@ -36,6 +36,10 @@ public class RestaurantDisplayDto {
     private boolean hasPromotion;
     private String promotionSummary;
     
+    // Sponsored flag
+    private boolean sponsored;
+    private Integer position;
+    
     // Delivery time estimation in minutes
     private Integer estimatedDeliveryTime;
     

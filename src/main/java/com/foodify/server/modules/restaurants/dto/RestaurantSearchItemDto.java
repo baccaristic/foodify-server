@@ -27,6 +27,9 @@ public record RestaurantSearchItemDto(
         // Operating status
         boolean isOpen,
         String openingHours,
-        String closingHours
+        String closingHours,
+        // Sponsored flag
+        boolean sponsored,
+        Integer position
 ) {
 }

@@ -64,6 +64,12 @@ public class RestaurantDto {
     @Schema(description = "Commission rate applied to the restaurant's orders (driver + platform share)", example = "0.1700")
     private BigDecimal commissionRate;
 
+    @Schema(description = "Whether this restaurant is sponsored by the app", example = "false")
+    private Boolean sponsored;
+
+    @Schema(description = "Position where sponsored restaurant will be displayed (0...n). Must be unique.", example = "0")
+    private Integer position;
+
     @Valid
     @Schema(description = "Optional admin account information. Required when creating a restaurant")
     private NewUserDto admin;

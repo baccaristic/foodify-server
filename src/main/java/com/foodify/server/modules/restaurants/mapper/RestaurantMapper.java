@@ -46,6 +46,8 @@ public interface RestaurantMapper {
     @Mapping(target = "favorite", constant = "false")
     @Mapping(target = "hasPromotion", constant = "false")
     @Mapping(target = "promotionSummary", ignore = true)
+    @Mapping(target = "sponsored", source = "sponsored")
+    @Mapping(target = "position", source = "position")
     RestaurantDisplayDto toDto(Restaurant entity);
     List<RestaurantDisplayDto> toDto(List<Restaurant> entities);
 
