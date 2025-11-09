@@ -2,6 +2,7 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '3.5.0'
 	id 'io.spring.dependency-management' version '1.1.7'
+	id 'io.gatling.gradle' version '3.11.5.2'
 }
 
 group = 'com.foodify'
@@ -16,6 +17,9 @@ java {
 configurations {
 	compileOnly {
 		extendsFrom annotationProcessor
+	}
+	gatling {
+		extendsFrom testImplementation
 	}
 }
 
@@ -60,4 +64,35 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+// Task for running all performance tests
+task runAllPerformanceTests {
+	group = 'performance'
+	description = 'Runs all Gatling performance test scenarios'
+	dependsOn 'gatlingRun'
+}
+
+// Task for running load test only
+task runLoadTest(type: io.gatling.gradle.GatlingRunTask) {
+	group = 'performance'
+	description = 'Runs load testing scenario'
+}
+
+// Task for running stress test only
+task runStressTest(type: io.gatling.gradle.GatlingRunTask) {
+	group = 'performance'
+	description = 'Runs stress testing scenario'
+}
+
+// Task for running endurance test only
+task runEnduranceTest(type: io.gatling.gradle.GatlingRunTask) {
+	group = 'performance'
+	description = 'Runs endurance testing scenario'
+}
+
+// Task for running spike test only
+task runSpikeTest(type: io.gatling.gradle.GatlingRunTask) {
+	group = 'performance'
+	description = 'Runs spike testing scenario'
 }

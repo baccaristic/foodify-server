@@ -77,3 +77,93 @@ docker compose --env-file ops/dev.env up -d
 ```
 
 You can also export variables in your shell (`export DATABASE_URL=...`) before running `docker compose up`. Compose propagates those values into each service's `environment` block, including the application container.
+
+## Performance Testing
+
+Foodify Server includes comprehensive performance testing infrastructure using Gatling to ensure the system can handle production load.
+
+### Quick Start
+
+Run a quick smoke test (5 minutes, 50 users):
+```bash
+./performance-test.sh smoke
+```
+
+Run the full load test (30 minutes, 200 users):
+```bash
+./performance-test.sh load
+```
+
+### Available Performance Tests
+
+| Test Type | Purpose | Duration | Users | Command |
+|-----------|---------|----------|-------|---------|
+| **Smoke** | Quick validation | 5 min | 50 | `./performance-test.sh smoke` |
+| **Load** | Normal peak load | 30 min | 200 | `./performance-test.sh load` |
+| **Stress** | Find breaking point | 20 min | up to 2000 | `./performance-test.sh stress` |
+| **Endurance** | Memory leak detection | 2-24 hours | 100 | `./performance-test.sh endurance` |
+| **Spike** | Sudden traffic surges | 15 min | spikes to 1200 | `./performance-test.sh spike` |
+
+### Using Gradle Directly
+
+```bash
+# Run specific tests with Gradle
+./gradlew runLoadTest
+./gradlew runStressTest
+./gradlew runEnduranceTest
+./gradlew runSpikeTest
+
+# With custom configuration
+./gradlew runLoadTest -Dperf.baseUrl=http://staging:8081 -Dperf.normalUsers=500
+```
+
+### Performance Test Environment
+
+For realistic performance testing, use the performance-optimized Docker Compose setup:
+
+```bash
+# Start performance testing environment
+docker compose -f docker-compose.performance.yml up -d
+
+# The app will be available at http://localhost:8082
+# Run tests against it
+./performance-test.sh load --url http://localhost:8082
+
+# View metrics in Prometheus: http://localhost:9090
+# View dashboards in Grafana: http://localhost:3000 (admin/admin)
+```
+
+### Key Performance Metrics
+
+The tests validate:
+- **Response Time**: p95 < 500ms, p99 < 1000ms
+- **Throughput**: 100-500+ requests/second
+- **Error Rate**: < 0.1% under normal load
+- **Resource Usage**: CPU < 70%, Memory stable
+- **Database Performance**: Query time < 50ms average
+
+### Documentation
+
+- **[Detailed Performance Testing Guide](docs/PERFORMANCE_TESTING.md)** - Complete guide with metrics, best practices, and optimization strategies
+- **[Gatling Tests README](src/gatling/README.md)** - Quick reference for running and configuring tests
+
+### Viewing Results
+
+After running tests, Gatling generates detailed HTML reports:
+
+```bash
+# Reports are in: build/reports/gatling/
+# Open the latest report
+open build/reports/gatling/$(ls -t build/reports/gatling/ | head -1)/index.html
+```
+
+### CI/CD Integration
+
+Performance smoke tests can be integrated into CI pipelines:
+
+```yaml
+performance-test:
+  script:
+    - docker compose up -d
+    - ./performance-test.sh smoke
+```

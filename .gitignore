@@ -35,3 +35,11 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Performance Testing ###
+# Gatling results (but keep the reports directory structure)
+build/reports/gatling/*/simulation.log
+build/reports/gatling/*/js/
+build/reports/gatling/*/style/
+# Keep the HTML reports for review
+!build/reports/gatling/*/index.html
