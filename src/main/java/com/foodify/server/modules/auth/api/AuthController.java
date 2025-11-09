@@ -11,11 +11,14 @@ import com.foodify.server.modules.identity.domain.Client;
 import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.identity.domain.Role;
 import com.foodify.server.modules.identity.domain.User;
+import com.foodify.server.modules.identity.domain.RestaurantAdmin;
 import com.foodify.server.modules.identity.repository.ClientRepository;
 import com.foodify.server.modules.identity.repository.DriverRepository;
 import com.foodify.server.modules.identity.repository.UserRepository;
 import com.foodify.server.modules.auth.security.JwtService;
 import com.foodify.server.modules.notifications.application.UserDeviceService;
+import com.foodify.server.modules.restaurants.domain.Restaurant;
+import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
@@ -51,6 +54,7 @@ public class AuthController {
     private final DriverRepository driverRepository;
     private final DriverSessionService driverSessionService;
     private final UserDeviceService userDeviceService;
+    private final RestaurantRepository restaurantRepository;
 
     private Long extractUserId(Authentication authentication) {
         return Long.parseLong((String) authentication.getPrincipal());
@@ -152,6 +156,15 @@ public class AuthController {
         if (passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             String accessToken = jwtService.generateAccessToken(user);
             String refreshToken = jwtService.generateRefreshToken(user);
+            if (user.getRole() == Role.RESTAURANT_ADMIN) {
+                Restaurant restaurant = restaurantRepository.getRestaurantByAdmin((RestaurantAdmin) user);
+                return ResponseEntity.ok(Map.of(
+                        "accessToken", accessToken,
+                        "refreshToken", refreshToken,
+                        "user", user,
+                        "restaurant", restaurant
+                ));
+            }
 
             // Return AuthResponse style payload
             return ResponseEntity.ok(Map.of(
