@@ -22,6 +22,9 @@ public class RestaurantBasicInfoDto {
     private String iconUrl;
     private List<String> images;
     private String address;
+    private String phone;
+    private String licenseNumber;
+    private String taxId;
     private double latitude;
     private double longitude;
 }
