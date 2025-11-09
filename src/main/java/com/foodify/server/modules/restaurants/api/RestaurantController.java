@@ -41,7 +41,7 @@ public class RestaurantController {
     private final RestaurantService restaurantService;
     private final RestaurantAdminRepository restaurantAdminRepository;
     @GetMapping("/my-orders")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public PageResponse<OrderNotificationDTO> getMyOrders(
             Authentication authentication,
             @RequestParam(defaultValue = "0") int page,
@@ -134,7 +134,7 @@ public class RestaurantController {
     }
 
     @GetMapping("/my-active-orders")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public List<OrderNotificationDTO> getMyActiveOrders(Authentication authentication) {
         RestaurantAdmin admin = loadAdmin(authentication);
         return this.restaurantService.getActiveOrders(admin.getId());
@@ -184,7 +184,7 @@ public class RestaurantController {
     }
 
     @PatchMapping("/menu/{menuId}/availability")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public MenuItem updateMenuAvailability(
             Authentication authentication,
             @PathVariable Long menuId,
@@ -206,7 +206,7 @@ public class RestaurantController {
     }
 
     @GetMapping("/order/{id}")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public OrderNotificationDTO getOrder(@PathVariable Long id, Authentication authentication) {
         RestaurantAdmin admin = loadAdmin(authentication);
         Long restaurantId = admin.getRestaurant().getId();
@@ -214,7 +214,7 @@ public class RestaurantController {
     }
 
     @PostMapping("/accept-order/{id}")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public OrderNotificationDTO acceptOrder(Authentication authentication, @PathVariable Long id) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         return this.restaurantService.acceptOrder(id, userId);
@@ -222,7 +222,7 @@ public class RestaurantController {
     }
 
     @PostMapping("/order/{id}/estimate")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public OrderNotificationDTO updateOrderEstimate(
             Authentication authentication,
             @PathVariable Long id,
@@ -234,7 +234,7 @@ public class RestaurantController {
     }
 
     @PostMapping("/order/{id}/start-preparing")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public OrderNotificationDTO startPreparingOrder(
             Authentication authentication,
             @PathVariable Long id,
@@ -245,7 +245,7 @@ public class RestaurantController {
     }
 
     @PostMapping("/order/ready/{id}")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public OrderNotificationDTO readyOrder(Authentication authentication, @PathVariable Long id) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         return this.restaurantService.markOrderReady(id, userId);

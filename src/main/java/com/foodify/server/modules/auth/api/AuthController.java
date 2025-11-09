@@ -18,6 +18,8 @@ import com.foodify.server.modules.identity.repository.UserRepository;
 import com.foodify.server.modules.auth.security.JwtService;
 import com.foodify.server.modules.notifications.application.UserDeviceService;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
+import com.foodify.server.modules.restaurants.dto.RestaurantBasicInfoDto;
+import com.foodify.server.modules.restaurants.mapper.RestaurantMapper;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
@@ -55,6 +57,7 @@ public class AuthController {
     private final DriverSessionService driverSessionService;
     private final UserDeviceService userDeviceService;
     private final RestaurantRepository restaurantRepository;
+    private final RestaurantMapper restaurantMapper;
 
     private Long extractUserId(Authentication authentication) {
         return Long.parseLong((String) authentication.getPrincipal());
@@ -156,13 +159,14 @@ public class AuthController {
         if (passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             String accessToken = jwtService.generateAccessToken(user);
             String refreshToken = jwtService.generateRefreshToken(user);
-            if (user.getRole() == Role.RESTAURANT_ADMIN) {
+            if (user.getRole() == Role.RESTAURANT_ADMIN || user.getRole() == Role.RESTAURANT_CASHIER) {
                 Restaurant restaurant = restaurantRepository.getRestaurantByAdmin((RestaurantAdmin) user);
+                RestaurantBasicInfoDto restaurantDto = restaurantMapper.toBasicInfoDto(restaurant);
                 return ResponseEntity.ok(Map.of(
                         "accessToken", accessToken,
                         "refreshToken", refreshToken,
                         "user", user,
-                        "restaurant", restaurant
+                        "restaurant", restaurantDto
                 ));
             }
 
