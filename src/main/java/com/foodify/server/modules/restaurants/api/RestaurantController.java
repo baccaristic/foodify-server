@@ -80,17 +80,17 @@ public class RestaurantController {
     }
 
     @GetMapping("/categories")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public List<MenuCategory> getCategories(Authentication authentication) {
-        RestaurantAdmin restaurantAdmin = loadAdmin(authentication);
-        return restaurantService.getCategoriesForRestaurant(restaurantAdmin.getRestaurant().getId());
+        RestaurantUserContext userContext = loadRestaurantUser(authentication);
+        return restaurantService.getCategoriesForRestaurant(userContext.getRestaurant().getId());
     }
 
     @GetMapping("/operating-hours")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public OperatingHoursResponse getOperatingHours(Authentication authentication) {
-        RestaurantAdmin restaurantAdmin = loadAdmin(authentication);
-        return restaurantService.getOperatingHours(restaurantAdmin.getRestaurant().getId());
+        RestaurantUserContext userContext = loadRestaurantUser(authentication);
+        return restaurantService.getOperatingHours(userContext.getRestaurant().getId());
     }
 
     @PutMapping("/operating-hours/weekly")
@@ -204,10 +204,10 @@ public class RestaurantController {
     }
 
     @GetMapping("/my-menu")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public List<MenuItem> getMyMenu(Authentication authentication) {
-        RestaurantAdmin restaurantAdmin = loadAdmin(authentication);
-        return restaurantAdmin.getRestaurant().getMenu();
+        RestaurantUserContext userContext = loadRestaurantUser(authentication);
+        return userContext.getRestaurant().getMenu();
     }
 
     @GetMapping("/order/{id}")
