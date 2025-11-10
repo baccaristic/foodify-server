@@ -32,8 +32,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Integration tests to verify that restaurant cashiers are denied access
- * to management endpoints that should only be accessible by restaurant admins.
+ * Integration tests to verify that restaurant cashiers have read-only access
+ * to menu, categories, and operating hours endpoints, but cannot modify them.
  */
 @WebMvcTest(RestaurantController.class)
 @EnableMethodSecurity(prePostEnabled = true)
@@ -76,44 +76,49 @@ class RestaurantControllerCashierAccessTest {
 
     @Test
     @WithMockUser(authorities = "ROLE_RESTAURANT_CASHIER")
-    void cashierShouldBeDeniedAccessToMyMenu() throws Exception {
+    void cashierShouldBeAllowedToReadMyMenu() throws Exception {
         // Given a cashier user
+        List<MenuItem> menuItems = new ArrayList<>();
+        restaurant.setMenu(menuItems);
         when(restaurantCashierRepository.findById(200L)).thenReturn(Optional.of(cashier));
 
         // When accessing the /my-menu endpoint
-        // Then should receive 403 Forbidden
+        // Then should receive 200 OK (read access allowed)
         mockMvc.perform(get("/api/restaurant/my-menu")
                         .with(authentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken
                                 .authenticated("200", null, List.of(new SimpleGrantedAuthority("ROLE_RESTAURANT_CASHIER"))))))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
     }
 
     @Test
     @WithMockUser(authorities = "ROLE_RESTAURANT_CASHIER")
-    void cashierShouldBeDeniedAccessToCategories() throws Exception {
+    void cashierShouldBeAllowedToReadCategories() throws Exception {
         // Given a cashier user
         when(restaurantCashierRepository.findById(200L)).thenReturn(Optional.of(cashier));
+        when(restaurantService.getCategoriesForRestaurant(anyLong())).thenReturn(new ArrayList<>());
 
         // When accessing the /categories endpoint
-        // Then should receive 403 Forbidden
+        // Then should receive 200 OK (read access allowed)
         mockMvc.perform(get("/api/restaurant/categories")
                         .with(authentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken
                                 .authenticated("200", null, List.of(new SimpleGrantedAuthority("ROLE_RESTAURANT_CASHIER"))))))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
     }
 
     @Test
     @WithMockUser(authorities = "ROLE_RESTAURANT_CASHIER")
-    void cashierShouldBeDeniedAccessToOperatingHours() throws Exception {
+    void cashierShouldBeAllowedToReadOperatingHours() throws Exception {
         // Given a cashier user
         when(restaurantCashierRepository.findById(200L)).thenReturn(Optional.of(cashier));
+        OperatingHoursResponse response = new OperatingHoursResponse(new ArrayList<>(), new ArrayList<>());
+        when(restaurantService.getOperatingHours(anyLong())).thenReturn(response);
 
         // When accessing the /operating-hours endpoint
-        // Then should receive 403 Forbidden
+        // Then should receive 200 OK (read access allowed)
         mockMvc.perform(get("/api/restaurant/operating-hours")
                         .with(authentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken
                                 .authenticated("200", null, List.of(new SimpleGrantedAuthority("ROLE_RESTAURANT_CASHIER"))))))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -161,5 +166,33 @@ class RestaurantControllerCashierAccessTest {
                         .with(authentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken
                                 .authenticated("100", null, List.of(new SimpleGrantedAuthority("ROLE_RESTAURANT_ADMIN"))))))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(authorities = "ROLE_RESTAURANT_CASHIER")
+    void cashierShouldBeDeniedFromCreatingCategories() throws Exception {
+        // Given a cashier user trying to create a category
+        // When accessing the POST /categories endpoint
+        // Then should receive 403 Forbidden (write access denied)
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/restaurant/categories")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"New Category\"}")
+                        .with(authentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken
+                                .authenticated("200", null, List.of(new SimpleGrantedAuthority("ROLE_RESTAURANT_CASHIER"))))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(authorities = "ROLE_RESTAURANT_CASHIER")
+    void cashierShouldBeDeniedFromUpdatingOperatingHours() throws Exception {
+        // Given a cashier user trying to update operating hours
+        // When accessing the PUT /operating-hours/weekly endpoint
+        // Then should receive 403 Forbidden (write access denied)
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/restaurant/operating-hours/weekly")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"weeklySchedule\":[]}")
+                        .with(authentication(org.springframework.security.authentication.UsernamePasswordAuthenticationToken
+                                .authenticated("200", null, List.of(new SimpleGrantedAuthority("ROLE_RESTAURANT_CASHIER"))))))
+                .andExpect(status().isForbidden());
     }
 }
