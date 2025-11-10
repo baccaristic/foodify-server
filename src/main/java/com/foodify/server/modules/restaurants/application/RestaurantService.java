@@ -592,8 +592,8 @@ public class RestaurantService {
                 specialDay.getName(),
                 specialDay.getDate(),
                 specialDay.isOpen(),
-                specialDay.isOpen() ? specialDay.getOpensAt() : null,
-                specialDay.isOpen() ? specialDay.getClosesAt() : null
+                specialDay.getOpensAt(),
+                specialDay.getClosesAt()
         );
     }
 
@@ -601,8 +601,8 @@ public class RestaurantService {
         return new OperatingHoursResponse.WeeklyScheduleEntry(
                 hour.getDayOfWeek(),
                 hour.isOpen(),
-                hour.isOpen() ? hour.getOpensAt() : null,
-                hour.isOpen() ? hour.getClosesAt() : null
+                hour.getOpensAt(),
+                hour.getClosesAt()
         );
     }
 
