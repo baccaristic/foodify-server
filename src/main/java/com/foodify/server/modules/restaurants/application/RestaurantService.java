@@ -80,6 +80,32 @@ public class RestaurantService {
     private final OrderViewProperties orderViewProperties;
     private final WebSocketService webSocketService;
 
+    /**
+     * Checks if a user (admin or cashier) is authorized to perform operations on behalf of the restaurant.
+     * 
+     * @param restaurant the restaurant to check authorization for
+     * @param userId the user ID to check (could be admin or cashier)
+     * @return true if the user is the restaurant admin or one of its cashiers
+     */
+    private boolean isAuthorizedForRestaurant(Restaurant restaurant, Long userId) {
+        if (restaurant == null || userId == null) {
+            return false;
+        }
+        
+        // Check if user is the restaurant admin
+        if (restaurant.getAdmin() != null && restaurant.getAdmin().getId().equals(userId)) {
+            return true;
+        }
+        
+        // Check if user is one of the restaurant's cashiers
+        if (restaurant.getCashiers() != null) {
+            return restaurant.getCashiers().stream()
+                    .anyMatch(cashier -> cashier.getId().equals(userId));
+        }
+        
+        return false;
+    }
+
     @Transactional(readOnly = true)
     public Page<OrderNotificationDTO> getAllOrders(
             Restaurant restaurant,
@@ -131,15 +157,15 @@ public class RestaurantService {
     }
 
     @Transactional(readOnly = true)
-    public List<OrderNotificationDTO> getActiveOrders(Long adminId) {
-        if (adminId == null) {
+    public List<OrderNotificationDTO> getActiveOrders(Restaurant restaurant) {
+        if (restaurant == null || restaurant.getId() == null) {
             return List.of();
         }
 
         int limit = Math.max(orderViewProperties.getRestaurantSnapshotLimit(), 1);
         Slice<Order> slice = this.orderRepository
-                .findAllByRestaurant_Admin_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(
-                        adminId,
+                .findAllByRestaurant_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(
+                        restaurant.getId(),
                         OrderStatusGroups.RESTAURANT_ACTIVE_STATUSES,
                         PageRequest.of(0, limit)
                 );
@@ -152,7 +178,7 @@ public class RestaurantService {
     @Transactional
     public OrderNotificationDTO acceptOrder(Long id, Long userId) {
         return orderRepository.findById(id).map(order -> {
-            if (!order.getRestaurant().getAdmin().getId().equals(userId)) {
+            if (!isAuthorizedForRestaurant(order.getRestaurant(), userId)) {
                 throw new RuntimeException("Unauthorized");
             }
 
@@ -174,9 +200,7 @@ public class RestaurantService {
         }
 
         return orderRepository.findById(orderId).map(order -> {
-            if (order.getRestaurant() == null
-                    || order.getRestaurant().getAdmin() == null
-                    || !Objects.equals(order.getRestaurant().getAdmin().getId(), userId)) {
+            if (!isAuthorizedForRestaurant(order.getRestaurant(), userId)) {
                 throw new RuntimeException("Unauthorized");
             }
             if (order.getStatus() != OrderStatus.PREPARING) {
@@ -215,9 +239,7 @@ public class RestaurantService {
         }
 
         return orderRepository.findById(orderId).map(order -> {
-            if (order.getRestaurant() == null
-                    || order.getRestaurant().getAdmin() == null
-                    || !Objects.equals(order.getRestaurant().getAdmin().getId(), userId)) {
+            if (!isAuthorizedForRestaurant(order.getRestaurant(), userId)) {
                 throw new RuntimeException("Unauthorized");
             }
             if (order.getStatus() != OrderStatus.ACCEPTED) {
@@ -448,7 +470,7 @@ public class RestaurantService {
     @Transactional
     public OrderNotificationDTO markOrderReady(Long orderId, Long userId) {
         return orderRepository.findById(orderId).map(order -> {
-            if (!order.getRestaurant().getAdmin().getId().equals(userId)) {
+            if (!isAuthorizedForRestaurant(order.getRestaurant(), userId)) {
                 throw new RuntimeException("Unauthorized");
             }
             var updated = orderLifecycleService.transition(order, OrderStatus.READY_FOR_PICK_UP,

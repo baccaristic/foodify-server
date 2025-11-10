@@ -64,6 +64,13 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             List<OrderStatus> statuses,
             Pageable pageable
     );
+    
+    @EntityGraph(value = Order.SUMMARY_GRAPH, type = EntityGraphType.LOAD)
+    Slice<Order> findAllByRestaurant_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(
+            Long restaurantId,
+            List<OrderStatus> statuses,
+            Pageable pageable
+    );
     @Query("""
     SELECT o
     FROM Order o
