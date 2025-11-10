@@ -2,6 +2,7 @@ package com.foodify.server.modules.restaurants.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.foodify.server.modules.identity.domain.RestaurantAdmin;
+import com.foodify.server.modules.identity.domain.RestaurantCashier;
 import com.foodify.server.modules.orders.domain.Order;
 import jakarta.persistence.*;
 import jakarta.persistence.Index;
@@ -92,6 +93,9 @@ public class Restaurant {
     @OneToOne
     @JoinColumn(name = "admin_id")
     private RestaurantAdmin admin;
+
+    @OneToMany(mappedBy = "restaurant", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<RestaurantCashier> cashiers = new HashSet<>();
 
     @OneToMany(mappedBy = "restaurant")
     private List<MenuItem> menu;

@@ -12,6 +12,7 @@ import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.identity.domain.Role;
 import com.foodify.server.modules.identity.domain.User;
 import com.foodify.server.modules.identity.domain.RestaurantAdmin;
+import com.foodify.server.modules.identity.domain.RestaurantCashier;
 import com.foodify.server.modules.identity.repository.ClientRepository;
 import com.foodify.server.modules.identity.repository.DriverRepository;
 import com.foodify.server.modules.identity.repository.UserRepository;
@@ -160,14 +161,21 @@ public class AuthController {
             String accessToken = jwtService.generateAccessToken(user);
             String refreshToken = jwtService.generateRefreshToken(user);
             if (user.getRole() == Role.RESTAURANT_ADMIN || user.getRole() == Role.RESTAURANT_CASHIER) {
-                Restaurant restaurant = restaurantRepository.getRestaurantByAdmin((RestaurantAdmin) user);
-                RestaurantBasicInfoDto restaurantDto = restaurantMapper.toBasicInfoDto(restaurant);
-                return ResponseEntity.ok(Map.of(
-                        "accessToken", accessToken,
-                        "refreshToken", refreshToken,
-                        "user", user,
-                        "restaurant", restaurantDto
-                ));
+                Restaurant restaurant = null;
+                if (user.getRole() == Role.RESTAURANT_ADMIN) {
+                    restaurant = restaurantRepository.getRestaurantByAdmin((RestaurantAdmin) user);
+                } else if (user.getRole() == Role.RESTAURANT_CASHIER) {
+                    restaurant = ((RestaurantCashier) user).getRestaurant();
+                }
+                if (restaurant != null) {
+                    RestaurantBasicInfoDto restaurantDto = restaurantMapper.toBasicInfoDto(restaurant);
+                    return ResponseEntity.ok(Map.of(
+                            "accessToken", accessToken,
+                            "refreshToken", refreshToken,
+                            "user", user,
+                            "restaurant", restaurantDto
+                    ));
+                }
             }
 
             // Return AuthResponse style payload
