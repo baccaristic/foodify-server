@@ -21,6 +21,22 @@ public interface RestaurantRatingRepository extends JpaRepository<RestaurantRati
             """)
     RatingAggregate findAggregateByRestaurantId(@Param("restaurantId") Long restaurantId);
 
+    @Query("""
+            SELECT new com.foodify.server.modules.restaurants.repository.RestaurantRatingRepository$RatingAggregate(
+                COUNT(r),
+                COALESCE(SUM(CASE WHEN r.thumbsUp = true THEN 1 ELSE 0 END), 0)
+            )
+            FROM RestaurantRating r
+            WHERE r.restaurant.id = :restaurantId
+              AND r.createdAt >= :startDate
+              AND r.createdAt < :endDate
+            """)
+    RatingAggregate findAggregateByRestaurantIdAndPeriod(
+            @Param("restaurantId") Long restaurantId,
+            @Param("startDate") java.time.LocalDateTime startDate,
+            @Param("endDate") java.time.LocalDateTime endDate
+    );
+
     record RatingAggregate(long totalCount, long thumbsUpCount) {
     }
 }
