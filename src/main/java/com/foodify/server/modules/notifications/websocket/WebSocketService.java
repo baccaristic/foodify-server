@@ -36,26 +36,26 @@ public class WebSocketService {
         );
     }
 
-    public void notifyRestaurant(Long adminId, Order order) {
+    public void notifyRestaurant(Long restaurantId, Order order) {
         messagingTemplate.convertAndSendToUser(
-                adminId.toString(),
+                restaurantId.toString(),
                 "/queue/restaurant/orders",
                 orderNotificationMapper.toRestaurantDto(order)
         );
     }
 
-    public void notifyRestaurantNewOrder(Long adminId, Order order) {
+    public void notifyRestaurantNewOrder(Long restaurantId, Order order) {
         messagingTemplate.convertAndSendToUser(
-                adminId.toString(),
+                restaurantId.toString(),
                 "/queue/restaurant/orders/new",
                 orderNotificationMapper.toRestaurantDto(order)
         );
     }
 
-    public void sendRestaurantSnapshot(Long adminId, List<Order> orders) {
+    public void sendRestaurantSnapshot(Long restaurantId, List<Order> orders) {
         List<Order> safeOrders = orders == null ? List.of() : orders;
         messagingTemplate.convertAndSendToUser(
-                adminId.toString(),
+                restaurantId.toString(),
                 "/queue/restaurant/orders/snapshot",
                 safeOrders.stream()
                         .map(orderNotificationMapper::toRestaurantDto)

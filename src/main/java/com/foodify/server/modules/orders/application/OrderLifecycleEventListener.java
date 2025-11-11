@@ -70,14 +70,14 @@ public class OrderLifecycleEventListener {
     }
 
     private void notifyRestaurant(Order order, OrderLifecycleEvent event) {
-        if (order.getRestaurant() == null || order.getRestaurant().getAdmin() == null) {
+        if (order.getRestaurant() == null || order.getRestaurant().getId() == null) {
             return;
         }
-        Long adminId = order.getRestaurant().getAdmin().getId();
-        webSocketService.notifyRestaurant(adminId, order);
+        Long restaurantId = order.getRestaurant().getId();
+        webSocketService.notifyRestaurant(restaurantId, order);
 
         if (event.getPreviousStatus() == null) {
-            webSocketService.notifyRestaurantNewOrder(adminId, order);
+            webSocketService.notifyRestaurantNewOrder(restaurantId, order);
         }
     }
 

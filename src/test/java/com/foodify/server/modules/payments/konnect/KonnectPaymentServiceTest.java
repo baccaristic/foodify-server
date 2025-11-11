@@ -153,8 +153,9 @@ class KonnectPaymentServiceTest {
         client.setId(11L);
         order.setClient(client);
         Restaurant restaurant = new Restaurant();
+        restaurant.setId(51L);
         RestaurantAdmin admin = new RestaurantAdmin();
-        admin.setId(51L);
+        admin.setId(99L);
         restaurant.setAdmin(admin);
         order.setRestaurant(restaurant);
 

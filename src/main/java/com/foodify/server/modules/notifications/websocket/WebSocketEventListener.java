@@ -106,7 +106,7 @@ public class WebSocketEventListener {
                                 PageRequest.of(0, limit)
                         )
                         .getContent();
-                webSocketService.sendRestaurantSnapshot(userId, activeOrders);
+                webSocketService.sendRestaurantSnapshot(restaurant.getId(), activeOrders);
             }
         }
     }
