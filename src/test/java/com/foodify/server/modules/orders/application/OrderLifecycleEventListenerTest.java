@@ -103,7 +103,7 @@ class OrderLifecycleEventListenerTest {
 
     @Test
     void shouldNotifyRestaurantWhenAdminExists() {
-        Order order = buildOrderWithRestaurant(3L, 11L);
+        Order order = buildOrderWithRestaurant(3L, 11L, 100L);
 
         when(orderRepository.findDetailedById(3L)).thenReturn(Optional.of(order));
 
@@ -111,13 +111,13 @@ class OrderLifecycleEventListenerTest {
 
         listener.handleOrderLifecycleEvent(event);
 
-        verify(webSocketService).notifyRestaurant(11L, order);
+        verify(webSocketService).notifyRestaurant(100L, order);
         verify(webSocketService, never()).notifyRestaurantNewOrder(anyLong(), any());
     }
 
     @Test
     void shouldNotifyRestaurantOfNewOrderWhenPreviousStatusIsNull() {
-        Order order = buildOrderWithRestaurant(4L, 15L);
+        Order order = buildOrderWithRestaurant(4L, 15L, 200L);
 
         when(orderRepository.findDetailedById(4L)).thenReturn(Optional.of(order));
 
@@ -125,8 +125,8 @@ class OrderLifecycleEventListenerTest {
 
         listener.handleOrderLifecycleEvent(event);
 
-        verify(webSocketService).notifyRestaurant(15L, order);
-        verify(webSocketService).notifyRestaurantNewOrder(15L, order);
+        verify(webSocketService).notifyRestaurant(200L, order);
+        verify(webSocketService).notifyRestaurantNewOrder(200L, order);
     }
 
     private Order buildOrderWithClient(Long orderId, Long clientId) {
@@ -140,10 +140,11 @@ class OrderLifecycleEventListenerTest {
         return order;
     }
 
-    private Order buildOrderWithRestaurant(Long orderId, Long adminId) {
+    private Order buildOrderWithRestaurant(Long orderId, Long adminId, Long restaurantId) {
         Order order = new Order();
         order.setId(orderId);
         Restaurant restaurant = new Restaurant();
+        restaurant.setId(restaurantId);
         RestaurantAdmin admin = new RestaurantAdmin();
         admin.setId(adminId);
         restaurant.setAdmin(admin);
