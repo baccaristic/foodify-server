@@ -1,15 +1,9 @@
 package com.foodify.server.modules.admin.driver.api;
 
 import com.foodify.server.modules.admin.driver.application.AdminDriverService;
-import com.foodify.server.modules.admin.driver.dto.DailyOnTimePercentageDto;
-import com.foodify.server.modules.admin.driver.dto.DailyRatingDto;
-import com.foodify.server.modules.admin.driver.dto.DriverListItemDto;
-import com.foodify.server.modules.admin.driver.dto.DriverRatingCommentDto;
-import com.foodify.server.modules.admin.driver.dto.DriverStatisticsDto;
-import com.foodify.server.modules.admin.driver.dto.RatingDistributionDto;
-import com.foodify.server.modules.delivery.domain.DeliveryRating;
+import com.foodify.server.modules.admin.driver.dto.*;
 import com.foodify.server.modules.delivery.domain.DriverDepositStatus;
-import com.foodify.server.modules.identity.domain.Driver;
+import com.foodify.server.modules.admin.driver.dto.DriverDepositAdminDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -32,6 +26,7 @@ public class AdminDriverController {
      * GET /api/admin/drivers?query=search&depositStatus=CONFIRMED&page=0&size=20
      */
     @GetMapping
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Page<DriverListItemDto>> getDrivers(
             @RequestParam(required = false) String query,
             @RequestParam(required = false) DriverDepositStatus depositStatus,
@@ -46,9 +41,26 @@ public class AdminDriverController {
      * GET /api/admin/drivers/{driverId}
      */
     @GetMapping("/{driverId}")
-    public ResponseEntity<Driver> getDriver(@PathVariable Long driverId) {
-        Driver driver = adminDriverService.getDriverById(driverId);
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<DriverDetailsDto> getDriver(@PathVariable Long driverId) {
+        DriverDetailsDto driver = adminDriverService.getDriverById(driverId);
         return ResponseEntity.ok(driver);
+    }
+
+    /**
+     * Get driver shifts with filters and pagination, including deliveries for each shift
+     * GET /api/admin/drivers/{driverId}/shifts?date=2024-01-01T00:00:00&page=0&size=20
+     */
+    @GetMapping("/{driverId}/shifts")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<Page<AdminDriverShiftDto>> getDriverShifts(
+            @PathVariable Long driverId,
+            @RequestParam(required = true) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime date,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        Page<AdminDriverShiftDto> shifts = adminDriverService.getDriverShifts(driverId, date, page, size);
+        return ResponseEntity.ok(shifts);
     }
 
     /**
@@ -56,22 +68,23 @@ public class AdminDriverController {
      * GET /api/admin/drivers/{driverId}/statistics?startDate=2024-01-01T00:00:00&endDate=2024-12-31T23:59:59
      */
     @GetMapping("/{driverId}/statistics")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<DriverStatisticsDto> getDriverStatistics(
             @PathVariable Long driverId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
-        
+
         Double rating = adminDriverService.getDriverRating(driverId, startDate, endDate);
         Double onTimePercentage = adminDriverService.getDriverOnTimePercentage(driverId, startDate, endDate);
         Double avgDeliveryTime = adminDriverService.getDriverAverageDeliveryTime(driverId, startDate, endDate);
-        
+
         DriverStatisticsDto statistics = new DriverStatisticsDto(
                 driverId,
                 rating,
                 onTimePercentage,
                 avgDeliveryTime
         );
-        
+
         return ResponseEntity.ok(statistics);
     }
 
@@ -80,6 +93,7 @@ public class AdminDriverController {
      * GET /api/admin/drivers/{driverId}/rating?startDate=2024-01-01T00:00:00&endDate=2024-12-31T23:59:59
      */
     @GetMapping("/{driverId}/rating")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Double> getDriverRating(
             @PathVariable Long driverId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
@@ -91,34 +105,35 @@ public class AdminDriverController {
     /**
      * Get driver on-time percentage
      * GET /api/admin/drivers/{driverId}/on-time-percentage?startDate=2024-01-01T00:00:00&endDate=2024-12-31T23:59:59
-     */
-    @GetMapping("/{driverId}/on-time-percentage")
-    public ResponseEntity<Double> getDriverOnTimePercentage(
-            @PathVariable Long driverId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
-        Double percentage = adminDriverService.getDriverOnTimePercentage(driverId, startDate, endDate);
-        return ResponseEntity.ok(percentage);
-    }
 
+     @GetMapping("/{driverId}/on-time-percentage")
+     @PreAuthorize("hasAuthority('ROLE_ADMIN')") public ResponseEntity<Double> getDriverOnTimePercentage(
+     @PathVariable Long driverId,
+     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+     Double percentage = adminDriverService.getDriverOnTimePercentage(driverId, startDate, endDate);
+     return ResponseEntity.ok(percentage);
+     }
+     */
     /**
      * Get driver average delivery time
      * GET /api/admin/drivers/{driverId}/average-delivery-time?startDate=2024-01-01T00:00:00&endDate=2024-12-31T23:59:59
+     @GetMapping("/{driverId}/average-delivery-time")
+     @PreAuthorize("hasAuthority('ROLE_ADMIN')") public ResponseEntity<Double> getDriverAverageDeliveryTime(
+     @PathVariable Long driverId,
+     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+     Double avgTime = adminDriverService.getDriverAverageDeliveryTime(driverId, startDate, endDate);
+     return ResponseEntity.ok(avgTime);
+     }
      */
-    @GetMapping("/{driverId}/average-delivery-time")
-    public ResponseEntity<Double> getDriverAverageDeliveryTime(
-            @PathVariable Long driverId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
-        Double avgTime = adminDriverService.getDriverAverageDeliveryTime(driverId, startDate, endDate);
-        return ResponseEntity.ok(avgTime);
-    }
 
     /**
      * Get daily ratings trend for a driver
      * GET /api/admin/drivers/{driverId}/daily-ratings?startDate=2024-01-01T00:00:00&endDate=2024-12-31T23:59:59
      */
     @GetMapping("/{driverId}/daily-ratings")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<List<DailyRatingDto>> getDailyRatings(
             @PathVariable Long driverId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
@@ -132,6 +147,7 @@ public class AdminDriverController {
      * GET /api/admin/drivers/{driverId}/daily-on-time?startDate=2024-01-01T00:00:00&endDate=2024-12-31T23:59:59
      */
     @GetMapping("/{driverId}/daily-on-time")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<List<DailyOnTimePercentageDto>> getDailyOnTimePercentage(
             @PathVariable Long driverId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
@@ -141,46 +157,35 @@ public class AdminDriverController {
     }
 
     /**
+     * Get daily earning trend for a driver
+     * GET /api/admin/drivers/{driverId}/daily-earning?startDate=2024-01-01T00:00:00&endDate=2024-12-31T23:59:59
+     */
+    @GetMapping("/{driverId}/daily-earning")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<List<DailyEarningDto>> getDailyEarning(
+            @PathVariable Long driverId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+        List<DailyEarningDto> dailyData = adminDriverService.getDriverDailyEarning(driverId, startDate, endDate);
+        return ResponseEntity.ok(dailyData);
+    }
+
+    /**
      * Get ratings with comments for a driver
      * GET /api/admin/drivers/{driverId}/ratings-with-comments?startDate=2024-01-01T00:00:00&endDate=2024-12-31T23:59:59&page=0&size=20
      */
     @GetMapping("/{driverId}/ratings-with-comments")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Page<DriverRatingCommentDto>> getRatingsWithComments(
             @PathVariable Long driverId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        
-        Page<DeliveryRating> ratingsPage = adminDriverService.getDriverRatingsWithComments(
+
+        Page<DriverRatingCommentDto> dtoPage = adminDriverService.getDriverRatingsWithComments(
                 driverId, startDate, endDate, page, size);
-        
-        Page<DriverRatingCommentDto> dtoPage = ratingsPage.map(rating -> {
-            String clientName = rating.getDelivery() != null 
-                    && rating.getDelivery().getOrder() != null 
-                    && rating.getDelivery().getOrder().getClient() != null
-                    ? rating.getDelivery().getOrder().getClient().getName()
-                    : null;
-            
-            Long orderId = rating.getDelivery() != null 
-                    && rating.getDelivery().getOrder() != null
-                    ? rating.getDelivery().getOrder().getId()
-                    : null;
-            
-            return new DriverRatingCommentDto(
-                    rating.getDeliveryId(),
-                    rating.getDelivery() != null ? rating.getDelivery().getId() : null,
-                    orderId,
-                    clientName,
-                    rating.getTimingRating(),
-                    rating.getFoodConditionRating(),
-                    rating.getProfessionalismRating(),
-                    rating.getOverallRating(),
-                    rating.getComments(),
-                    rating.getCreatedAt()
-            );
-        });
-        
+
         return ResponseEntity.ok(dtoPage);
     }
 
@@ -189,14 +194,38 @@ public class AdminDriverController {
      * GET /api/admin/drivers/{driverId}/rating-distribution?startDate=2024-01-01T00:00:00&endDate=2024-12-31T23:59:59
      */
     @GetMapping("/{driverId}/rating-distribution")
-    public ResponseEntity<RatingDistributionDto> getRatingDistribution(
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<List<RatingDistributionDto>> getRatingDistribution(
             @PathVariable Long driverId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
-        
-        List<Long> distribution = adminDriverService.getDriverRatingDistribution(driverId, startDate, endDate);
-        RatingDistributionDto dto = new RatingDistributionDto(driverId, distribution);
-        
-        return ResponseEntity.ok(dto);
+
+        List<RatingDistributionDto> distribution = adminDriverService.getDriverRatingDistribution(driverId, startDate, endDate);
+        return ResponseEntity.ok(distribution);
     }
+
+    @GetMapping("/{driverId}/deposits")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public Page<DriverDepositAdminDto> listDeposits(
+            @PathVariable Long driverId,
+            @RequestParam(value = "status", required = false) DriverDepositStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return adminDriverService.getDepositsForAdmin(driverId, status, page, size);
+    }
+
+
+/*
+    @GetMapping("/{driverId}/earnings")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public DriverEarningsSummaryDto getEarningsSummary(
+            @PathVariable Long driverId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate
+    ) {
+
+        return adminDriverService.getEarningsSummary(driverId, startDate, endDate);
+    }
+
+ */
 }

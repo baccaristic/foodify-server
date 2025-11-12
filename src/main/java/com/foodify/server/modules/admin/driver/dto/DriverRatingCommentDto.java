@@ -10,7 +10,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 public class DriverRatingCommentDto {
-    private Long ratingId;
     private Long deliveryId;
     private Long orderId;
     private String clientName;

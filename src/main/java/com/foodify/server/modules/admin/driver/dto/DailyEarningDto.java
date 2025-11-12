@@ -4,12 +4,12 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
+import java.time.LocalDate;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class RatingDistributionDto {
-    private Integer ratingLevel;
-    private Long count;
+public class DailyEarningDto {
+    private LocalDate date;
+    private Double earning;
 }

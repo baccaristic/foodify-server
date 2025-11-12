@@ -3,23 +3,24 @@ package com.foodify.server.modules.admin.driver.repository;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.foodify.server.modules.identity.domain.Driver;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 
 import com.foodify.server.modules.admin.driver.dto.DailyOnTimePercentageDto;
 import com.foodify.server.modules.admin.driver.dto.DailyRatingDto;
 import com.foodify.server.modules.delivery.domain.Delivery;
 
-import io.lettuce.core.dynamic.annotation.Param;
+import org.springframework.data.repository.query.Param;
 
 public interface AdminDeliveryRepository extends JpaRepository<Delivery, Long> {
-    @Query("""
-            SELECT COALESCE(AVG(r.overallRating), 0.0)
-            FROM Delivery del
-            LEFT JOIN del.rating r
-            WHERE del.driver.id = :driverId
-                AND del.deliveredTime BETWEEN :startDate AND :endDate
-            """)
+    @Query("SELECT COALESCE(AVG(r.overallRating), 0.0) " +
+            "FROM Delivery d " +
+            "LEFT JOIN DeliveryRating r ON d.id = r.delivery.id " +
+            "WHERE d.driver.id = :driverId " +
+            "AND (CAST(:startDate AS timestamp) IS NULL OR d.deliveredTime >= :startDate) " +
+            "AND (CAST(:endDate AS timestamp) IS NULL OR d.deliveredTime <= :endDate)")
     Double getDriverRating(
             @Param("driverId") Long driverId,
             @Param("startDate") LocalDateTime startDate,
@@ -29,7 +30,7 @@ public interface AdminDeliveryRepository extends JpaRepository<Delivery, Long> {
             SELECT
                 (SUM(
                     CASE
-                        WHEN (EXTRACT(EPOCH FROM d.deliveredTime) - EXTRACT(EPOCH FROM d.assignedTime))
+                        WHEN FUNCTION('TIMESTAMPDIFF', MINUTE, d.assignedTime, d.deliveredTime)
                             <= COALESCE(d.deliveryTime, 0) + COALESCE(d.timeToPickUp, 0)
                         THEN 1
                         ELSE 0
@@ -37,7 +38,8 @@ public interface AdminDeliveryRepository extends JpaRepository<Delivery, Long> {
                 ) * 100.0 / COUNT(d.id))
             FROM Delivery d
             WHERE d.driver.id = :driverId
-                AND d.deliveredTime BETWEEN :startDate AND :endDate
+                AND (CAST(:startDate AS timestamp) IS NULL OR d.deliveredTime >= :startDate)
+                AND (CAST(:endDate AS timestamp) IS NULL OR d.deliveredTime <= :endDate)
             """)
     Double getDriverOnTimePercentage(
             @Param("driverId") Long driverId,
@@ -45,32 +47,18 @@ public interface AdminDeliveryRepository extends JpaRepository<Delivery, Long> {
             @Param("endDate") LocalDateTime endDate);
 
     @Query("""
-            SELECT AVG(EXTRACT(EPOCH FROM d.deliveredTime) - EXTRACT(EPOCH FROM d.assignedTime))/60
+            
+            SELECT AVG(CAST(FUNCTION('TIMESTAMPDIFF', MINUTE, d.assignedTime, d.deliveredTime) AS double))
             FROM Delivery d
             WHERE d.driver.id = :driverId
-                AND d.deliveredTime BETWEEN :startDate AND :endDate
+                AND (CAST(:startDate AS timestamp) IS NULL OR d.deliveredTime >= :startDate)
+                AND (CAST(:endDate AS timestamp) IS NULL OR d.deliveredTime <= :endDate)
             """)
     Double getDriverAverageDeliveryTime(
             @Param("driverId") Long driverId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
-    @Query("""
-            SELECT new com.foodify.server.modules.admin.driver.dto.DailyRatingDto(
-                CAST(FUNCTION('DATE', r.createdAt) AS LocalDate),
-                ROUND(AVG(r.overallRating), 2)
-            )
-            FROM Delivery d
-            JOIN d.rating r
-            WHERE d.driver.id = :driverId
-                AND r.createdAt BETWEEN :startDate AND :endDate
-            GROUP BY FUNCTION('DATE', r.createdAt)
-            ORDER BY FUNCTION('DATE', r.createdAt)
-            """)
-    List<DailyRatingDto> getDriverAverageRatingByDay(
-            @Param("driverId") Long driverId,
-            @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate);
 
     @Query("""
             SELECT new com.foodify.server.modules.admin.driver.dto.DailyOnTimePercentageDto(
@@ -78,7 +66,7 @@ public interface AdminDeliveryRepository extends JpaRepository<Delivery, Long> {
                 ROUND(
                     (SUM(
                         CASE
-                            WHEN (EXTRACT(EPOCH FROM d.deliveredTime) - EXTRACT(EPOCH FROM d.assignedTime))
+                            WHEN FUNCTION('TIMESTAMPDIFF', SECOND, d.assignedTime, d.deliveredTime)
                                  <= COALESCE(d.deliveryTime, 0) + COALESCE(d.timeToPickUp, 0)
                             THEN 1
                             ELSE 0
@@ -89,7 +77,8 @@ public interface AdminDeliveryRepository extends JpaRepository<Delivery, Long> {
             )
             FROM Delivery d
             WHERE d.driver.id = :driverId
-                AND d.deliveredTime BETWEEN :startDate AND :endDate
+                AND (CAST(:startDate AS timestamp) IS NULL OR d.deliveredTime >= :startDate)
+                AND (CAST(:endDate AS timestamp) IS NULL OR d.deliveredTime <= :endDate)
             GROUP BY FUNCTION('DATE', d.deliveredTime)
             ORDER BY FUNCTION('DATE', d.deliveredTime)
             """)
