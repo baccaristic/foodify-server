@@ -118,6 +118,31 @@ Returns all payments made by a client.
    - System transfers points from client to restaurant
    - System records transaction in loyalty history
    - Payment is marked as completed
+   - **System sends real-time WebSocket notification to restaurant**
+
+## WebSocket Notifications
+
+When a payment is completed, the restaurant receives a real-time WebSocket notification at:
+- **Topic:** `/user/queue/restaurant/payments/points`
+- **Payload:** Complete `PointsPaymentResponse` object with payment details
+
+This allows the restaurant app to update the UI in real-time without requiring a page refresh.
+
+### WebSocket Connection
+
+Restaurants should subscribe to the WebSocket endpoint:
+```javascript
+// Connect to WebSocket
+const socket = new SockJS('/ws');
+const stompClient = Stomp.over(socket);
+
+// Subscribe to points payment notifications
+stompClient.subscribe('/user/queue/restaurant/payments/points', (message) => {
+    const payment = JSON.parse(message.body);
+    // Update UI with payment details
+    console.log('Payment received:', payment);
+});
+```
 
 ## Validations
 

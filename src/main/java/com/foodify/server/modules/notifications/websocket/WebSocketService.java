@@ -4,6 +4,7 @@ import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.dto.OrderDto;
 import com.foodify.server.modules.orders.mapper.OrderMapper;
 import com.foodify.server.modules.orders.mapper.OrderNotificationMapper;
+import com.foodify.server.modules.payments.points.dto.PointsPaymentResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
@@ -60,6 +61,14 @@ public class WebSocketService {
                 safeOrders.stream()
                         .map(orderNotificationMapper::toRestaurantDto)
                         .toList()
+        );
+    }
+
+    public void notifyRestaurantPointsPayment(Long restaurantId, PointsPaymentResponse payment) {
+        messagingTemplate.convertAndSendToUser(
+                restaurantId.toString(),
+                "/queue/restaurant/payments/points",
+                payment
         );
     }
 

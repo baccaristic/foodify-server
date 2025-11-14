@@ -3,6 +3,7 @@ package com.foodify.server.modules.payments.points.application;
 import com.foodify.server.modules.delivery.application.QrCodeService;
 import com.foodify.server.modules.identity.domain.Client;
 import com.foodify.server.modules.identity.repository.ClientRepository;
+import com.foodify.server.modules.notifications.websocket.WebSocketService;
 import com.foodify.server.modules.payments.points.domain.PointsPayment;
 import com.foodify.server.modules.payments.points.domain.PointsPaymentStatus;
 import com.foodify.server.modules.payments.points.dto.CreatePointsPaymentRequest;
@@ -44,17 +45,20 @@ public class PointsPaymentService {
     private final ClientRepository clientRepository;
     private final LoyaltyPointTransactionRepository loyaltyTransactionRepository;
     private final QrCodeService qrCodeService;
+    private final WebSocketService webSocketService;
 
     public PointsPaymentService(PointsPaymentRepository pointsPaymentRepository,
                                 RestaurantRepository restaurantRepository,
                                 ClientRepository clientRepository,
                                 LoyaltyPointTransactionRepository loyaltyTransactionRepository,
-                                QrCodeService qrCodeService) {
+                                QrCodeService qrCodeService,
+                                WebSocketService webSocketService) {
         this.pointsPaymentRepository = pointsPaymentRepository;
         this.restaurantRepository = restaurantRepository;
         this.clientRepository = clientRepository;
         this.loyaltyTransactionRepository = loyaltyTransactionRepository;
         this.qrCodeService = qrCodeService;
+        this.webSocketService = webSocketService;
     }
 
     /**
@@ -173,6 +177,9 @@ public class PointsPaymentService {
                 restaurant.getName(), payment.getAmountTnd()));
         loyaltyTransactionRepository.save(clientTransaction);
 
+        // 5. Notify restaurant via WebSocket
+        notifyRestaurantPaymentCompleted(restaurant.getId(), payment);
+
         return mapToResponse(payment, null);
     }
 
@@ -244,6 +251,20 @@ public class PointsPaymentService {
      */
     private String generatePaymentToken() {
         return UUID.randomUUID().toString();
+    }
+
+    /**
+     * Notifies restaurant via WebSocket when a payment is completed
+     */
+    private void notifyRestaurantPaymentCompleted(Long restaurantId, PointsPayment payment) {
+        try {
+            PointsPaymentResponse notification = mapToResponse(payment, null);
+            webSocketService.notifyRestaurantPointsPayment(restaurantId, notification);
+        } catch (Exception e) {
+            // Log the error but don't fail the payment transaction
+            // The payment is already completed, notification failure shouldn't roll it back
+            System.err.println("Failed to send WebSocket notification for payment " + payment.getId() + ": " + e.getMessage());
+        }
     }
 
     /**

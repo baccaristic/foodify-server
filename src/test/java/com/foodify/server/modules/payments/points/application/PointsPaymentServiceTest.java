@@ -3,6 +3,7 @@ package com.foodify.server.modules.payments.points.application;
 import com.foodify.server.modules.delivery.application.QrCodeService;
 import com.foodify.server.modules.identity.domain.Client;
 import com.foodify.server.modules.identity.repository.ClientRepository;
+import com.foodify.server.modules.notifications.websocket.WebSocketService;
 import com.foodify.server.modules.payments.points.domain.PointsPayment;
 import com.foodify.server.modules.payments.points.domain.PointsPaymentStatus;
 import com.foodify.server.modules.payments.points.dto.CreatePointsPaymentRequest;
@@ -43,6 +44,8 @@ class PointsPaymentServiceTest {
     private LoyaltyPointTransactionRepository loyaltyTransactionRepository;
     @Mock
     private QrCodeService qrCodeService;
+    @Mock
+    private WebSocketService webSocketService;
 
     private PointsPaymentService pointsPaymentService;
 
@@ -53,7 +56,8 @@ class PointsPaymentServiceTest {
                 restaurantRepository,
                 clientRepository,
                 loyaltyTransactionRepository,
-                qrCodeService
+                qrCodeService,
+                webSocketService
         );
     }
 
@@ -168,6 +172,7 @@ class PointsPaymentServiceTest {
 
         verify(loyaltyTransactionRepository).save(any());
         verify(pointsPaymentRepository).save(any(PointsPayment.class));
+        verify(webSocketService).notifyRestaurantPointsPayment(eq(2L), any(PointsPaymentResponse.class));
     }
 
     @Test
