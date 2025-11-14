@@ -82,7 +82,7 @@ class PointsPaymentServiceTest {
         // Then
         assertThat(response).isNotNull();
         assertThat(response.getAmountTnd()).isEqualByComparingTo(new BigDecimal("100.00"));
-        assertThat(response.getPointsAmount()).isEqualByComparingTo(new BigDecimal("1.00")); // 100 TND * 0.01 = 1 point
+        assertThat(response.getPointsAmount()).isEqualByComparingTo(new BigDecimal("10000.00")); // 100 TND * 100 = 10000 points
         assertThat(response.getStatus()).isEqualTo(PointsPaymentStatus.PENDING);
         assertThat(response.getQrCodeImage()).isEqualTo("base64QRCode");
         assertThat(response.getPaymentToken()).isNotNull();
@@ -90,7 +90,7 @@ class PointsPaymentServiceTest {
         ArgumentCaptor<PointsPayment> paymentCaptor = ArgumentCaptor.forClass(PointsPayment.class);
         verify(pointsPaymentRepository).save(paymentCaptor.capture());
         PointsPayment savedPayment = paymentCaptor.getValue();
-        assertThat(savedPayment.getPointsAmount()).isEqualByComparingTo(new BigDecimal("1.00"));
+        assertThat(savedPayment.getPointsAmount()).isEqualByComparingTo(new BigDecimal("10000.00"));
     }
 
     @Test
@@ -136,18 +136,18 @@ class PointsPaymentServiceTest {
         Client client = new Client();
         client.setId(clientId);
         client.setName("Test Client");
-        client.setLoyaltyPointsBalance(new BigDecimal("10.00"));
+        client.setLoyaltyPointsBalance(new BigDecimal("10000.00"));
 
         Restaurant restaurant = new Restaurant();
         restaurant.setId(2L);
         restaurant.setName("Test Restaurant");
-        restaurant.setPointsBalance(new BigDecimal("5.00"));
+        restaurant.setPointsBalance(new BigDecimal("5000.00"));
 
         PointsPayment payment = new PointsPayment();
         payment.setId(1L);
         payment.setRestaurant(restaurant);
         payment.setAmountTnd(new BigDecimal("50.00"));
-        payment.setPointsAmount(new BigDecimal("0.50")); // 50 TND * 0.01 = 0.50 points
+        payment.setPointsAmount(new BigDecimal("5000.00")); // 50 TND * 100 = 5000 points
         payment.setPaymentToken(paymentToken);
         payment.setStatus(PointsPaymentStatus.PENDING);
         payment.setExpiresAt(LocalDateTime.now().plusMinutes(30));
@@ -163,8 +163,8 @@ class PointsPaymentServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(PointsPaymentStatus.COMPLETED);
         assertThat(response.getClientId()).isEqualTo(clientId);
-        assertThat(client.getLoyaltyPointsBalance()).isEqualByComparingTo(new BigDecimal("9.50")); // 10.00 - 0.50
-        assertThat(restaurant.getPointsBalance()).isEqualByComparingTo(new BigDecimal("5.50")); // 5.00 + 0.50
+        assertThat(client.getLoyaltyPointsBalance()).isEqualByComparingTo(new BigDecimal("5000.00")); // 10000.00 - 5000.00
+        assertThat(restaurant.getPointsBalance()).isEqualByComparingTo(new BigDecimal("10000.00")); // 5000.00 + 5000.00
 
         verify(loyaltyTransactionRepository).save(any());
         verify(pointsPaymentRepository).save(any(PointsPayment.class));
@@ -180,7 +180,7 @@ class PointsPaymentServiceTest {
         Client client = new Client();
         client.setId(clientId);
         client.setName("Test Client");
-        client.setLoyaltyPointsBalance(new BigDecimal("0.25")); // Not enough points
+        client.setLoyaltyPointsBalance(new BigDecimal("2500.00")); // Not enough points
 
         Restaurant restaurant = new Restaurant();
         restaurant.setId(2L);
@@ -190,7 +190,7 @@ class PointsPaymentServiceTest {
         payment.setId(1L);
         payment.setRestaurant(restaurant);
         payment.setAmountTnd(new BigDecimal("100.00"));
-        payment.setPointsAmount(new BigDecimal("1.00")); // Requires 1 point
+        payment.setPointsAmount(new BigDecimal("10000.00")); // Requires 10000 points
         payment.setPaymentToken(paymentToken);
         payment.setStatus(PointsPaymentStatus.PENDING);
         payment.setExpiresAt(LocalDateTime.now().plusMinutes(30));
@@ -216,7 +216,7 @@ class PointsPaymentServiceTest {
 
         Client client = new Client();
         client.setId(clientId);
-        client.setLoyaltyPointsBalance(new BigDecimal("10.00"));
+        client.setLoyaltyPointsBalance(new BigDecimal("10000.00"));
 
         Restaurant restaurant = new Restaurant();
         restaurant.setId(2L);
@@ -225,7 +225,7 @@ class PointsPaymentServiceTest {
         payment.setId(1L);
         payment.setRestaurant(restaurant);
         payment.setAmountTnd(new BigDecimal("50.00"));
-        payment.setPointsAmount(new BigDecimal("0.50"));
+        payment.setPointsAmount(new BigDecimal("5000.00"));
         payment.setPaymentToken(paymentToken);
         payment.setStatus(PointsPaymentStatus.PENDING);
         payment.setExpiresAt(LocalDateTime.now().minusMinutes(5)); // Expired 5 minutes ago

@@ -33,8 +33,8 @@ import java.util.stream.Collectors;
 @Transactional
 public class PointsPaymentService {
 
-    // Conversion rate: 1 TND = 0.01 Foodify points
-    private static final BigDecimal TND_TO_POINTS_RATE = BigDecimal.valueOf(0.01);
+    // Conversion rate: 1 Foodify point = 0.01 TND, so 1 TND = 100 Foodify points
+    private static final BigDecimal TND_TO_POINTS_RATE = BigDecimal.valueOf(100);
     
     // Payment expiration time in minutes
     private static final int PAYMENT_EXPIRATION_MINUTES = 30;
@@ -73,7 +73,7 @@ public class PointsPaymentService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Amount must be greater than zero");
         }
 
-        // Calculate points amount (1 TND = 0.01 points)
+        // Calculate points amount (1 TND = 100 points)
         BigDecimal pointsAmount = request.getAmountTnd()
                 .multiply(TND_TO_POINTS_RATE)
                 .setScale(2, RoundingMode.HALF_UP);

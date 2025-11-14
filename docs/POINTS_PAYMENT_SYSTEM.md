@@ -4,9 +4,11 @@
 This feature allows restaurants to accept payments from clients using Foodify loyalty points. Restaurants can generate QR codes for payment requests, and clients can scan these codes to pay with their points balance.
 
 ## Conversion Rate
-**1 TND = 0.01 Foodify Points**
+**1 Foodify Point = 0.01 TND**
 
-Example: A 100 TND payment requires 1 Foodify Point
+Which means: **1 TND = 100 Foodify Points**
+
+Example: A 100 TND payment requires 10,000 Foodify Points
 
 ## API Endpoints
 
@@ -31,7 +33,7 @@ Creates a payment request and generates a QR code.
   "restaurantId": 123,
   "restaurantName": "Pizza Paradise",
   "amountTnd": 100.00,
-  "pointsAmount": 1.00,
+  "pointsAmount": 10000.00,
   "paymentToken": "uuid-token",
   "status": "PENDING",
   "qrCodeImage": "base64-encoded-qr-code",
@@ -79,7 +81,7 @@ Scans a QR code and processes the payment.
   "clientId": 456,
   "clientName": "John Doe",
   "amountTnd": 100.00,
-  "pointsAmount": 1.00,
+  "pointsAmount": 10000.00,
   "paymentToken": "uuid-token",
   "status": "COMPLETED",
   "createdAt": "2025-11-14T10:00:00",
@@ -101,7 +103,7 @@ Returns all payments made by a client.
 
 1. **Restaurant creates payment:**
    - Restaurant inputs amount in TND
-   - System calculates points amount (amount * 0.01)
+   - System calculates points amount (amount * 100)
    - System generates unique payment token
    - System creates QR code containing the token
    - Payment expires after 30 minutes
