@@ -90,6 +90,15 @@ public class Restaurant {
     @Column(name = "position", unique = true)
     private Integer position;
 
+    @Column(
+            name = "points_balance",
+            precision = 19,
+            scale = 2,
+            nullable = false,
+            columnDefinition = "numeric(19,2) not null default 0"
+    )
+    private BigDecimal pointsBalance = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+
     @OneToOne
     @JoinColumn(name = "admin_id")
     private RestaurantAdmin admin;
