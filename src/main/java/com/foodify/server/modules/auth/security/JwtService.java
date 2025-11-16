@@ -22,7 +22,7 @@ public class JwtService {
     }
 
     public String generateAccessToken(User user, String sessionToken) {
-        long expirationTimeMillis = 1000 * 60; // 24 hours
+        long expirationTimeMillis = 1000 * 60 * 60 * 24; // 24 hours
         var builder = Jwts.builder()
                 .setSubject(user.getId().toString())
                 .claim("email", user.getEmail())
