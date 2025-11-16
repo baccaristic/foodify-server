@@ -1,12 +1,12 @@
 package com.foodify.server.modules.admin.driver.dto;
 
-import com.foodify.server.modules.delivery.domain.DriverDepositStatus;
-
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
+@Builder
 @AllArgsConstructor
 @NoArgsConstructor
 public class DriverListItemDto {

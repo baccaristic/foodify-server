@@ -1,14 +1,16 @@
 package com.foodify.server.modules.admin.driver.repository;
 
-import com.foodify.server.modules.delivery.domain.DriverDeposit;
-import com.foodify.server.modules.delivery.domain.DriverDepositStatus;
 import com.foodify.server.modules.identity.domain.Driver;
-import jakarta.persistence.criteria.*;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
 
 public class DriverSpecifications {
+
+    private DriverSpecifications() {
+        throw new UnsupportedOperationException("Utility class");
+    }
 
     public static Specification<Driver> withFilters(String query, Boolean paid) {
         return (root, criteriaQuery, cb) -> {
@@ -27,7 +29,8 @@ public class DriverSpecifications {
                 try {
                     Long id = Long.parseLong(query);
                     queryPredicate = cb.or(queryPredicate, cb.equal(root.get("id"), id));
-                } catch (NumberFormatException e) {
+                } catch (NumberFormatException ignored) {
+                    // Query is not a number, continue with name/phone search only
                 }
 
                 predicate = cb.and(predicate, queryPredicate);
