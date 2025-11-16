@@ -13,5 +13,5 @@ public class DriverListItemDto {
     private Long id;
     private String name;
     private String phone;
-    private DriverDepositStatus depositStatus;
+    private boolean paid;
 }

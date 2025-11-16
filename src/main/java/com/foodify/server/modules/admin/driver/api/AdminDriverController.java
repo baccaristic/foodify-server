@@ -4,13 +4,18 @@ import com.foodify.server.modules.admin.driver.application.AdminDriverService;
 import com.foodify.server.modules.admin.driver.dto.*;
 import com.foodify.server.modules.delivery.domain.DriverDepositStatus;
 import com.foodify.server.modules.admin.driver.dto.DriverDepositAdminDto;
+import com.foodify.server.modules.delivery.dto.DriverDepositPreviewDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -23,16 +28,16 @@ public class AdminDriverController {
 
     /**
      * Get paginated list of drivers with optional filters
-     * GET /api/admin/drivers?query=search&depositStatus=CONFIRMED&page=0&size=20
+     * GET /api/admin/drivers?query=search&paid=true&page=0&size=20
      */
     @GetMapping
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Page<DriverListItemDto>> getDrivers(
             @RequestParam(required = false) String query,
-            @RequestParam(required = false) DriverDepositStatus depositStatus,
+            @RequestParam(required = false) boolean paid,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        Page<DriverListItemDto> drivers = adminDriverService.getDriverList(query, depositStatus, page, size);
+        Page<DriverListItemDto> drivers = adminDriverService.getDriverList(query, paid, page, size);
         return ResponseEntity.ok(drivers);
     }
 
@@ -74,17 +79,7 @@ public class AdminDriverController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
 
-        Double rating = adminDriverService.getDriverRating(driverId, startDate, endDate);
-        Double onTimePercentage = adminDriverService.getDriverOnTimePercentage(driverId, startDate, endDate);
-        Double avgDeliveryTime = adminDriverService.getDriverAverageDeliveryTime(driverId, startDate, endDate);
-
-        DriverStatisticsDto statistics = new DriverStatisticsDto(
-                driverId,
-                rating,
-                onTimePercentage,
-                avgDeliveryTime
-        );
-
+        DriverStatisticsDto statistics = adminDriverService.getDriverStatistics(driverId, startDate, endDate);
         return ResponseEntity.ok(statistics);
     }
 
@@ -214,18 +209,60 @@ public class AdminDriverController {
         return adminDriverService.getDepositsForAdmin(driverId, status, page, size);
     }
 
-
-/*
-    @GetMapping("/{driverId}/earnings")
+    /**
+     * Get driver earnings by payment method for a specific date
+     * GET /api/admin/drivers/{driverId}/earnings-by-payment-method?date=2024-01-15
+     */
+    @GetMapping("/{driverId}/earnings-by-payment-method")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
-    public DriverEarningsSummaryDto getEarningsSummary(
+    public ResponseEntity<DriverEarningsByPaymentMethodDto> getEarningsByPaymentMethod(
             @PathVariable Long driverId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate
-    ) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
 
-        return adminDriverService.getEarningsSummary(driverId, startDate, endDate);
+        DriverEarningsByPaymentMethodDto earnings = adminDriverService.getDriverEarningsByPaymentMethod(driverId, date);
+        return ResponseEntity.ok(earnings);
     }
 
- */
+    @GetMapping("/{driverId}/finance/deposits/confirm")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public DriverDepositPreviewDto previewDriverDeposit(@PathVariable Long driverId) {
+        return adminDriverService.previewDeposit(driverId);
+    }
+
+    @PostMapping("/{driverId}/finance/deposits/confirm")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public DriverDepositAdminDto confirmDriverDeposit(@PathVariable Long driverId, Authentication authentication) {
+        Long adminId = resolveAdminId(authentication);
+        return adminDriverService.confirmCashDeposit(adminId, driverId);
+    }
+
+    private Long resolveAdminId(Authentication authentication) {
+        if (authentication == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to resolve administrator session");
+        }
+
+        Object principal = authentication.getPrincipal();
+        String identifier = null;
+
+        if (principal instanceof Number number) {
+            return number.longValue();
+        }
+
+        if (principal instanceof String principalStr) {
+            identifier = principalStr;
+        } else if (principal != null) {
+            identifier = authentication.getName();
+        }
+
+        if (identifier == null) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to resolve administrator session");
+        }
+
+        try {
+            return Long.parseLong(identifier);
+        } catch (NumberFormatException ex) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to resolve administrator session", ex);
+        }
+    }
+
 }

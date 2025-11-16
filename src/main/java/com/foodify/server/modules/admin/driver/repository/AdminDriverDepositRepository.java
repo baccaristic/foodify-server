@@ -16,6 +16,7 @@ import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface AdminDriverDepositRepository extends JpaRepository<DriverDeposit, Long> {
 
@@ -45,4 +46,7 @@ public interface AdminDriverDepositRepository extends JpaRepository<DriverDeposi
             DriverDepositStatus status,
             Pageable pageable
     );
+
+    Optional<DriverDeposit> findFirstByDriver_IdAndStatusOrderByCreatedAtDesc(Long driverId, DriverDepositStatus status);
+
 }

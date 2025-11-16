@@ -6,9 +6,11 @@ import com.foodify.server.modules.identity.domain.Driver;
 import jakarta.persistence.criteria.*;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.math.BigDecimal;
+
 public class DriverSpecifications {
 
-    public static Specification<Driver> withFilters(String query, DriverDepositStatus depositStatus) {
+    public static Specification<Driver> withFilters(String query, Boolean paid) {
         return (root, criteriaQuery, cb) -> {
             Predicate predicate = cb.conjunction();
 
@@ -16,29 +18,35 @@ public class DriverSpecifications {
 
             if (query != null && !query.trim().isEmpty()) {
                 String likePattern = "%" + query.toLowerCase() + "%";
+
                 Predicate queryPredicate = cb.or(
                         cb.like(cb.lower(root.get("name")), likePattern),
-                        cb.like(root.get("id").as(String.class), "%" + query + "%"),
                         cb.like(root.get("phone"), "%" + query + "%")
                 );
+
+                try {
+                    Long id = Long.parseLong(query);
+                    queryPredicate = cb.or(queryPredicate, cb.equal(root.get("id"), id));
+                } catch (NumberFormatException e) {
+                }
+
                 predicate = cb.and(predicate, queryPredicate);
             }
 
-            if (depositStatus != null) {
-                Subquery<Long> subquery = criteriaQuery.subquery(Long.class);
-                Root<DriverDeposit> depositRoot = subquery.from(DriverDeposit.class);
+            if (paid != null) {
+                BigDecimal zero = BigDecimal.ZERO;
 
-                subquery.select(cb.max(depositRoot.get("createdAt")))
-                        .where(cb.equal(depositRoot.get("driver"), root));
-
-                Join<Driver, DriverDeposit> depositJoin = root.join("deposits", JoinType.LEFT);
-
-                Predicate depositPredicate = cb.and(
-                        cb.equal(depositJoin.get("status"), depositStatus),
-                        cb.equal(depositJoin.get("createdAt"), subquery)
+                Predicate hasOutstandingAmounts = cb.or(
+                        cb.greaterThan(root.get("cashOnHand"), zero),
+                        cb.greaterThan(root.get("unpaidEarnings"), zero),
+                        cb.greaterThan(root.get("outstandingDailyFees"), zero)
                 );
 
-                predicate = cb.and(predicate, depositPredicate);
+                if (paid) {
+                    predicate = cb.and(predicate, cb.not(hasOutstandingAmounts));
+                } else {
+                    predicate = cb.and(predicate, hasOutstandingAmounts);
+                }
             }
 
             return predicate;

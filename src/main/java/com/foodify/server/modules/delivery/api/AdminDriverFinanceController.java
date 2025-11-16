@@ -33,26 +33,26 @@ public class AdminDriverFinanceController {
     public DriverFinancialSummaryDto driverFinance(@PathVariable Long driverId) {
         return driverFinancialService.getSummary(driverId);
     }
-
+/*
     @GetMapping("/{driverId}/finance/deposits/confirm")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public DriverDepositPreviewDto previewDriverDeposit(@PathVariable Long driverId) {
         return driverFinancialService.previewDeposit(driverId);
     }
-
+*/
     @GetMapping("/deposits")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public List<DriverDepositAdminDto> listDeposits(@RequestParam(value = "status", required = false) DriverDepositStatus status) {
         return driverFinancialService.getDepositsForAdmin(status);
     }
-
+/*
     @PostMapping("/{driverId}/finance/deposits/confirm")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public DriverDepositAdminDto confirmDriverDeposit(@PathVariable Long driverId, Authentication authentication) {
         Long adminId = resolveAdminId(authentication);
         return driverFinancialService.confirmCashDeposit(adminId, driverId);
     }
-
+*/
     @PostMapping("/deposits/{depositId}/confirm")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public DriverDepositAdminDto confirmDeposit(@PathVariable Long depositId, Authentication authentication) {

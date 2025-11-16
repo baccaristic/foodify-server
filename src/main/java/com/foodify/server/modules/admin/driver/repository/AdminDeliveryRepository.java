@@ -1,9 +1,11 @@
 package com.foodify.server.modules.admin.driver.repository;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
 import com.foodify.server.modules.identity.domain.Driver;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -59,6 +61,17 @@ public interface AdminDeliveryRepository extends JpaRepository<Delivery, Long> {
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
+    @Query("""
+        SELECT COUNT(d)
+        FROM Delivery d
+        WHERE d.driver.id = :driverId
+                AND (CAST(:startDate AS timestamp) IS NULL OR d.deliveredTime >= :startDate)
+                AND (CAST(:endDate AS timestamp) IS NULL OR d.deliveredTime <= :endDate)
+        """)
+    Long getDriverTotalDeliveries(
+            @Param("driverId") Long driverId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
 
     @Query("""
             SELECT new com.foodify.server.modules.admin.driver.dto.DailyOnTimePercentageDto(
@@ -86,5 +99,20 @@ public interface AdminDeliveryRepository extends JpaRepository<Delivery, Long> {
             @Param("driverId") Long driverId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
+
+
+    @Query("""
+           SELECT COALESCE(SUM(o.itemsTotal), 0)
+           FROM Delivery d
+           JOIN d.order o
+           WHERE d.driver.id = :driverId
+             AND FUNCTION('DATE', d.deliveredTime) = CAST(:date AS date)
+             AND LOWER(o.paymentMethod) = LOWER(:paymentMethod)
+           """)
+    Double getEarningByDriverIdAndDeliveredAtDateAndPaymentMethod(
+            @Param("driverId") Long driverId,
+            @Param("date") LocalDate date,
+            @Param("paymentMethod") String paymentMethod
+    );
 
 }

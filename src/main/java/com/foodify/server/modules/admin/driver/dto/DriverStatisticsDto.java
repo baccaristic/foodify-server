@@ -8,8 +8,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class DriverStatisticsDto {
-    private Long driverId;
     private Double averageRating;
     private Double onTimePercentage;
-    private Double averageDeliveryTimeMinutes;
+    private Double averageDeliveryTime;
+    private Long totalDeliveries;
 }
