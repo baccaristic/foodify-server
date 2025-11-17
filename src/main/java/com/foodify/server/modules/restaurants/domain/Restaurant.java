@@ -2,6 +2,7 @@ package com.foodify.server.modules.restaurants.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.foodify.server.modules.identity.domain.RestaurantAdmin;
+import com.foodify.server.modules.identity.domain.RestaurantCashier;
 import com.foodify.server.modules.orders.domain.Order;
 import jakarta.persistence.*;
 import jakarta.persistence.Index;
@@ -89,9 +90,21 @@ public class Restaurant {
     @Column(name = "position", unique = true)
     private Integer position;
 
+    @Column(
+            name = "points_balance",
+            precision = 19,
+            scale = 2,
+            nullable = false,
+            columnDefinition = "numeric(19,2) not null default 0"
+    )
+    private BigDecimal pointsBalance = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+
     @OneToOne
     @JoinColumn(name = "admin_id")
     private RestaurantAdmin admin;
+
+    @OneToMany(mappedBy = "restaurant", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<RestaurantCashier> cashiers = new HashSet<>();
 
     @OneToMany(mappedBy = "restaurant")
     private List<MenuItem> menu;

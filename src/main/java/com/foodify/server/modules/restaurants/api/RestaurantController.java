@@ -12,8 +12,12 @@ import com.foodify.server.modules.restaurants.dto.SaveSpecialDayRequest;
 import com.foodify.server.modules.restaurants.dto.UpdatePreparationEstimateRequest;
 import com.foodify.server.modules.restaurants.dto.UpdateWeeklyScheduleRequest;
 import com.foodify.server.modules.identity.domain.RestaurantAdmin;
+import com.foodify.server.modules.identity.domain.RestaurantCashier;
+import com.foodify.server.modules.identity.domain.Role;
 import com.foodify.server.modules.identity.repository.RestaurantAdminRepository;
+import com.foodify.server.modules.identity.repository.RestaurantCashierRepository;
 import com.foodify.server.modules.restaurants.application.RestaurantService;
+import com.foodify.server.modules.restaurants.dto.RestaurantUserContext;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -40,8 +44,9 @@ import java.util.List;
 public class RestaurantController {
     private final RestaurantService restaurantService;
     private final RestaurantAdminRepository restaurantAdminRepository;
+    private final RestaurantCashierRepository restaurantCashierRepository;
     @GetMapping("/my-orders")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public PageResponse<OrderNotificationDTO> getMyOrders(
             Authentication authentication,
             @RequestParam(defaultValue = "0") int page,
@@ -53,14 +58,14 @@ public class RestaurantController {
             @DateTimeFormat(pattern = "dd/MM/yyyy")
             LocalDate to
     ) {
-        RestaurantAdmin admin = loadAdmin(authentication);
+        RestaurantUserContext userContext = loadRestaurantUser(authentication);
         int effectivePage = Math.max(page, 0);
         int effectivePageSize = pageSize > 0 ? Math.min(pageSize, 50) : 20;
 
         PageRequest pageRequest = PageRequest.of(effectivePage, effectivePageSize, Sort.by("date").descending());
 
         Page<OrderNotificationDTO> orders = this.restaurantService.getAllOrders(
-                admin.getRestaurant(),
+                userContext.getRestaurant(),
                 pageRequest,
                 from,
                 to
@@ -75,17 +80,17 @@ public class RestaurantController {
     }
 
     @GetMapping("/categories")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public List<MenuCategory> getCategories(Authentication authentication) {
-        RestaurantAdmin restaurantAdmin = loadAdmin(authentication);
-        return restaurantService.getCategoriesForRestaurant(restaurantAdmin.getRestaurant().getId());
+        RestaurantUserContext userContext = loadRestaurantUser(authentication);
+        return restaurantService.getCategoriesForRestaurant(userContext.getRestaurant().getId());
     }
 
     @GetMapping("/operating-hours")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public OperatingHoursResponse getOperatingHours(Authentication authentication) {
-        RestaurantAdmin restaurantAdmin = loadAdmin(authentication);
-        return restaurantService.getOperatingHours(restaurantAdmin.getRestaurant().getId());
+        RestaurantUserContext userContext = loadRestaurantUser(authentication);
+        return restaurantService.getOperatingHours(userContext.getRestaurant().getId());
     }
 
     @PutMapping("/operating-hours/weekly")
@@ -134,10 +139,10 @@ public class RestaurantController {
     }
 
     @GetMapping("/my-active-orders")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public List<OrderNotificationDTO> getMyActiveOrders(Authentication authentication) {
-        RestaurantAdmin admin = loadAdmin(authentication);
-        return this.restaurantService.getActiveOrders(admin.getId());
+        RestaurantUserContext userContext = loadRestaurantUser(authentication);
+        return this.restaurantService.getActiveOrders(userContext.getRestaurant());
     }
 
     @PostMapping(value = "/addMenu", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -184,37 +189,37 @@ public class RestaurantController {
     }
 
     @PatchMapping("/menu/{menuId}/availability")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public MenuItem updateMenuAvailability(
             Authentication authentication,
             @PathVariable Long menuId,
             @RequestBody MenuItemAvailabilityRequest request) {
 
-        RestaurantAdmin restaurantAdmin = loadAdmin(authentication);
+        RestaurantUserContext userContext = loadRestaurantUser(authentication);
         return restaurantService.updateMenuAvailability(
                 menuId,
-                restaurantAdmin.getRestaurant().getId(),
+                userContext.getRestaurant().getId(),
                 request.available()
         );
     }
 
     @GetMapping("/my-menu")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public List<MenuItem> getMyMenu(Authentication authentication) {
-        RestaurantAdmin restaurantAdmin = loadAdmin(authentication);
-        return restaurantAdmin.getRestaurant().getMenu();
+        RestaurantUserContext userContext = loadRestaurantUser(authentication);
+        return userContext.getRestaurant().getMenu();
     }
 
     @GetMapping("/order/{id}")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public OrderNotificationDTO getOrder(@PathVariable Long id, Authentication authentication) {
-        RestaurantAdmin admin = loadAdmin(authentication);
-        Long restaurantId = admin.getRestaurant().getId();
+        RestaurantUserContext userContext = loadRestaurantUser(authentication);
+        Long restaurantId = userContext.getRestaurant().getId();
         return this.restaurantService.getOrderForRestaurant(id, restaurantId);
     }
 
     @PostMapping("/accept-order/{id}")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public OrderNotificationDTO acceptOrder(Authentication authentication, @PathVariable Long id) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         return this.restaurantService.acceptOrder(id, userId);
@@ -222,7 +227,7 @@ public class RestaurantController {
     }
 
     @PostMapping("/order/{id}/estimate")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public OrderNotificationDTO updateOrderEstimate(
             Authentication authentication,
             @PathVariable Long id,
@@ -234,7 +239,7 @@ public class RestaurantController {
     }
 
     @PostMapping("/order/{id}/start-preparing")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public OrderNotificationDTO startPreparingOrder(
             Authentication authentication,
             @PathVariable Long id,
@@ -245,12 +250,34 @@ public class RestaurantController {
     }
 
     @PostMapping("/order/ready/{id}")
-    @PreAuthorize("hasAuthority('ROLE_RESTAURANT_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
     public OrderNotificationDTO readyOrder(Authentication authentication, @PathVariable Long id) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         return this.restaurantService.markOrderReady(id, userId);
     }
 
+    private RestaurantUserContext loadRestaurantUser(Authentication authentication) {
+        Long userId = Long.parseLong((String) authentication.getPrincipal());
+        
+        // First try to load as RestaurantAdmin
+        RestaurantAdmin admin = restaurantAdminRepository.findById(userId).orElse(null);
+        if (admin != null) {
+            return new RestaurantUserContext(userId, admin.getRestaurant());
+        }
+        
+        // If not found as admin, try loading as RestaurantCashier
+        RestaurantCashier cashier = restaurantCashierRepository.findById(userId).orElse(null);
+        if (cashier != null) {
+            return new RestaurantUserContext(userId, cashier.getRestaurant());
+        }
+        
+        throw new RuntimeException("Restaurant user not found");
+    }
+    
+    /**
+     * @deprecated Use loadRestaurantUser instead for compatibility with both admin and cashier roles
+     */
+    @Deprecated
     private RestaurantAdmin loadAdmin(Authentication authentication) {
         Long userId = Long.parseLong((String) authentication.getPrincipal());
         return restaurantAdminRepository.findById(userId)

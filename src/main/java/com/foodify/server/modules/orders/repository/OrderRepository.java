@@ -64,6 +64,13 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             List<OrderStatus> statuses,
             Pageable pageable
     );
+    
+    @EntityGraph(value = Order.SUMMARY_GRAPH, type = EntityGraphType.LOAD)
+    Slice<Order> findAllByRestaurant_IdAndStatusInAndArchivedAtIsNullOrderByDateDesc(
+            Long restaurantId,
+            List<OrderStatus> statuses,
+            Pageable pageable
+    );
     @Query("""
     SELECT o
     FROM Order o
@@ -139,4 +146,101 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     List<com.foodify.server.modules.restaurants.application.RestaurantDeliveryMetricsService.OrderStats> getRestaurantOrderStats(
             @Param("restaurantId") Long restaurantId
     );
+
+    // Analytics queries
+    @Query("""
+    SELECT COALESCE(SUM(o.total), 0)
+    FROM Order o
+    WHERE o.restaurant.id = :restaurantId
+      AND o.status = 'DELIVERED'
+      AND o.date >= :startDate
+      AND o.date < :endDate
+    """)
+    java.math.BigDecimal getTotalRevenueForPeriod(
+            @Param("restaurantId") Long restaurantId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    @Query("""
+    SELECT COUNT(o)
+    FROM Order o
+    WHERE o.restaurant.id = :restaurantId
+      AND o.status = 'DELIVERED'
+      AND o.date >= :startDate
+      AND o.date < :endDate
+    """)
+    Long countDeliveredOrdersForPeriod(
+            @Param("restaurantId") Long restaurantId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    @Query("""
+    SELECT AVG(d.timeToPickUp / 60000.0)
+    FROM Order o
+    JOIN o.delivery d
+    WHERE o.restaurant.id = :restaurantId
+      AND o.status = 'DELIVERED'
+      AND d.timeToPickUp IS NOT NULL
+      AND o.date >= :startDate
+      AND o.date < :endDate
+    """)
+    java.math.BigDecimal getAveragePreparationTimeForPeriod(
+            @Param("restaurantId") Long restaurantId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    @Query("""
+    SELECT CAST(o.date AS LocalDate) as date,
+           COALESCE(SUM(o.total), 0) as revenue,
+           COUNT(o) as orderCount
+    FROM Order o
+    WHERE o.restaurant.id = :restaurantId
+      AND o.status = 'DELIVERED'
+      AND o.date >= :startDate
+      AND o.date < :endDate
+    GROUP BY CAST(o.date AS LocalDate)
+    ORDER BY CAST(o.date AS LocalDate)
+    """)
+    List<SalesTrendProjection> getSalesTrendForPeriod(
+            @Param("restaurantId") Long restaurantId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    interface SalesTrendProjection {
+        java.time.LocalDate getDate();
+        java.math.BigDecimal getRevenue();
+        Long getOrderCount();
+    }
+
+    @Query("""
+    SELECT oi.menuItem.id as menuItemId,
+           oi.menuItem.name as menuItemName,
+           COUNT(DISTINCT o.id) as orderCount,
+           SUM(oi.quantity) as quantitySold
+    FROM Order o
+    JOIN o.items oi
+    WHERE o.restaurant.id = :restaurantId
+      AND o.status = 'DELIVERED'
+      AND o.date >= :startDate
+      AND o.date < :endDate
+    GROUP BY oi.menuItem.id, oi.menuItem.name
+    ORDER BY SUM(oi.quantity) DESC
+    """)
+    List<TopDishProjection> getTopDishesForPeriod(
+            @Param("restaurantId") Long restaurantId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            Pageable pageable
+    );
+
+    interface TopDishProjection {
+        Long getMenuItemId();
+        String getMenuItemName();
+        Long getOrderCount();
+        Long getQuantitySold();
+    }
 }

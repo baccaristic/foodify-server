@@ -1,5 +1,6 @@
 package com.foodify.server.modules.restaurants.mapper;
 
+import com.foodify.server.modules.restaurants.dto.RestaurantBasicInfoDto;
 import com.foodify.server.modules.restaurants.dto.RestaurantDisplayDto;
 import com.foodify.server.modules.restaurants.dto.RestaurantDto;
 import com.foodify.server.modules.restaurants.domain.Restaurant;
@@ -50,6 +51,9 @@ public interface RestaurantMapper {
     @Mapping(target = "position", source = "position")
     RestaurantDisplayDto toDto(Restaurant entity);
     List<RestaurantDisplayDto> toDto(List<Restaurant> entities);
+
+    @Mapping(target = "images", ignore = true)
+    RestaurantBasicInfoDto toBasicInfoDto(Restaurant entity);
 
     default Set<RestaurantCategory> mapCategories(Set<RestaurantCategory> categories) {
         return categories == null || categories.isEmpty() ? Set.of() : Set.copyOf(categories);

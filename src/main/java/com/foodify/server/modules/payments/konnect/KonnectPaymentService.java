@@ -196,10 +196,8 @@ public class KonnectPaymentService {
         if (order.getClient() != null && order.getClient().getId() != null) {
             webSocketService.notifyClient(order.getClient().getId(), order);
         }
-        if (order.getRestaurant() != null
-                && order.getRestaurant().getAdmin() != null
-                && order.getRestaurant().getAdmin().getId() != null) {
-            webSocketService.notifyRestaurant(order.getRestaurant().getAdmin().getId(), order);
+        if (order.getRestaurant() != null && order.getRestaurant().getId() != null) {
+            webSocketService.notifyRestaurant(order.getRestaurant().getId(), order);
         }
     }
 
