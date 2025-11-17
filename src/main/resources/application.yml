@@ -28,14 +28,6 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: 507898158443-v30o4karkuovc0fb3qq43f482am22uid.apps.googleusercontent.com
-            client-secret: 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
-            scope: profile, email
 
 server:
   port: 8081
