@@ -1,6 +1,5 @@
 package com.foodify.server.modules.auth.security;
 
-import com.foodify.server.modules.auth.application.CustomOAuth2UserService;
 import com.foodify.server.modules.auth.security.JwtAuthenticationFilter;
 import com.foodify.server.modules.auth.security.JwtService;
 import com.foodify.server.modules.delivery.application.DriverSessionService;
@@ -15,7 +14,6 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -32,7 +30,6 @@ import org.slf4j.LoggerFactory;
 @RequiredArgsConstructor
 public class SecurityConfig {
     private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
-    private final CustomOAuth2UserService customOAuth2UserService;
     private final JwtService jwtService;
     private final DriverSessionService driverSessionService;
 
@@ -45,7 +42,6 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/delivery/status",
-                                "/oauth2/**",
                                 "/ws/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
@@ -56,24 +52,18 @@ public class SecurityConfig {
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
-                .oauth2Login(oauth2 -> oauth2
-                        .userInfoEndpoint(userInfo -> userInfo
-                                .userService(customOAuth2UserService)
-                        )
-                        .successHandler(oAuth2SuccessHandler())
-                )
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
-                            log.error("Unauthorized request: {}", authException.getMessage(), authException);
+                            log.error("Unauthorized request to {}: {}", request.getRequestURI(), authException.getMessage());
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                             response.setContentType("application/json");
-                            response.getWriter().write("{\"error\": \"Unauthorized\"}");
+                            response.getWriter().write("{\"error\": \"Unauthorized\", \"message\": \"" + authException.getMessage() + "\", \"path\": \"" + request.getRequestURI() + "\"}");
                         })
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
-                            log.error("Access denied: {}", accessDeniedException.getMessage(), accessDeniedException);
+                            log.error("Access denied to {}: {}", request.getRequestURI(), accessDeniedException.getMessage());
                             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                             response.setContentType("application/json");
-                            response.getWriter().write("{\"error\": \"Forbidden\"}");
+                            response.getWriter().write("{\"error\": \"Forbidden\", \"message\": \"" + accessDeniedException.getMessage() + "\", \"path\": \"" + request.getRequestURI() + "\"}");
                         })
                 )
                 .addFilterBefore(jwtAuthenticationFilter(),
@@ -104,10 +94,5 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
-    }
-
-    @Bean
-    public AuthenticationSuccessHandler oAuth2SuccessHandler() {
-        return new GoogleOAuth2SuccessHandler(); // defined below
     }
 }
