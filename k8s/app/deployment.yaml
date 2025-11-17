@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: foodify-server-app
+  labels:
+    app: foodify-server-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: foodify-server-app
+  template:
+    metadata:
+      labels:
+        app: foodify-server-app
+    spec:
+      containers:
+        - name: foodify-server-app
+          # TODO: build & push this image, then adjust this value if needed
+          image: localhost:32000/foodify-server:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8081
+          env:
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: SPRING_DATASOURCE_URL
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: SPRING_DATASOURCE_USERNAME
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: SPRING_DATASOURCE_PASSWORD
+
+            - name: REDIS_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: REDIS_PORT
+
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: KAFKA_BOOTSTRAP_SERVERS
+
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: JWT_SECRET
+
+          # Reasonable JVM / container resources for now
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "1Gi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+
+          # Assuming your app exposes /health
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 40
+            periodSeconds: 20
+            failureThreshold: 5
