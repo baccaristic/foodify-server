@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: foodify-server-app
+  labels:
+    app: foodify-server-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: foodify-server-app
+  template:
+    metadata:
+      labels:
+        app: foodify-server-app
+    spec:
+      initContainers:
+        - name: wait-for-dependencies
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for Postgres..."
+              until nc -z postgres 5432; do
+                echo "  still waiting for postgres"
+                sleep 2
+              done
+              echo "Postgres is up."
+
+              echo "Waiting for Kafka..."
+              until nc -z kafka 9092; do
+                echo "  still waiting for kafka"
+                sleep 2
+              done
+              echo "Kafka is up."
+
+              echo "Waiting for Redis..."
+              until nc -z redis 6379; do
+                echo "  still waiting for redis"
+                sleep 2
+              done
+              echo "Redis is up. Starting app."
+      containers:
+        - name: foodify-server-app
+          image: localhost:32000/foodify-server:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8081
+          env:
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: SPRING_DATASOURCE_URL
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: SPRING_DATASOURCE_USERNAME
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: SPRING_DATASOURCE_PASSWORD
+
+            - name: REDIS_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: REDIS_PORT
+
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: KAFKA_BOOTSTRAP_SERVERS
+
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: JWT_SECRET
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "1Gi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 40
+            periodSeconds: 20
+            failureThreshold: 5

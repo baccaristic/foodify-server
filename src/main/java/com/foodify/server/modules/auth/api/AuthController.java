@@ -24,10 +24,7 @@ import com.foodify.server.modules.restaurants.mapper.RestaurantMapper;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -36,14 +33,11 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Map;
-import java.util.Optional;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -409,20 +403,6 @@ public class AuthController {
         );
 
         return ResponseEntity.ok(Map.of("success", true, "user", userPayload));
-    }
-
-    @GetMapping("/image/{filename:.+}")
-    public ResponseEntity<Resource> getImage(@PathVariable String filename) throws IOException {
-        Path filePath = Paths.get("uploads").resolve(filename);
-        Resource resource = new UrlResource(filePath.toUri());
-
-        if (!resource.exists()) {
-            return ResponseEntity.notFound().build();
-        }
-
-        return ResponseEntity.ok()
-                .contentType(MediaType.IMAGE_JPEG)
-                .body(resource);
     }
 
     @PreAuthorize("hasAuthority('ROLE_CLIENT')")

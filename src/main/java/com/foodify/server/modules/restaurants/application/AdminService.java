@@ -10,6 +10,7 @@ import com.foodify.server.modules.restaurants.dto.NewUserDto;
 import com.foodify.server.modules.restaurants.dto.RestaurantDto;
 import com.foodify.server.modules.restaurants.mapper.RestaurantMapper;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
+import com.foodify.server.modules.storage.application.CloudflareImagesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,12 +21,7 @@ import org.springframework.util.StringUtils;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.HashSet;
-import java.util.UUID;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
@@ -38,6 +34,7 @@ public class AdminService {
     private final RestaurantMapper restaurantMapper;
     private final RestaurantAdminRepository restaurantAdminRepository;
     private final PasswordEncoder passwordEncoder;
+    private final CloudflareImagesService cloudflareImagesService;
 
     public Driver addDriver(Driver driver) {
         return null;
@@ -132,15 +129,7 @@ public class AdminService {
     }
 
     private String storeFile(MultipartFile file) throws IOException {
-        String originalFilename = file.getOriginalFilename();
-        String sanitizedFilename = StringUtils.hasText(originalFilename) ? originalFilename : file.getName();
-        String filename = UUID.randomUUID() + "_" + sanitizedFilename;
-        Path path = Paths.get("uploads").resolve(filename);
-        Files.createDirectories(path.getParent());
-        try (var inputStream = file.getInputStream()) {
-            Files.copy(inputStream, path, StandardCopyOption.REPLACE_EXISTING);
-        }
-        return filename;
+        return cloudflareImagesService.uploadImage(file);
     }
 
     private BigDecimal resolveCommissionRate(BigDecimal requestedRate, BigDecimal fallbackRate) {

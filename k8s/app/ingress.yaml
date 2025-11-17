@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: foodify-server-ingress
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-cloudflare"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - mobile.foodifytn.app
+      secretName: mobile-tls
+  rules:
+    - host: mobile.foodifytn.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: foodify-server-service
+                port:
+                  number: 80

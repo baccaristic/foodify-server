@@ -77,6 +77,7 @@ services:
       KONNECT_PRODUCTION_WALLET_ID: ${KONNECT_PRODUCTION_WALLET_ID:-}
       KONNECT_PRODUCTION_WEBHOOK_URL: ${KONNECT_PRODUCTION_WEBHOOK_URL:-}
       EXPO_ACCESS_TOKEN: ${EXPO_ACCESS_TOKEN:-}
+      TZ: Africa/Tunis
 
     volumes:
       - ./serviceAccountKey.json:/app/config/serviceAccountKey.json

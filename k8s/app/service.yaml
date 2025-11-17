@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: foodify-server-service
+  labels:
+    app: foodify-server-app
+spec:
+  type: ClusterIP
+  selector:
+    app: foodify-server-app
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8081

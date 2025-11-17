@@ -1,0 +1,573 @@
+[33mcommit 139922c50fc0b8eabdd2cffcc0f4e8eb78b8894c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m
+Author: Mortadha <mortadha.nefzi@esprit.tn>
+Date:   Mon Nov 17 12:04:37 2025 +0100
+
+    Added kubernetes manifests
+
+[1mdiff --git a/k8s/app/deployment.yaml b/k8s/app/deployment.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..e7754c4[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/app/deployment.yaml[m
+[36m@@ -0,0 +1,88 @@[m
+[32m+[m[32mapiVersion: apps/v1[m
+[32m+[m[32mkind: Deployment[m
+[32m+[m[32mmetadata:[m
+[32m+[m[32m  name: foodify-server-app[m
+[32m+[m[32m  labels:[m
+[32m+[m[32m    app: foodify-server-app[m
+[32m+[m[32mspec:[m
+[32m+[m[32m  replicas: 2[m
+[32m+[m[32m  selector:[m
+[32m+[m[32m    matchLabels:[m
+[32m+[m[32m      app: foodify-server-app[m
+[32m+[m[32m  template:[m
+[32m+[m[32m    metadata:[m
+[32m+[m[32m      labels:[m
+[32m+[m[32m        app: foodify-server-app[m
+[32m+[m[32m    spec:[m
+[32m+[m[32m      containers:[m
+[32m+[m[32m        - name: foodify-server-app[m
+[32m+[m[32m          # TODO: build & push this image, then adjust this value if needed[m
+[32m+[m[32m          image: localhost:32000/foodify-server:latest[m
+[32m+[m[32m          imagePullPolicy: IfNotPresent[m
+[32m+[m[32m          ports:[m
+[32m+[m[32m            - containerPort: 8081[m
+[32m+[m[32m          env:[m
+[32m+[m[32m            - name: SPRING_DATASOURCE_URL[m
+[32m+[m[32m              valueFrom:[m
+[32m+[m[32m                secretKeyRef:[m
+[32m+[m[32m                  name: foodify-secrets[m
+[32m+[m[32m                  key: SPRING_DATASOURCE_URL[m
+[32m+[m[32m            - name: SPRING_DATASOURCE_USERNAME[m
+[32m+[m[32m              valueFrom:[m
+[32m+[m[32m                secretKeyRef:[m
+[32m+[m[32m                  name: foodify-secrets[m
+[32m+[m[32m                  key: SPRING_DATASOURCE_USERNAME[m
+[32m+[m[32m            - name: SPRING_DATASOURCE_PASSWORD[m
+[32m+[m[32m              valueFrom:[m
+[32m+[m[32m                secretKeyRef:[m
+[32m+[m[32m                  name: foodify-secrets[m
+[32m+[m[32m                  key: SPRING_DATASOURCE_PASSWORD[m
+[32m+[m
+[32m+[m[32m            - name: REDIS_HOST[m
+[32m+[m[32m              valueFrom:[m
+[32m+[m[32m                secretKeyRef:[m
+[32m+[m[32m                  name: foodify-secrets[m
+[32m+[m[32m                  key: REDIS_HOST[m
+[32m+[m[32m            - name: REDIS_PORT[m
+[32m+[m[32m              valueFrom:[m
+[32m+[m[32m                secretKeyRef:[m
+[32m+[m[32m                  name: foodify-secrets[m
+[32m+[m[32m                  key: REDIS_PORT[m
+[32m+[m
+[32m+[m[32m            - name: KAFKA_BOOTSTRAP_SERVERS[m
+[32m+[m[32m              valueFrom:[m
+[32m+[m[32m                secretKeyRef:[m
+[32m+[m[32m                  name: foodify-secrets[m
+[32m+[m[32m                  key: KAFKA_BOOTSTRAP_SERVERS[m
+[32m+[m
+[32m+[m[32m            - name: JWT_SECRET[m
+[32m+[m[32m              valueFrom:[m
+[32m+[m[32m                secretKeyRef:[m
+[32m+[m[32m                  name: foodify-secrets[m
+[32m+[m[32m                  key: JWT_SECRET[m
+[32m+[m
+[32m+[m[32m          # Reasonable JVM / container resources for now[m
+[32m+[m[32m          resources:[m
+[32m+[m[32m            requests:[m
+[32m+[m[32m              cpu: "250m"[m
+[32m+[m[32m              memory: "1Gi"[m
+[32m+[m[32m            limits:[m
+[32m+[m[32m              cpu: "1"[m
+[32m+[m[32m              memory: "2Gi"[m
+[32m+[m
+[32m+[m[32m          # Assuming your app exposes /health[m
+[32m+[m[32m          readinessProbe:[m
+[32m+[m[32m            httpGet:[m
+[32m+[m[32m              path: /health[m
+[32m+[m[32m              port: 8081[m
+[32m+[m[32m            initialDelaySeconds: 20[m
+[32m+[m[32m            periodSeconds: 10[m
+[32m+[m[32m            failureThreshold: 3[m
+[32m+[m
+[32m+[m[32m          livenessProbe:[m
+[32m+[m[32m            httpGet:[m
+[32m+[m[32m              path: /health[m
+[32m+[m[32m              port: 8081[m
+[32m+[m[32m            initialDelaySeconds: 40[m
+[32m+[m[32m            periodSeconds: 20[m
+[32m+[m[32m            failureThreshold: 5[m
+[1mdiff --git a/k8s/app/ingress.yaml b/k8s/app/ingress.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..942b528[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/app/ingress.yaml[m
+[36m@@ -0,0 +1,23 @@[m
+[32m+[m[32mapiVersion: networking.k8s.io/v1[m
+[32m+[m[32mkind: Ingress[m
+[32m+[m[32mmetadata:[m
+[32m+[m[32m  name: foodify-server-ingress[m
+[32m+[m[32m  annotations:[m
+[32m+[m[32m    cert-manager.io/cluster-issuer: "letsencrypt-cloudflare"[m
+[32m+[m[32mspec:[m
+[32m+[m[32m  ingressClassName: nginx[m
+[32m+[m[32m  tls:[m
+[32m+[m[32m    - hosts:[m
+[32m+[m[32m        - mobile.foodifytn.app[m
+[32m+[m[32m      secretName: mobile-tls[m
+[32m+[m[32m  rules:[m
+[32m+[m[32m    - host: mobile.foodifytn.app[m
+[32m+[m[32m      http:[m
+[32m+[m[32m        paths:[m
+[32m+[m[32m          - path: /[m
+[32m+[m[32m            pathType: Prefix[m
+[32m+[m[32m            backend:[m
+[32m+[m[32m              service:[m
+[32m+[m[32m                name: foodify-server-service[m
+[32m+[m[32m                port:[m
+[32m+[m[32m                  number: 80[m
+[1mdiff --git a/k8s/app/kustomization.yaml b/k8s/app/kustomization.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..1d4f62e[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/app/kustomization.yaml[m
+[36m@@ -0,0 +1,7 @@[m
+[32m+[m[32mapiVersion: kustomize.config.k8s.io/v1beta1[m
+[32m+[m[32mkind: Kustomization[m
+[32m+[m
+[32m+[m[32mresources:[m
+[32m+[m[32m  - deployment.yaml[m
+[32m+[m[32m  - service.yaml[m
+[32m+[m[32m  - ingress.yaml[m
+[1mdiff --git a/k8s/app/service.yaml b/k8s/app/service.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..9a0e9ba[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/app/service.yaml[m
+[36m@@ -0,0 +1,14 @@[m
+[32m+[m[32mapiVersion: v1[m
+[32m+[m[32mkind: Service[m
+[32m+[m[32mmetadata:[m
+[32m+[m[32m  name: foodify-server-service[m
+[32m+[m[32m  labels:[m
+[32m+[m[32m    app: foodify-server-app[m
+[32m+[m[32mspec:[m
+[32m+[m[32m  type: ClusterIP[m
+[32m+[m[32m  selector:[m
+[32m+[m[32m    app: foodify-server-app[m
+[32m+[m[32m  ports:[m
+[32m+[m[32m    - name: http[m
+[32m+[m[32m      port: 80[m
+[32m+[m[32m      targetPort: 8081[m
+[1mdiff --git a/k8s/create_files.sh b/k8s/create_files.sh[m
+[1mnew file mode 100755[m
+[1mindex 0000000..620d5f8[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/create_files.sh[m
+[36m@@ -0,0 +1,44 @@[m
+[32m+[m[32m#!/bin/bash[m
+[32m+[m[32m# This script creates all the directories and empty files for your Kustomize setup.[m
+[32m+[m[32m# Run it from your /k8s directory.[m
+[32m+[m
+[32m+[m[32m# Create all the subdirectories[m
+[32m+[m[32m# The -p flag ensures 'mkdir' doesn't error if the directories already exist[m
+[32m+[m[32mecho "Creating directories..."[m
+[32m+[m[32mmkdir -p app[m
+[32m+[m[32mmkdir -p postgres[m
+[32m+[m[32mmkdir -p redis[m
+[32m+[m[32mmkdir -p kafka[m
+[32m+[m
+[32m+[m[32m# Create all the empty files[m
+[32m+[m[32mecho "Creating root files..."[m
+[32m+[m[32mtouch kustomization.yaml[m
+[32m+[m[32mtouch namespace.yaml[m
+[32m+[m[32mtouch secrets.yaml[m
+[32m+[m
+[32m+[m[32mecho "Creating app/ files..."[m
+[32m+[m[32mtouch app/deployment.yaml[m
+[32m+[m[32mtouch app/service.yaml[m
+[32m+[m[32mtouch app/ingress.yaml[m
+[32m+[m[32mtouch app/kustomization.yaml[m
+[32m+[m
+[32m+[m[32mecho "Creating postgres/ files..."[m
+[32m+[m[32mtouch postgres/deployment.yaml[m
+[32m+[m[32mtouch postgres/service.yaml[m
+[32m+[m[32mtouch postgres/pvc.yaml[m
+[32m+[m[32mtouch postgres/kustomization.yaml[m
+[32m+[m
+[32m+[m[32mecho "Creating redis/ files..."[m
+[32m+[m[32mtouch redis/deployment.yaml[m
+[32m+[m[32mtouch redis/service.yaml[m
+[32m+[m[32mtouch redis/kustomization.yaml[m
+[32m+[m
+[32m+[m[32mecho "Creating kafka/ files..."[m
+[32m+[m[32mtouch kafka/zookeeper-deployment.yaml[m
+[32m+[m[32mtouch kafka/zookeeper-service.yaml[m
+[32m+[m[32mtouch kafka/kafka-deployment.yaml[m
+[32m+[m[32mtouch kafka/kafka-service.yaml[m
+[32m+[m[32mtouch kafka/kustomization.yaml[m
+[32m+[m
+[32m+[m[32mecho "Done!"[m
+[32m+[m[32mls -R[m
+[1mdiff --git a/k8s/kafka/kafka-deployment.yaml b/k8s/kafka/kafka-deployment.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..f19c53f[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/kafka/kafka-deployment.yaml[m
+[36m@@ -0,0 +1,39 @@[m
+[32m+[m[32mapiVersion: apps/v1[m
+[32m+[m[32mkind: Deployment[m
+[32m+[m[32mmetadata:[m
+[32m+[m[32m  name: kafka[m
+[32m+[m[32m  labels:[m
+[32m+[m[32m    app: kafka[m
+[32m+[m[32mspec:[m
+[32m+[m[32m  replicas: 1[m
+[32m+[m[32m  selector:[m
+[32m+[m[32m    matchLabels:[m
+[32m+[m[32m      app: kafka[m
+[32m+[m[32m  template:[m
+[32m+[m[32m    metadata:[m
+[32m+[m[32m      labels:[m
+[32m+[m[32m        app: kafka[m
+[32m+[m[32m    spec:[m
+[32m+[m[32m      containers:[m
+[32m+[m[32m        - name: kafka[m
+[32m+[m[32m          image: confluentinc/cp-kafka:7.4.3[m
+[32m+[m[32m          ports:[m
+[32m+[m[32m            - containerPort: 9092[m
+[32m+[m[32m          env:[m
+[32m+[m[32m            - name: KAFKA_BROKER_ID[m
+[32m+[m[32m              value: "1"[m
+[32m+[m[32m            - name: KAFKA_ZOOKEEPER_CONNECT[m
+[32m+[m[32m              value: "zookeeper:2181"[m
+[32m+[m[32m            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP[m
+[32m+[m[32m              value: "PLAINTEXT:PLAINTEXT"[m
+[32m+[m[32m            - name: KAFKA_ADVERTISED_LISTENERS[m
+[32m+[m[32m              value: "PLAINTEXT://kafka:9092"[m
+[32m+[m[32m            - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR[m
+[32m+[m[32m              value: "1"[m
+[32m+[m[32m          resources:[m
+[32m+[m[32m            requests:[m
+[32m+[m[32m              cpu: "200m"[m
+[32m+[m[32m              memory: "1Gi"[m
+[32m+[m[32m            limits:[m
+[32m+[m[32m              cpu: "1"[m
+[32m+[m[32m              memory: "2Gi"[m
+[1mdiff --git a/k8s/kafka/kafka-service.yaml b/k8s/kafka/kafka-service.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..b20bca3[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/kafka/kafka-service.yaml[m
+[36m@@ -0,0 +1,14 @@[m
+[32m+[m[32mapiVersion: v1[m
+[32m+[m[32mkind: Service[m
+[32m+[m[32mmetadata:[m
+[32m+[m[32m  name: kafka[m
+[32m+[m[32m  labels:[m
+[32m+[m[32m    app: kafka[m
+[32m+[m[32mspec:[m
+[32m+[m[32m  type: ClusterIP[m
+[32m+[m[32m  selector:[m
+[32m+[m[32m    app: kafka[m
+[32m+[m[32m  ports:[m
+[32m+[m[32m    - name: kafka[m
+[32m+[m[32m      port: 9092[m
+[32m+[m[32m      targetPort: 9092[m
+[1mdiff --git a/k8s/kafka/kustomization.yaml b/k8s/kafka/kustomization.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..35c0160[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/kafka/kustomization.yaml[m
+[36m@@ -0,0 +1,8 @@[m
+[32m+[m[32mapiVersion: kustomize.config.k8s.io/v1beta1[m
+[32m+[m[32mkind: Kustomization[m
+[32m+[m
+[32m+[m[32mresources:[m
+[32m+[m[32m  - zookeeper-deployment.yaml[m
+[32m+[m[32m  - zookeeper-service.yaml[m
+[32m+[m[32m  - kafka-deployment.yaml[m
+[32m+[m[32m  - kafka-service.yaml[m
+[1mdiff --git a/k8s/kafka/zookeeper-deployment.yaml b/k8s/kafka/zookeeper-deployment.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..32b3d5b[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/kafka/zookeeper-deployment.yaml[m
+[36m@@ -0,0 +1,33 @@[m
+[32m+[m[32mapiVersion: apps/v1[m
+[32m+[m[32mkind: Deployment[m
+[32m+[m[32mmetadata:[m
+[32m+[m[32m  name: zookeeper[m
+[32m+[m[32m  labels:[m
+[32m+[m[32m    app: zookeeper[m
+[32m+[m[32mspec:[m
+[32m+[m[32m  replicas: 1[m
+[32m+[m[32m  selector:[m
+[32m+[m[32m    matchLabels:[m
+[32m+[m[32m      app: zookeeper[m
+[32m+[m[32m  template:[m
+[32m+[m[32m    metadata:[m
+[32m+[m[32m      labels:[m
+[32m+[m[32m        app: zookeeper[m
+[32m+[m[32m    spec:[m
+[32m+[m[32m      containers:[m
+[32m+[m[32m        - name: zookeeper[m
+[32m+[m[32m          image: confluentinc/cp-zookeeper:7.4.3[m
+[32m+[m[32m          ports:[m
+[32m+[m[32m            - containerPort: 2181[m
+[32m+[m[32m          env:[m
+[32m+[m[32m            - name: ZOOKEEPER_CLIENT_PORT[m
+[32m+[m[32m              value: "2181"[m
+[32m+[m[32m            - name: ZOOKEEPER_TICK_TIME[m
+[32m+[m[32m              value: "2000"[m
+[32m+[m[32m          resources:[m
+[32m+[m[32m            requests:[m
+[32m+[m[32m              cpu: "100m"[m
+[32m+[m[32m              memory: "512Mi"[m
+[32m+[m[32m            limits:[m
+[32m+[m[32m              cpu: "500m"[m
+[32m+[m[32m              memory: "1Gi"[m
+[1mdiff --git a/k8s/kafka/zookeeper-service.yaml b/k8s/kafka/zookeeper-service.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..6954c5d[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/kafka/zookeeper-service.yaml[m
+[36m@@ -0,0 +1,14 @@[m
+[32m+[m[32mapiVersion: v1[m
+[32m+[m[32mkind: Service[m
+[32m+[m[32mmetadata:[m
+[32m+[m[32m  name: zookeeper[m
+[32m+[m[32m  labels:[m
+[32m+[m[32m    app: zookeeper[m
+[32m+[m[32mspec:[m
+[32m+[m[32m  type: ClusterIP[m
+[32m+[m[32m  selector:[m
+[32m+[m[32m    app: zookeeper[m
+[32m+[m[32m  ports:[m
+[32m+[m[32m    - name: client[m
+[32m+[m[32m      port: 2181[m
+[32m+[m[32m      targetPort: 2181[m
+[1mdiff --git a/k8s/kustomization.yaml b/k8s/kustomization.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..9ace089[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/kustomization.yaml[m
+[36m@@ -0,0 +1,12 @@[m
+[32m+[m[32mapiVersion: kustomize.config.k8s.io/v1beta1[m
+[32m+[m[32mkind: Kustomization[m
+[32m+[m
+[32m+[m[32mnamespace: foodify[m
+[32m+[m
+[32m+[m[32mresources:[m
+[32m+[m[32m  - namespace.yaml[m
+[32m+[m[32m  - secrets.yaml[m
+[32m+[m[32m  - app[m
+[32m+[m[32m  - postgres[m
+[32m+[m[32m  - redis[m
+[32m+[m[32m  - kafka[m
+[1mdiff --git a/k8s/namespace.yaml b/k8s/namespace.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..566fd84[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/namespace.yaml[m
+[36m@@ -0,0 +1,4 @@[m
+[32m+[m[32mapiVersion: v1[m
+[32m+[m[32mkind: Namespace[m
+[32m+[m[32mmetadata:[m
+[32m+[m[32m  name: foodify[m
+[1mdiff --git a/k8s/postgres/deployment.yaml b/k8s/postgres/deployment.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..da4a8e8[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/postgres/deployment.yaml[m
+[36m@@ -0,0 +1,51 @@[m
+[32m+[m[32mapiVersion: apps/v1[m
+[32m+[m[32mkind: Deployment[m
+[32m+[m[32mmetadata:[m
+[32m+[m[32m  name: postgres[m
+[32m+[m[32m  labels:[m
+[32m+[m[32m    app: postgres[m
+[32m+[m[32mspec:[m
+[32m+[m[32m  replicas: 1[m
+[32m+[m[32m  selector:[m
+[32m+[m[32m    matchLabels:[m
+[32m+[m[32m      app: postgres[m
+[32m+[m[32m  template:[m
+[32m+[m[32m    metadata:[m
+[32m+[m[32m      labels:[m
+[32m+[m[32m        app: postgres[m
+[32m+[m[32m    spec:[m
+[32m+[m[32m      containers:[m
+[32m+[m[32m        - name: postgres[m
+[32m+[m[32m          image: postgres:16[m
+[32m+[m[32m          ports:[m
+[32m+[m[32m            - containerPort: 5432[m
+[32m+[m[32m          env:[m
+[32m+[m[32m            - name: POSTGRES_DB[m
+[32m+[m[32m              valueFrom:[m
+[32m+[m[32m                secretKeyRef:[m
+[32m+[m[32m                  name: foodify-secrets[m
+[32m+[m[32m                  key: POSTGRES_DB[m
+[32m+[m[32m            - name: POSTGRES_USER[m
+[32m+[m[32m              valueFrom:[m
+[32m+[m[32m                secretKeyRef:[m
+[32m+[m[32m                  name: foodify-secrets[m
+[32m+[m[32m                  key: POSTGRES_USER[m
+[32m+[m[32m            - name: POSTGRES_PASSWORD[m
+[32m+[m[32m              valueFrom:[m
+[32m+[m[32m                secretKeyRef:[m
+[32m+[m[32m                  name: foodify-secrets[m
+[32m+[m[32m                  key: POSTGRES_PASSWORD[m
+[32m+[m[32m          volumeMounts:[m
+[32m+[m[32m            - name: postgres-storage[m
+[32m+[m[32m              mountPath: /var/lib/postgresql/data[m
+[32m+[m[32m          resources:[m
+[32m+[m[32m            requests:[m
+[32m+[m[32m              cpu: "200m"[m
+[32m+[m[32m              memory: "512Mi"[m
+[32m+[m[32m            limits:[m
+[32m+[m[32m              cpu: "1"[m
+[32m+[m[32m              memory: "1Gi"[m
+[32m+[m[32m      volumes:[m
+[32m+[m[32m        - name: postgres-storage[m
+[32m+[m[32m          persistentVolumeClaim:[m
+[32m+[m[32m            claimName: postgres-data[m
+[1mdiff --git a/k8s/postgres/kustomization.yaml b/k8s/postgres/kustomization.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..93baf7a[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/postgres/kustomization.yaml[m
+[36m@@ -0,0 +1,7 @@[m
+[32m+[m[32mapiVersion: kustomize.config.k8s.io/v1beta1[m
+[32m+[m[32mkind: Kustomization[m
+[32m+[m
+[32m+[m[32mresources:[m
+[32m+[m[32m  - pvc.yaml[m
+[32m+[m[32m  - deployment.yaml[m
+[32m+[m[32m  - service.yaml[m
+[1mdiff --git a/k8s/postgres/pvc.yaml b/k8s/postgres/pvc.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..419b779[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/postgres/pvc.yaml[m
+[36m@@ -0,0 +1,10 @@[m
+[32m+[m[32mapiVersion: v1[m
+[32m+[m[32mkind: PersistentVolumeClaim[m
+[32m+[m[32mmetadata:[m
+[32m+[m[32m  name: postgres-data[m
+[32m+[m[32mspec:[m
+[32m+[m[32m  accessModes:[m
+[32m+[m[32m    - ReadWriteOnce[m
+[32m+[m[32m  resources:[m
+[32m+[m[32m    requests:[m
+[32m+[m[32m      storage: 20Gi[m
+[1mdiff --git a/k8s/postgres/service.yaml b/k8s/postgres/service.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..18d4816[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/postgres/service.yaml[m
+[36m@@ -0,0 +1,14 @@[m
+[32m+[m[32mapiVersion: v1[m
+[32m+[m[32mkind: Service[m
+[32m+[m[32mmetadata:[m
+[32m+[m[32m  name: postgres[m
+[32m+[m[32m  labels:[m
+[32m+[m[32m    app: postgres[m
+[32m+[m[32mspec:[m
+[32m+[m[32m  type: ClusterIP[m
+[32m+[m[32m  selector:[m
+[32m+[m[32m    app: postgres[m
+[32m+[m[32m  ports:[m
+[32m+[m[32m    - name: postgres[m
+[32m+[m[32m      port: 5432[m
+[32m+[m[32m      targetPort: 5432[m
+[1mdiff --git a/k8s/redis/deployment.yaml b/k8s/redis/deployment.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..7efea07[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/redis/deployment.yaml[m
+[36m@@ -0,0 +1,28 @@[m
+[32m+[m[32mapiVersion: apps/v1[m
+[32m+[m[32mkind: Deployment[m
+[32m+[m[32mmetadata:[m
+[32m+[m[32m  name: redis[m
+[32m+[m[32m  labels:[m
+[32m+[m[32m    app: redis[m
+[32m+[m[32mspec:[m
+[32m+[m[32m  replicas: 1[m
+[32m+[m[32m  selector:[m
+[32m+[m[32m    matchLabels:[m
+[32m+[m[32m      app: redis[m
+[32m+[m[32m  template:[m
+[32m+[m[32m    metadata:[m
+[32m+[m[32m      labels:[m
+[32m+[m[32m        app: redis[m
+[32m+[m[32m    spec:[m
+[32m+[m[32m      containers:[m
+[32m+[m[32m        - name: redis[m
+[32m+[m[32m          image: redis:7[m
+[32m+[m[32m          ports:[m
+[32m+[m[32m            - containerPort: 6379[m
+[32m+[m[32m          resources:[m
+[32m+[m[32m            requests:[m
+[32m+[m[32m              cpu: "100m"[m
+[32m+[m[32m              memory: "256Mi"[m
+[32m+[m[32m            limits:[m
+[32m+[m[32m              cpu: "500m"[m
+[32m+[m[32m              memory: "512Mi"[m
+[1mdiff --git a/k8s/redis/kustomization.yaml b/k8s/redis/kustomization.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..5b98e94[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/redis/kustomization.yaml[m
+[36m@@ -0,0 +1,6 @@[m
+[32m+[m[32mapiVersion: kustomize.config.k8s.io/v1beta1[m
+[32m+[m[32mkind: Kustomization[m
+[32m+[m
+[32m+[m[32mresources:[m
+[32m+[m[32m  - deployment.yaml[m
+[32m+[m[32m  - service.yaml[m
+[1mdiff --git a/k8s/redis/service.yaml b/k8s/redis/service.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..69ba980[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/redis/service.yaml[m
+[36m@@ -0,0 +1,14 @@[m
+[32m+[m[32mapiVersion: v1[m
+[32m+[m[32mkind: Service[m
+[32m+[m[32mmetadata:[m
+[32m+[m[32m  name: redis[m
+[32m+[m[32m  labels:[m
+[32m+[m[32m    app: redis[m
+[32m+[m[32mspec:[m
+[32m+[m[32m  type: ClusterIP[m
+[32m+[m[32m  selector:[m
+[32m+[m[32m    app: redis[m
+[32m+[m[32m  ports:[m
+[32m+[m[32m    - name: redis[m
+[32m+[m[32m      port: 6379[m
+[32m+[m[32m      targetPort: 6379[m
+[1mdiff --git a/k8s/secrets.yaml b/k8s/secrets.yaml[m
+[1mnew file mode 100644[m
+[1mindex 0000000..b418e0b[m
+[1m--- /dev/null[m
+[1m+++ b/k8s/secrets.yaml[m
+[36m@@ -0,0 +1,17 @@[m
+[32m+[m[32mapiVersion: v1[m[41m[m
+[32m+[m[32mkind: Secret[m[41m[m
+[32m+[m[32mmetadata:[m[41m[m
+[32m+[m[32m  name: foodify-secrets[m[41m[m
+[32m+[m[32mtype: Opaque[m[41m[m
+[32m+[m[32mstringData:[m[41m[m
+[32m+[m[32m  # TODO: set real values here before applying[m[41m[m
+[32m+[m[32m  POSTGRES_DB: foodify[m[41m[m
+[32m+[m[32m  POSTGRES_USER: foodify[m[41m[m
+[32m+[m[32m  POSTGRES_PASSWORD: foodify[m[41m[m
+[32m+[m[32m  SPRING_DATASOURCE_USERNAME: foodify[m[41m[m
+[32m+[m[32m  SPRING_DATASOURCE_PASSWORD: foodify[m[41m[m
+[32m+[m[32m  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/foodify[m[41m[m
+[32m+[m[32m  REDIS_HOST: redis[m[41m[m
+[32m+[m[32m  REDIS_PORT: "6379"[m[41m[m
+[32m+[m[32m  KAFKA_BOOTSTRAP_SERVERS: kafka:9092[m[41m[m
+[32m+[m[32m  JWT_SECRET: change_me_jwt_secret[m[41m[m
