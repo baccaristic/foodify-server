@@ -48,7 +48,8 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/topic/**",      // 👈 allow pub/sub topics
                                 "/app/**",        // 👈 app-bound messages
-                                "/ws"
+                                "/ws",
+                                "/error"          // 👈 allow error endpoint for proper error handling
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
