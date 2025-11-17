@@ -15,6 +15,7 @@ import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantOperatingHourRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantSpecialDayRepository;
+import com.foodify.server.modules.storage.application.CloudflareImagesService;
 import com.foodify.server.config.OrderViewProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -67,6 +68,9 @@ class RestaurantServiceStartPreparingTest {
     @Mock
     private WebSocketService webSocketService;
 
+    @Mock
+    private CloudflareImagesService cloudflareImagesService;
+
     private RestaurantService restaurantService;
 
     @BeforeEach
@@ -82,7 +86,8 @@ class RestaurantServiceStartPreparingTest {
                 orderLifecycleService,
                 orderNotificationMapper,
                 orderViewProperties,
-                webSocketService
+                webSocketService,
+                cloudflareImagesService
         );
     }
 

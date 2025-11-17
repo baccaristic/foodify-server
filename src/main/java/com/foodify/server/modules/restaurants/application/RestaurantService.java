@@ -29,6 +29,7 @@ import com.foodify.server.modules.restaurants.repository.MenuItemRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantOperatingHourRepository;
 import com.foodify.server.modules.restaurants.repository.RestaurantSpecialDayRepository;
+import com.foodify.server.modules.storage.application.CloudflareImagesService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import jakarta.persistence.EntityNotFoundException;
@@ -41,10 +42,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -59,7 +56,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -79,6 +75,7 @@ public class RestaurantService {
     private final OrderNotificationMapper orderNotificationMapper;
     private final OrderViewProperties orderViewProperties;
     private final WebSocketService webSocketService;
+    private final CloudflareImagesService cloudflareImagesService;
 
     /**
      * Checks if a user (admin or cashier) is authorized to perform operations on behalf of the restaurant.
@@ -358,11 +355,8 @@ public class RestaurantService {
 
         for (MultipartFile file : files) {
             if (file != null && !file.isEmpty()) {
-                String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
-                Path path = Paths.get("uploads").resolve(filename);
-                Files.createDirectories(path.getParent());
-                Files.copy(file.getInputStream(), path, StandardCopyOption.REPLACE_EXISTING);
-                storedFiles.add(filename);
+                String imageUrl = cloudflareImagesService.uploadImage(file);
+                storedFiles.add(imageUrl);
             }
         }
         return storedFiles;
