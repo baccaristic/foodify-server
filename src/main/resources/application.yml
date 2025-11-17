@@ -124,3 +124,9 @@ konnect:
     theme: light
     amount-scale: ${KONNECT_PAYMENT_AMOUNT_SCALE:1000}
     description-template: "Foodify order #{orderId}"
+
+cloudflare:
+  images:
+    account-id: ${CLOUDFLARE_IMAGES_ACCOUNT_ID:}
+    api-token: ${CLOUDFLARE_IMAGES_API_TOKEN:}
+    base-url: https://api.cloudflare.com/client/v4
