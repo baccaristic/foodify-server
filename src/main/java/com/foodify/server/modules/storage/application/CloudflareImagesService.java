@@ -66,6 +66,7 @@ public class CloudflareImagesService {
             writer.append("--").append(boundary).append(CRLF);
             writer.append("Content-Disposition: form-data; name=\"id\"").append(CRLF);
             writer.append(CRLF).append(imageId).append(CRLF);
+            writer.flush();
             
             // Add file field
             writer.append("--").append(boundary).append(CRLF);
@@ -74,11 +75,14 @@ public class CloudflareImagesService {
             writer.append("Content-Type: ").append(getContentType(file)).append(CRLF);
             writer.append(CRLF).flush();
             
+            // Write binary file data directly to output stream
             file.getInputStream().transferTo(output);
             output.flush();
             
+            // Write closing boundary - must use output stream directly after binary data
             writer.append(CRLF);
-            writer.append("--").append(boundary).append("--").append(CRLF).flush();
+            writer.append("--").append(boundary).append("--").append(CRLF);
+            writer.flush();
         }
         
         int responseCode = connection.getResponseCode();
