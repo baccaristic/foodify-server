@@ -4,7 +4,7 @@ import com.foodify.server.modules.admin.driver.dto.DriverDepositAdminDto;
 import com.foodify.server.modules.admin.driver.repository.AdminAdminRepository;
 import com.foodify.server.modules.admin.driver.repository.AdminDriverDepositRepository;
 import com.foodify.server.modules.admin.driver.repository.AdminDriverRepository;
-import com.foodify.server.modules.admin.driver.util.helpers.DriverFinancialCalculator;
+import com.foodify.server.modules.admin.driver.helpers.DriverFinancialCalculator;
 import com.foodify.server.modules.delivery.application.DriverDepositConfirmedEvent;
 import com.foodify.server.modules.delivery.domain.DriverDeposit;
 import com.foodify.server.modules.delivery.domain.DriverDepositStatus;

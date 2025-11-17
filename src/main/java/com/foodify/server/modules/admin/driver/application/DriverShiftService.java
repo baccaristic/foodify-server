@@ -3,7 +3,7 @@ package com.foodify.server.modules.admin.driver.application;
 import com.foodify.server.modules.admin.driver.dto.AdminDriverShiftDto;
 import com.foodify.server.modules.admin.driver.dto.AdminShiftDeliveryDto;
 import com.foodify.server.modules.admin.driver.repository.AdminShiftRepository;
-import com.foodify.server.modules.admin.driver.util.helpers.DriverFinancialCalculator;
+import com.foodify.server.modules.admin.driver.helpers.DriverFinancialCalculator;
 import com.foodify.server.modules.delivery.domain.Delivery;
 import com.foodify.server.modules.delivery.domain.DeliveryRating;
 import com.foodify.server.modules.delivery.domain.DriverShift;

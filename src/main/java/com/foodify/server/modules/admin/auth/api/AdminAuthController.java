@@ -23,7 +23,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/auth/admin")
 @RequiredArgsConstructor
-@CrossOrigin(origins = {"http://localhost:3000", "https://yourdomain.com"}, allowCredentials = "true")
+@CrossOrigin(origins = {"http://localhost:3000"}, allowCredentials = "true")
 public class AdminAuthController {
     
     private static final String REFRESH_TOKEN_COOKIE_NAME = "refreshToken";

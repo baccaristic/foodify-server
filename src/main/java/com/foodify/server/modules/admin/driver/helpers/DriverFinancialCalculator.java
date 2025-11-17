@@ -1,4 +1,4 @@
-package com.foodify.server.modules.admin.driver.util.helpers;
+package com.foodify.server.modules.admin.driver.helpers;
 
 import com.foodify.server.modules.admin.driver.application.DepositCalculation;
 import com.foodify.server.modules.identity.domain.Driver;

@@ -6,7 +6,7 @@ import com.foodify.server.modules.admin.driver.dto.DriverStatisticsDto;
 import com.foodify.server.modules.admin.driver.repository.AdminDeliveryRepository;
 import com.foodify.server.modules.admin.driver.repository.AdminDriverRepository;
 import com.foodify.server.modules.admin.driver.repository.DriverSpecifications;
-import com.foodify.server.modules.admin.driver.util.helpers.DriverFinancialCalculator;
+import com.foodify.server.modules.admin.driver.helpers.DriverFinancialCalculator;
 import com.foodify.server.modules.common.util.DateRangeValidator;
 import com.foodify.server.modules.identity.domain.Driver;
 import jakarta.persistence.EntityNotFoundException;
