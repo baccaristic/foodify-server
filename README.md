@@ -77,3 +77,4 @@ docker compose --env-file ops/dev.env up -d
 ```
 
 You can also export variables in your shell (`export DATABASE_URL=...`) before running `docker compose up`. Compose propagates those values into each service's `environment` block, including the application container.
+test
