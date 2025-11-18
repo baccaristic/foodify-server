@@ -97,18 +97,4 @@ spec:
               cpu: "1"
               memory: "2Gi"
 
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 8081
-            initialDelaySeconds: 20
-            periodSeconds: 10
-            failureThreshold: 3
-
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 8081
-            initialDelaySeconds: 40
-            periodSeconds: 20
-            failureThreshold: 5
+          
