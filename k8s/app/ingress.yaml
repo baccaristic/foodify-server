@@ -1,9 +1,15 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: foodify-server-ingress
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-cloudflare"
 spec:
   ingressClassName: nginx
   tls:
     - hosts:
         - apiv3.foodifytn.app
-      secretName: apiv3-tls      # name can be anything; this is just clearer
+      secretName: apiv3-tls
   rules:
     - host: apiv3.foodifytn.app
       http:
