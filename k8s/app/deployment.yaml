@@ -29,7 +29,7 @@ spec:
               echo "Postgres is up."
 
               echo "Waiting for Kafka..."
-              until nc -z kafka 9092; do
+              until nc -z kafka-broker 9092; do
                 echo "  still waiting for kafka"
                 sleep 2
               done

@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kafka
+  name: kafka-broker
   labels:
-    app: kafka
+    app: kafka-broker
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: kafka
+      app: kafka-broker
   template:
     metadata:
       labels:
-        app: kafka
+        app: kafka-broker
     spec:
       initContainers:
         - name: wait-for-zookeeper
@@ -40,7 +40,7 @@ spec:
               value: "PLAINTEXT:PLAINTEXT"
             - name: KAFKA_ADVERTISED_LISTENERS
               # use the Service DNS name instead of localhost
-              value: "PLAINTEXT://kafka:9092"
+              value: "PLAINTEXT://kafka-broker:9092"
             - name: KAFKA_LISTENERS
               value: "PLAINTEXT://0.0.0.0:9092"
             - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
