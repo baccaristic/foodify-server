@@ -17,7 +17,6 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -43,7 +42,6 @@ public class CloudflareImagesService {
         
         String originalFilename = file.getOriginalFilename();
         String sanitizedFilename = StringUtils.hasText(originalFilename) ? originalFilename : file.getName();
-        String imageId = UUID.randomUUID().toString();
         
         String boundary = "----WebKitFormBoundary" + Long.toHexString(System.currentTimeMillis());
         String CRLF = "\r\n";
@@ -61,12 +59,6 @@ public class CloudflareImagesService {
         
         try (OutputStream output = connection.getOutputStream();
              PrintWriter writer = new PrintWriter(new OutputStreamWriter(output, StandardCharsets.UTF_8), true)) {
-            
-            // Add id field
-            writer.append("--").append(boundary).append(CRLF);
-            writer.append("Content-Disposition: form-data; name=\"id\"").append(CRLF);
-            writer.append(CRLF).append(imageId).append(CRLF);
-            writer.flush();
             
             // Add file field
             writer.append("--").append(boundary).append(CRLF);
