@@ -286,6 +286,12 @@ public class RestaurantService {
 
     private void populateMenuItemFromDto(MenuItem item, MenuItemRequestDTO menuDto, List<MultipartFile> files, Restaurant restaurant) throws IOException {
         item.setName(menuDto.getName());
+        item.setNameEn(menuDto.getNameEn());
+        item.setNameFr(menuDto.getNameFr());
+        item.setNameAr(menuDto.getNameAr());
+        item.setDescriptionAr(menuDto.getDescriptionAr());
+        item.setDescriptionFr(menuDto.getDescriptionFr());
+        item.setDescriptionEn(menuDto.getDescriptionEn());
         item.setDescription(menuDto.getDescription());
         item.setPrice(menuDto.getPrice());
         item.setPopular(menuDto.isPopular());
