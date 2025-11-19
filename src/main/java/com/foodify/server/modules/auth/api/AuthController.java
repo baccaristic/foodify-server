@@ -228,7 +228,7 @@ public class AuthController {
     }
 
 
-    @PostMapping("/register/complete")
+    @PostMapping("/register/completed")
     public ResponseEntity<?> completeRegistration(@RequestBody RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("success", false, "message", "Email already in use"));
