@@ -84,7 +84,6 @@ services:
 
     volumes:
       - ./serviceAccountKey.json:/app/config/serviceAccountKey.json
-      - ./uploads:/app/uploads
     restart: on-failure
 
 volumes:
