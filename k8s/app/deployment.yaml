@@ -50,6 +50,7 @@ spec:
           ports:
             - containerPort: 8081
           env:
+            # DB
             - name: SPRING_DATASOURCE_URL
               valueFrom:
                 secretKeyRef:
@@ -66,6 +67,7 @@ spec:
                   name: foodify-secrets
                   key: SPRING_DATASOURCE_PASSWORD
 
+            # Redis
             - name: REDIS_HOST
               valueFrom:
                 secretKeyRef:
@@ -77,17 +79,81 @@ spec:
                   name: foodify-secrets
                   key: REDIS_PORT
 
+            # Kafka
             - name: KAFKA_BOOTSTRAP_SERVERS
               valueFrom:
                 secretKeyRef:
                   name: foodify-secrets
                   key: KAFKA_BOOTSTRAP_SERVERS
 
+            # JWT
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: foodify-secrets
                   key: JWT_SECRET
+
+            # Konnect
+            - name: KONNECT_ENVIRONMENT
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: KONNECT_ENVIRONMENT
+
+            - name: KONNECT_SANDBOX_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: KONNECT_SANDBOX_API_KEY
+            - name: KONNECT_SANDBOX_WALLET_ID
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: KONNECT_SANDBOX_WALLET_ID
+            - name: KONNECT_SANDBOX_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: KONNECT_SANDBOX_WEBHOOK_URL
+
+            - name: KONNECT_PRODUCTION_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: KONNECT_PRODUCTION_API_KEY
+            - name: KONNECT_PRODUCTION_WALLET_ID
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: KONNECT_PRODUCTION_WALLET_ID
+            - name: KONNECT_PRODUCTION_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: KONNECT_PRODUCTION_WEBHOOK_URL
+
+            # Expo
+            - name: EXPO_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: EXPO_ACCESS_TOKEN
+
+            # Cloudflare Images
+            - name: CLOUDFLARE_IMAGES_ACCOUNT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: CLOUDFLARE_IMAGES_ACCOUNT_ID
+            - name: CLOUDFLARE_IMAGES_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: CLOUDFLARE_IMAGES_API_TOKEN
+
+            # Timezone
+            - name: TZ
+              value: "Africa/Tunis"
 
           resources:
             requests:
@@ -96,5 +162,3 @@ spec:
             limits:
               cpu: "1"
               memory: "2Gi"
-
-          
