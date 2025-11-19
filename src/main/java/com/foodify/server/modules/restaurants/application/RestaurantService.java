@@ -385,6 +385,9 @@ public class RestaurantService {
                 }
 
                 group.setName(groupDto.getName());
+                group.setNameEn(groupDto.getNameEn());
+                group.setNameFr(groupDto.getNameFr());
+                group.setNameAr(groupDto.getNameAr());
                 group.setMinSelect(groupDto.getMinSelect());
                 group.setMaxSelect(groupDto.getMaxSelect());
                 group.setRequired(groupDto.isRequired());
@@ -416,6 +419,9 @@ public class RestaurantService {
                 }
 
                 extra.setName(extraDto.getName());
+                extra.setNameEn(extraDto.getNameEn());
+                extra.setNameFr(extraDto.getNameFr());
+                extra.setNameAr(extraDto.getNameAr());
                 extra.setPrice(extraDto.getPrice());
                 extra.setDefault(extraDto.isDefault());
                 extra.setOptionGroup(group);
