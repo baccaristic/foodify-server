@@ -5,16 +5,46 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 
 @Service
 public class JwtService {
 
-    private final Key secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
-    private final Key refreshSecretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256); // Separate key for refresh
+    private final Key secretKey;
+    private final Key refreshSecretKey;
+
+    public JwtService(@Value("${jwt.secret:}") String jwtSecret,
+                      @Value("${jwt.refresh-secret:}") String jwtRefreshSecret) {
+        // Use configured secrets if provided, otherwise generate random keys (for backward compatibility)
+        if (jwtSecret != null && !jwtSecret.isEmpty()) {
+            // Ensure the secret is at least 256 bits (32 bytes) for HS256
+            byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
+            if (keyBytes.length < 32) {
+                throw new IllegalArgumentException("JWT secret must be at least 32 characters (256 bits) for HS256");
+            }
+            this.secretKey = Keys.hmacShaKeyFor(keyBytes);
+        } else {
+            // Fallback to random key generation (not recommended for production)
+            this.secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+        }
+
+        if (jwtRefreshSecret != null && !jwtRefreshSecret.isEmpty()) {
+            byte[] refreshKeyBytes = jwtRefreshSecret.getBytes(StandardCharsets.UTF_8);
+            if (refreshKeyBytes.length < 32) {
+                throw new IllegalArgumentException("JWT refresh secret must be at least 32 characters (256 bits) for HS256");
+            }
+            this.refreshSecretKey = Keys.hmacShaKeyFor(refreshKeyBytes);
+        } else {
+            // Fallback to random key generation (not recommended for production)
+            this.refreshSecretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+        }
+    }
 
     // === Access Token ===
     public String generateAccessToken(User user) {
