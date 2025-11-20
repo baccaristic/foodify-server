@@ -68,16 +68,16 @@ spec:
                   key: SPRING_DATASOURCE_PASSWORD
 
             # Redis
-            - name: REDIS_HOST
+            - name: SPRING_REDIS_HOST
               valueFrom:
                 secretKeyRef:
                   name: foodify-secrets
-                  key: REDIS_HOST
-            - name: REDIS_PORT
+                  key: SPRING_REDIS_HOST
+            - name: SPRING_REDIS_PORT
               valueFrom:
                 secretKeyRef:
                   name: foodify-secrets
-                  key: REDIS_PORT
+                  key: SPRING_REDIS_PORT
 
             # Kafka
             - name: KAFKA_BOOTSTRAP_SERVERS
