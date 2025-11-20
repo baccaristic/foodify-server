@@ -13,14 +13,20 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class OrderDto {
-    private Long id;
-    private long restaurantId;
+public class ClientOrderDetailDto {
+    private Long orderId;
     private String restaurantName;
-    private long clientId;
-    private String clientName;
     private OrderStatus status;
+    private Long prepTime; // in minutes
+    private Long deliveryTime; // in minutes
     private BigDecimal amount;
     private LocalDateTime orderDate;
-    private Long preparationTime;
+    
+    // Delivery rating
+    private Integer deliveryRating; // overall rating (1-5)
+    private String deliveryComment;
+    
+    // Restaurant rating
+    private Boolean restaurantRating; // thumbs up/down
+    private String restaurantComment;
 }

@@ -39,8 +39,8 @@ public class AdminOrderController {
 
     @GetMapping("/stats/pending")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<PendingOrdersStatsDto> getPendingOrdersCount() {
-        PendingOrdersStatsDto stats = adminOrderService.getPendingOrdersCount();
+    public ResponseEntity<OrdersCountDto> getPendingOrdersCount() {
+        OrdersCountDto stats = adminOrderService.getPendingOrdersCount();
         return ResponseEntity.ok(stats);
     }
 
@@ -56,5 +56,36 @@ public class AdminOrderController {
     public ResponseEntity<ClientDto> getClientByOrderId(@PathVariable Long orderId) {
         var clientDto = adminOrderService.getClientByOrderId(orderId);
         return ResponseEntity.ok(clientDto);
+    }
+
+    @GetMapping("/client/{clientId}/count")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<OrdersCountDto> getTotalOrdersByClientId(@PathVariable Long clientId) {
+        OrdersCountDto count = adminOrderService.getTotalOrdersByClientId(clientId);
+        return ResponseEntity.ok(count);
+    }
+
+    @GetMapping("/client/{clientId}/lifetime-value")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<ClientLifetimeValueDto> getClientLifetimeValue(@PathVariable Long clientId) {
+        ClientLifetimeValueDto lifetimeValue = adminOrderService.getClientLifetimeValue(clientId);
+        return ResponseEntity.ok(lifetimeValue);
+    }
+
+    @GetMapping("/client/{clientId}/avg-order-value")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<ClientAvgOrderValueDto> getClientAvgOrderValue(@PathVariable Long clientId) {
+        ClientAvgOrderValueDto avgOrderValue = adminOrderService.getClientAvgOrderValue(clientId);
+        return ResponseEntity.ok(avgOrderValue);
+    }
+
+    @GetMapping("/client/{clientId}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<Page<ClientOrderDetailDto>> getOrdersByClientId(
+            @PathVariable Long clientId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Page<ClientOrderDetailDto> orders = adminOrderService.getOrdersByClientId(clientId, page, size);
+        return ResponseEntity.ok(orders);
     }
 }

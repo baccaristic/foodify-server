@@ -5,6 +5,7 @@ import com.foodify.server.modules.admin.order.repository.AdminOrderRepository;
 import com.foodify.server.modules.admin.order.repository.OrderSpecifications;
 import com.foodify.server.modules.orders.domain.Order;
 import com.foodify.server.modules.orders.domain.OrderStatus;
+import com.foodify.server.modules.orders.domain.OrderStatusHistory;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -25,7 +27,6 @@ public class AdminOrderService {
 
     private final AdminOrderRepository orderRepository;
 
-    @Transactional(readOnly = true)
     public Page<OrderDto> getDriverList(String query, List<OrderStatus> status, Long restaurantId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Order> ordersPage = orderRepository.findAll(
@@ -33,13 +34,40 @@ public class AdminOrderService {
                 pageable
         );
 
-        return ordersPage.map(order -> OrderDto.builder()
-                .id(order.getId())
-                .restaurantName(order.getRestaurant().getName())
-                .status(order.getStatus())
-                .amount(order.getTotal())
-                .orderDate(order.getOrderTime())
-                .build());
+        return ordersPage.map(order -> {
+            Duration prepTime = getPreparationTime(order);
+
+            return OrderDto.builder()
+                    .id(order.getId())
+                    .restaurantId(order.getRestaurant().getId())
+                    .restaurantName(order.getRestaurant().getName())
+                    .clientId(order.getClient().getId())
+                    .clientName(order.getClient().getName())
+                    .status(order.getStatus())
+                    .amount(order.getTotal())
+                    .orderDate(order.getOrderTime())
+                    .preparationTime(prepTime != null && restaurantId != null ? prepTime.toMinutes() : null)
+                    .build();
+        });
+    }
+
+    private Duration getPreparationTime(Order order) {
+        LocalDateTime acceptedTime = order.getStatusHistory().stream()
+                .filter(h -> h.getNewStatus() == OrderStatus.ACCEPTED)
+                .map(OrderStatusHistory::getChangedAt)
+                .findFirst()
+                .orElse(null);
+
+        LocalDateTime readyTime = order.getStatusHistory().stream()
+                .filter(h -> h.getNewStatus() == OrderStatus.READY_FOR_PICK_UP)
+                .map(OrderStatusHistory::getChangedAt)
+                .findFirst()
+                .orElse(null);
+
+        if (acceptedTime != null && readyTime != null) {
+            return Duration.between(acceptedTime, readyTime);
+        }
+        return null;
     }
 
     @Transactional(readOnly = true)
@@ -66,9 +94,9 @@ public class AdminOrderService {
     }
 
     @Transactional(readOnly = true)
-    public PendingOrdersStatsDto getPendingOrdersCount() {
+    public OrdersCountDto getPendingOrdersCount() {
         long count = orderRepository.countByStatus(OrderStatus.PENDING);
-        return PendingOrdersStatsDto.builder()
+        return OrdersCountDto.builder()
                 .count(count)
                 .build();
     }
@@ -98,5 +126,35 @@ public class AdminOrderService {
                 .phone(client.getPhoneNumber())
                 .address(order.getSavedAddress().getFormattedAddress())
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public OrdersCountDto getTotalOrdersByClientId(Long clientId) {
+        long count = orderRepository.countByClientId(clientId);
+        return OrdersCountDto.builder()
+                .count(count)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public ClientLifetimeValueDto getClientLifetimeValue(Long clientId) {
+        BigDecimal lifetimeValue = orderRepository.sumTotalByClientId(clientId);
+        return ClientLifetimeValueDto.builder()
+                .lifetimeValue(lifetimeValue)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public ClientAvgOrderValueDto getClientAvgOrderValue(Long clientId) {
+        BigDecimal avgOrderValue = orderRepository.avgTotalByClientId(clientId);
+        return ClientAvgOrderValueDto.builder()
+                .avgOrderValue(avgOrderValue)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ClientOrderDetailDto> getOrdersByClientId(Long clientId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return orderRepository.findOrdersByClientIdWithDetails(clientId, pageable);
     }
 }
