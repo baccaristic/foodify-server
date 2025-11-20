@@ -1,10 +1,10 @@
 ALTER TABLE app_users
-    ADD COLUMN IF NOT EXISTS verification_status VARCHAR(30) NOT NULL DEFAULT ''APPROVED'',
+    ADD COLUMN IF NOT EXISTS verification_status VARCHAR(30) NOT NULL DEFAULT 'APPROVED',
     ADD COLUMN IF NOT EXISTS verification_completed_at TIMESTAMPTZ;
 
 UPDATE app_users
 SET verification_completed_at = COALESCE(verification_completed_at, NOW())
-WHERE dtype = ''Driver'' AND verification_status = ''APPROVED'';
+WHERE dtype = 'Driver' AND verification_status = 'APPROVED';
 
 CREATE TABLE IF NOT EXISTS driver_documents (
     id BIGSERIAL PRIMARY KEY,
