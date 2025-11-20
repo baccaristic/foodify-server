@@ -34,6 +34,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -143,6 +144,13 @@ public class RestaurantController {
     public List<OrderNotificationDTO> getMyActiveOrders(Authentication authentication) {
         RestaurantUserContext userContext = loadRestaurantUser(authentication);
         return this.restaurantService.getActiveOrders(userContext.getRestaurant());
+    }
+
+    @GetMapping("/points/balance")
+    @PreAuthorize("hasAnyAuthority('ROLE_RESTAURANT_ADMIN', 'ROLE_RESTAURANT_CASHIER')")
+    public BigDecimal getPointsBalance(Authentication authentication) {
+        RestaurantUserContext userContext = loadRestaurantUser(authentication);
+        return userContext.getRestaurant().getPointsBalance();
     }
 
     @PostMapping(value = "/addMenu", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
