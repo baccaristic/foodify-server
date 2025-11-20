@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -26,6 +27,10 @@ public class Driver extends User {
     @OneToMany(mappedBy = "driver")
     @JsonIgnore
     private List<DriverShift> shifts;
+
+    @OneToMany(mappedBy = "driver")
+    @JsonIgnore
+    private List<DriverDocument> documents = new ArrayList<>();
 
     @Column(
             name = "cash_on_hand",
@@ -66,4 +71,11 @@ public class Driver extends User {
 
     @Column(name = "deposit_warning_sent_at")
     private LocalDateTime depositWarningSentAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "verification_status", nullable = false)
+    private DriverVerificationStatus verificationStatus = DriverVerificationStatus.PENDING_DOCUMENTS;
+
+    @Column(name = "verification_completed_at")
+    private LocalDateTime verificationCompletedAt;
 }
