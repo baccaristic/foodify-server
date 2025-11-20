@@ -45,7 +45,7 @@ spec:
               echo "Redis is up. Starting app."
       containers:
         - name: foodify-server-app
-          image: ghcr.io/mortadha-nefzi/foodify-server:build-23
+          image: ghcr.io/mortadha-nefzi/foodify-server:build-24
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081
