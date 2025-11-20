@@ -36,6 +36,10 @@ server:
       max: ${SERVER_TOMCAT_THREADS_MAX:200}
       min-spare: ${SERVER_TOMCAT_THREADS_MIN_SPARE:20}
 
+jwt:
+  secret: ${JWT_SECRET:}
+  refresh-secret: ${JWT_REFRESH_SECRET:}
+
 management:
   endpoints:
     web:

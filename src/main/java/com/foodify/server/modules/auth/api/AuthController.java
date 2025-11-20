@@ -35,6 +35,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -328,16 +329,15 @@ public class AuthController {
             clientRepository.save(client);
         }
 
-        Map<String, Object> userPayload = Map.of(
-                "id", client.getId(),
-                "name", client.getName(),
-                "email", client.getEmail(),
-                "phone", client.getPhoneNumber(),
-                "emailVerified", client.getEmailVerified(),
-                "phoneVerified", client.getPhoneVerified(),
-                "role", client.getRole(),
-                "dateOfBirth", client.getDateOfBirth()
-        );
+        Map<String, Object> userPayload = new HashMap<>();
+        userPayload.put("id", client.getId());
+        userPayload.put("name", client.getName());
+        userPayload.put("email", client.getEmail());
+        userPayload.put("phone", client.getPhoneNumber());
+        userPayload.put("emailVerified", client.getEmailVerified());
+        userPayload.put("phoneVerified", client.getPhoneVerified());
+        userPayload.put("role", client.getRole());
+        userPayload.put("dateOfBirth", client.getDateOfBirth());
 
         return ResponseEntity.ok(Map.of("success", true, "user", userPayload));
     }
@@ -394,13 +394,12 @@ public class AuthController {
             driverRepository.save(driver);
         }
 
-        Map<String, Object> userPayload = Map.of(
-                "id", driver.getId(),
-                "name", driver.getName(),
-                "email", driver.getEmail(),
-                "phone", driver.getPhone(),
-                "role", driver.getRole()
-        );
+        Map<String, Object> userPayload = new HashMap<>();
+        userPayload.put("id", driver.getId());
+        userPayload.put("name", driver.getName());
+        userPayload.put("email", driver.getEmail());
+        userPayload.put("phone", driver.getPhone());
+        userPayload.put("role", driver.getRole());
 
         return ResponseEntity.ok(Map.of("success", true, "user", userPayload));
     }

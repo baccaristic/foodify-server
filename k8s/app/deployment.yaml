@@ -92,6 +92,12 @@ spec:
                 secretKeyRef:
                   name: foodify-secrets
                   key: JWT_SECRET
+            
+            - name: JWT_REFRESH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: JWT_REFRESH_SECRET
 
             # Konnect
             - name: KONNECT_ENVIRONMENT
