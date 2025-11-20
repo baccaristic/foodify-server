@@ -80,6 +80,12 @@ services:
       EXPO_ACCESS_TOKEN: ${EXPO_ACCESS_TOKEN:-}
       CLOUDFLARE_IMAGES_ACCOUNT_ID: ${CLOUDFLARE_IMAGES_ACCOUNT_ID:-}
       CLOUDFLARE_IMAGES_API_TOKEN: ${CLOUDFLARE_IMAGES_API_TOKEN:-}
+      MAIL_SMTP_HOST: ${MAIL_SMTP_HOST:-smtp.zoho.com}
+      MAIL_SMTP_PORT: ${MAIL_SMTP_PORT:-587}
+      MAIL_SMTP_USERNAME: ${MAIL_SMTP_USERNAME:-no-reply@foodifytn.app}
+      MAIL_SMTP_PASSWORD: ${MAIL_SMTP_PASSWORD:-}
+      MAIL_SMTP_FROM: ${MAIL_SMTP_FROM:-no-reply@foodifytn.app}
+      MAIL_SMTP_SUBJECT: ${MAIL_SMTP_SUBJECT:-Your Foodify verification code}
       TZ: Africa/Tunis
 
     volumes:

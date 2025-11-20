@@ -156,6 +156,37 @@ spec:
                 secretKeyRef:
                   name: foodify-secrets
                   key: CLOUDFLARE_IMAGES_API_TOKEN
+            # Email SMTP
+            - name: MAIL_SMTP_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: MAIL_SMTP_HOST
+            - name: MAIL_SMTP_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: MAIL_SMTP_PORT
+            - name: MAIL_SMTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: MAIL_SMTP_USERNAME
+            - name: MAIL_SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: MAIL_SMTP_PASSWORD
+            - name: MAIL_SMTP_FROM
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: MAIL_SMTP_FROM
+            - name: MAIL_SMTP_SUBJECT
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: MAIL_SMTP_SUBJECT
 
             # Timezone
             - name: TZ
