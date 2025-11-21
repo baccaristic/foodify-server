@@ -1,5 +1,6 @@
 package com.foodify.server.modules.restaurants.application;
 
+import com.foodify.server.modules.identity.domain.AuthProvider;
 import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.identity.domain.RestaurantAdmin;
 import com.foodify.server.modules.identity.domain.Role;
@@ -75,6 +76,7 @@ public class AdminService {
         restaurantAdmin.setPassword(this.passwordEncoder.encode(adminPayload.getPassword()));
         restaurantAdmin.setRole(Role.RESTAURANT_ADMIN);
         restaurantAdmin.setEnabled(true);
+        restaurantAdmin.setAuthProvider(AuthProvider.LOCAL);
         restaurant.setAdmin(restaurantAdminRepository.save(restaurantAdmin));
 
         return this.restaurantRepository.save(restaurant);

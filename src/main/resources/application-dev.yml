@@ -31,11 +31,12 @@ cloudflare:
     local:
       enabled: true
       directory: ./build/local-images
-      base-url: http://localhost:8081/local-images
-
+      base-url: http://localhost:8086/local-images
 
 springdoc:
   api-docs:
     enabled: true
   swagger-ui:
     enabled: true
+server:
+  port: 8086

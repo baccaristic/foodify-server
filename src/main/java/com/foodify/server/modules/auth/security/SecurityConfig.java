@@ -52,7 +52,8 @@ public class SecurityConfig {
                                 "/error",
                                 "/actuator/health",
                                 "/actuator/health/**",
-                                "/actuator/prometheus"// 👈 allow error endpoint for proper error handling
+                                "/actuator/prometheus",
+                                "/local-images/**"// 👈 allow error endpoint for proper error handling
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
