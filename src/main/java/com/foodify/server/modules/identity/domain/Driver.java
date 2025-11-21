@@ -3,6 +3,7 @@ package com.foodify.server.modules.identity.domain;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.foodify.server.modules.delivery.domain.Delivery;
+import com.foodify.server.modules.delivery.domain.DriverDeposit;
 import com.foodify.server.modules.delivery.domain.DriverShift;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -78,4 +79,7 @@ public class Driver extends User {
 
     @Column(name = "verification_completed_at")
     private LocalDateTime verificationCompletedAt;
+    @OneToMany(mappedBy = "driver")
+    @JsonIgnore
+    private List<DriverDeposit> deposits;
 }
