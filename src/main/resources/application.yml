@@ -143,3 +143,7 @@ cloudflare:
     account-id: ${CLOUDFLARE_IMAGES_ACCOUNT_ID:}
     api-token: ${CLOUDFLARE_IMAGES_API_TOKEN:}
     base-url: https://api.cloudflare.com/client/v4
+    local:
+      enabled: ${CLOUDFLARE_IMAGES_LOCAL_ENABLED:false}
+      directory: ${CLOUDFLARE_IMAGES_LOCAL_DIR:./local-images}
+      base-url: ${CLOUDFLARE_IMAGES_LOCAL_BASE_URL:http://localhost:8081/local-images}
