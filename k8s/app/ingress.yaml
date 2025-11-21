@@ -8,10 +8,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - mobile.foodifytn.app
-      secretName: mobile-tls
+        - apiv3.foodifytn.app
+      secretName: apiv3-tls
   rules:
-    - host: mobile.foodifytn.app
+    - host: apiv3.foodifytn.app
       http:
         paths:
           - path: /

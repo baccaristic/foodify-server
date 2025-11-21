@@ -192,7 +192,15 @@ public class PointsPaymentService {
     public List<PointsPaymentResponse> getRestaurantPayments(Long restaurantId) {
         return pointsPaymentRepository.findByRestaurant_IdOrderByCreatedAtDesc(restaurantId)
                 .stream()
-                .map(payment -> mapToResponse(payment, null))
+                .map(payment -> {
+                    try {
+                        return mapToResponse(payment, qrCodeService.generateQrCodeImage(payment.getPaymentToken()));
+                    } catch (WriterException e) {
+                        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to generate QR code", e);
+                    } catch (IOException e) {
+                        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to generate QR code", e);
+                    }
+                })
                 .collect(Collectors.toList());
     }
 

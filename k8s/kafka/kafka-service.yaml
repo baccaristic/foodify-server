@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: kafka
+  name: kafka-broker
   labels:
-    app: kafka
+    app: kafka-broker
 spec:
   type: ClusterIP
   selector:
-    app: kafka
+    app: kafka-broker
   ports:
     - name: kafka
       port: 9092

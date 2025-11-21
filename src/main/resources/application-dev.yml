@@ -1,0 +1,42 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: jdbc:postgresql://localhost:5434/foodify
+    username: foodify
+    password: foodify
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  kafka:
+    bootstrap-servers: localhost:9092
+
+# JWT secrets used only for local development. Override via env vars for other environments.
+jwt:
+  secret: local_dev_jwt_secret_at_least_32_characters_long_for_testing
+  refresh-secret: local_dev_jwt_refresh_secret_32_chars_long_for_testing
+
+# Optional helpers for other modules when running locally via docker-compose
+konnect:
+  enabled: false
+
+logging:
+  level:
+    root: info
+
+cloudflare:
+  images:
+    local:
+      enabled: true
+      directory: ./build/local-images
+      base-url: http://localhost:8086/local-images
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+server:
+  port: 8086

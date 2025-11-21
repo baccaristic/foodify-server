@@ -35,6 +35,7 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -77,11 +78,18 @@ services:
       KONNECT_PRODUCTION_WALLET_ID: ${KONNECT_PRODUCTION_WALLET_ID:-}
       KONNECT_PRODUCTION_WEBHOOK_URL: ${KONNECT_PRODUCTION_WEBHOOK_URL:-}
       EXPO_ACCESS_TOKEN: ${EXPO_ACCESS_TOKEN:-}
+      CLOUDFLARE_IMAGES_ACCOUNT_ID: ${CLOUDFLARE_IMAGES_ACCOUNT_ID:-}
+      CLOUDFLARE_IMAGES_API_TOKEN: ${CLOUDFLARE_IMAGES_API_TOKEN:-}
+      MAIL_SMTP_HOST: ${MAIL_SMTP_HOST:-smtp.zoho.com}
+      MAIL_SMTP_PORT: ${MAIL_SMTP_PORT:-587}
+      MAIL_SMTP_USERNAME: ${MAIL_SMTP_USERNAME:-no-reply@foodifytn.app}
+      MAIL_SMTP_PASSWORD: ${MAIL_SMTP_PASSWORD:-}
+      MAIL_SMTP_FROM: ${MAIL_SMTP_FROM:-no-reply@foodifytn.app}
+      MAIL_SMTP_SUBJECT: ${MAIL_SMTP_SUBJECT:-Your Foodify verification code}
       TZ: Africa/Tunis
 
     volumes:
       - ./serviceAccountKey.json:/app/config/serviceAccountKey.json
-      - ./uploads:/app/uploads
     restart: on-failure
 
 volumes:

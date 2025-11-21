@@ -177,7 +177,8 @@ public class DriverAssignmentService {
                     continue;
                 }
                 Driver driver = availableDrivers.get(driverId);
-                if (driverFinancialService.isDepositRequired(driver)) {
+                if (driverFinancialService.isDepositRequired(driver) && 
+                    driverFinancialService.hasDepositDeadlinePassed(driver)) {
                     stats.incrementDepositRestricted();
                     continue;
                 }

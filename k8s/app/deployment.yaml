@@ -14,6 +14,8 @@ spec:
       labels:
         app: foodify-server-app
     spec:
+      imagePullSecrets:
+        - name: ghcr-creds
       initContainers:
         - name: wait-for-dependencies
           image: busybox:1.36
@@ -29,7 +31,7 @@ spec:
               echo "Postgres is up."
 
               echo "Waiting for Kafka..."
-              until nc -z kafka 9092; do
+              until nc -z kafka-broker 9092; do
                 echo "  still waiting for kafka"
                 sleep 2
               done
@@ -43,11 +45,12 @@ spec:
               echo "Redis is up. Starting app."
       containers:
         - name: foodify-server-app
-          image: localhost:32000/foodify-server:latest
+          image: ghcr.io/mortadha-nefzi/foodify-server:build-32
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081
           env:
+            # DB
             - name: SPRING_DATASOURCE_URL
               valueFrom:
                 secretKeyRef:
@@ -64,28 +67,130 @@ spec:
                   name: foodify-secrets
                   key: SPRING_DATASOURCE_PASSWORD
 
-            - name: REDIS_HOST
+            # Redis
+            - name: SPRING_REDIS_HOST
               valueFrom:
                 secretKeyRef:
                   name: foodify-secrets
-                  key: REDIS_HOST
-            - name: REDIS_PORT
+                  key: SPRING_REDIS_HOST
+            - name: SPRING_REDIS_PORT
               valueFrom:
                 secretKeyRef:
                   name: foodify-secrets
-                  key: REDIS_PORT
+                  key: SPRING_REDIS_PORT
 
+            # Kafka
             - name: KAFKA_BOOTSTRAP_SERVERS
               valueFrom:
                 secretKeyRef:
                   name: foodify-secrets
                   key: KAFKA_BOOTSTRAP_SERVERS
 
+            # JWT
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: foodify-secrets
                   key: JWT_SECRET
+            
+            - name: JWT_REFRESH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: JWT_REFRESH_SECRET
+
+            # Konnect
+            - name: KONNECT_ENVIRONMENT
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: KONNECT_ENVIRONMENT
+
+            - name: KONNECT_SANDBOX_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: KONNECT_SANDBOX_API_KEY
+            - name: KONNECT_SANDBOX_WALLET_ID
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: KONNECT_SANDBOX_WALLET_ID
+            - name: KONNECT_SANDBOX_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: KONNECT_SANDBOX_WEBHOOK_URL
+
+            - name: KONNECT_PRODUCTION_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: KONNECT_PRODUCTION_API_KEY
+            - name: KONNECT_PRODUCTION_WALLET_ID
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: KONNECT_PRODUCTION_WALLET_ID
+            - name: KONNECT_PRODUCTION_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: KONNECT_PRODUCTION_WEBHOOK_URL
+
+            # Expo
+            - name: EXPO_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: EXPO_ACCESS_TOKEN
+
+            # Cloudflare Images
+            - name: CLOUDFLARE_IMAGES_ACCOUNT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: CLOUDFLARE_IMAGES_ACCOUNT_ID
+            - name: CLOUDFLARE_IMAGES_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: CLOUDFLARE_IMAGES_API_TOKEN
+            # Email SMTP
+            - name: MAIL_SMTP_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: MAIL_SMTP_HOST
+            - name: MAIL_SMTP_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: MAIL_SMTP_PORT
+            - name: MAIL_SMTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: MAIL_SMTP_USERNAME
+            - name: MAIL_SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: MAIL_SMTP_PASSWORD
+            - name: MAIL_SMTP_FROM
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: MAIL_SMTP_FROM
+            - name: MAIL_SMTP_SUBJECT
+              valueFrom:
+                secretKeyRef:
+                  name: foodify-secrets
+                  key: MAIL_SMTP_SUBJECT
+
+            # Timezone
+            - name: TZ
+              value: "Africa/Tunis"
 
           resources:
             requests:
@@ -94,19 +199,3 @@ spec:
             limits:
               cpu: "1"
               memory: "2Gi"
-
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 8081
-            initialDelaySeconds: 20
-            periodSeconds: 10
-            failureThreshold: 3
-
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 8081
-            initialDelaySeconds: 40
-            periodSeconds: 20
-            failureThreshold: 5

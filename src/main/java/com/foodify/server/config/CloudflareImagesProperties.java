@@ -11,4 +11,12 @@ public class CloudflareImagesProperties {
     private String accountId;
     private String apiToken;
     private String baseUrl = "https://api.cloudflare.com/client/v4";
+    private LocalStorageProperties local = new LocalStorageProperties();
+
+    @Data
+    public static class LocalStorageProperties {
+        private boolean enabled = false;
+        private String directory = "./local-images";
+        private String baseUrl = "http://localhost:8081/local-images";
+    }
 }

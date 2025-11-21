@@ -50,7 +50,11 @@ public class SecurityConfig {
                                 "/topic/**",      // 👈 allow pub/sub topics
                                 "/app/**",        // 👈 app-bound messages
                                 "/ws",
-                                "/error"          // 👈 allow error endpoint for proper error handling
+                                "/error",
+                                "/actuator/health",
+                                "/actuator/health/**",
+                                "/actuator/prometheus",
+                                "/local-images/**"// 👈 allow error endpoint for proper error handling
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
