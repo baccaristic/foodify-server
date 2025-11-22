@@ -24,18 +24,6 @@ public class AdminController {
 
     private final AdminService adminService;
 
-    @PostMapping(value = {"/restaurant/add", "/restaurants"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
-    public Restaurant addRestaurant(
-            @RequestPart("restaurant") @Valid RestaurantDto restaurantDto,
-            @RequestPart(value = "image", required = false) MultipartFile image,
-            @RequestPart(value = "file", required = false) MultipartFile legacyImage,
-            @RequestPart(value = "icon", required = false) MultipartFile icon
-    ) throws IOException {
-        MultipartFile restaurantImage = image != null ? image : legacyImage;
-        return this.adminService.addRestaurant(restaurantDto, restaurantImage, icon);
-    }
-
     @PutMapping(value = "/restaurants/{restaurantId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public Restaurant updateRestaurant(
