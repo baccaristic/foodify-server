@@ -164,11 +164,8 @@ public class DriverService {
             throw new IllegalStateException("Driver is not assigned to this order.");
         }
 
-        order.setPendingDriver(null);
-        orderRepository.save(order);
-        driverLocationService.markAvailable(String.valueOf(driverId));
-        driverDisciplineService.recordDecline(driverId);
         driverDispatchService.handleDriverDecline(orderId, driverId);
+        driverDisciplineService.recordDecline(driverId);
     }
 
     public Driver findById(Long driverId) {
