@@ -1,5 +1,4 @@
-﻿package com.foodify.server.modules.delivery.application;
-
+package com.foodify.server.modules.delivery.application;
 import com.foodify.server.modules.delivery.config.DriverAssignmentProperties;
 import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.identity.repository.DriverRepository;
