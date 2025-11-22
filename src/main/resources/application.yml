@@ -14,7 +14,7 @@ spring:
       max-file-size: 5MB
       max-request-size: 5MB
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/foodify}
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5434/foodify}
     driver-class-name: org.postgresql.Driver
     username: ${DATABASE_USERNAME:foodify}
     password: ${DATABASE_PASSWORD:foodify}
