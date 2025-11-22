@@ -73,6 +73,18 @@ public class Driver extends User {
     @Column(name = "deposit_warning_sent_at")
     private LocalDateTime depositWarningSentAt;
 
+    @Column(name = "consecutive_declines", nullable = false, columnDefinition = "integer not null default 0")
+    private Integer consecutiveDeclines = 0;
+
+    @Column(name = "total_declines", nullable = false, columnDefinition = "integer not null default 0")
+    private Integer totalDeclines = 0;
+
+    @Column(name = "total_order_offers", nullable = false, columnDefinition = "integer not null default 0")
+    private Integer totalOrderOffers = 0;
+
+    @Column(name = "decline_blocked_until")
+    private LocalDateTime declineBlockedUntil;
+
     @OneToMany(mappedBy = "driver")
     @JsonIgnore
     private List<DriverDeposit> deposits;

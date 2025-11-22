@@ -16,6 +16,9 @@ public record DriverAssignmentProperties(
         @DefaultValue("90") double maxIdleBonusMinutes,
         @DefaultValue("15") double targetEtaMinutes,
         @DefaultValue("0.9") double earlyExitScoreThreshold,
-        @DefaultValue("1.5") double earlyExitDistanceKm
+        @DefaultValue("1.5") double earlyExitDistanceKm,
+        @DefaultValue("3") int maxConsecutiveDeclines,
+        @DefaultValue("10") int declineBlockMinutes,
+        @DefaultValue("0.25") double declinePenaltyWeight
 ) {
 }

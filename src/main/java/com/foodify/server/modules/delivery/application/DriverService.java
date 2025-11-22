@@ -71,6 +71,7 @@ public class DriverService {
     private final DriverLocationService driverLocationService;
     private final DriverAvailabilityService driverAvailabilityService;
     private final DriverDispatchService driverDispatchService;
+    private final DriverDisciplineService driverDisciplineService;
     private final OrderLifecycleService orderLifecycleService;
     private final OrderViewProperties orderViewProperties;
 
@@ -145,6 +146,7 @@ public class DriverService {
         order.setPendingDriver(null);
         orderRepository.save(order);
         driverDispatchService.markDriverAccepted(order.getId());
+        driverDisciplineService.resetConsecutiveDeclines(driverId);
         driverLocationService.markBusy(String.valueOf(driverId), orderId);
         return OrderMapper.toDto(order);
     }
@@ -165,6 +167,7 @@ public class DriverService {
         order.setPendingDriver(null);
         orderRepository.save(order);
         driverLocationService.markAvailable(String.valueOf(driverId));
+        driverDisciplineService.recordDecline(driverId);
         driverDispatchService.handleDriverDecline(orderId, driverId);
     }
 

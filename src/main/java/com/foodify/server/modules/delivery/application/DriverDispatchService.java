@@ -51,6 +51,7 @@ public class DriverDispatchService {
             Collections.unmodifiableSet(EnumSet.of(OrderStatus.ACCEPTED));
 
     private final DriverAssignmentService driverAssignmentService;
+    private final DriverDisciplineService driverDisciplineService;
     private final DriverLocationService driverLocationService;
     private final OrderRepository orderRepository;
     private final StringRedisTemplate redisTemplate;
@@ -66,6 +67,7 @@ public class DriverDispatchService {
     private final Map<Long, DispatchState> states = new ConcurrentHashMap<>();
 
     public DriverDispatchService(DriverAssignmentService driverAssignmentService,
+                                 DriverDisciplineService driverDisciplineService,
                                  DriverLocationService driverLocationService,
                                  OrderRepository orderRepository,
                                  StringRedisTemplate redisTemplate,
@@ -77,6 +79,7 @@ public class DriverDispatchService {
                                  @Qualifier("driverDispatchTaskScheduler") TaskScheduler taskScheduler,
                                  @Qualifier("notificationDispatchExecutor") TaskExecutor notificationExecutor) {
         this.driverAssignmentService = driverAssignmentService;
+        this.driverDisciplineService = driverDisciplineService;
         this.driverLocationService = driverLocationService;
         this.orderRepository = orderRepository;
         this.redisTemplate = redisTemplate;
@@ -190,6 +193,7 @@ public class DriverDispatchService {
                 rememberAttemptedDriver(orderId, driverId);
                 driverLocationService.markPending(String.valueOf(driverId), orderId);
                 order.setPendingDriver(driverMatch.driver());
+                driverDisciplineService.recordOffer(driverId);
                 Order persisted = orderRepository.save(order);
                 notifyDriverAboutOrder(persisted, driverId);
                 schedulePendingTimeout(orderId, driverId);

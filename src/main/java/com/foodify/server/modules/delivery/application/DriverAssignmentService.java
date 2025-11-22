@@ -177,6 +177,10 @@ public class DriverAssignmentService {
                     continue;
                 }
                 Driver driver = availableDrivers.get(driverId);
+                if (isDeclineBlocked(driver)) {
+                    stats.incrementDeclineBlocked();
+                    continue;
+                }
                 if (driverFinancialService.isDepositRequired(driver) && 
                     driverFinancialService.hasDepositDeadlinePassed(driver)) {
                     stats.incrementDepositRestricted();
@@ -199,13 +203,17 @@ public class DriverAssignmentService {
                 Duration idleDuration = resolveIdleDuration(driverId, recentDeliveries, activeShifts);
                 double etaMinutes = travelTimeEstimator.estimateEtaMinutes(driverId, distanceKm);
                 double capacityFactor = driverCapacityService.resolveCapacityFactor(driverId);
-                double score = computeScore(distanceKm, idleDuration, etaMinutes, capacityFactor);
+                double baseScore = computeScore(distanceKm, idleDuration, etaMinutes, capacityFactor);
+                double declineRate = computeDeclineRate(driver);
+                double penaltyFactor = computeDeclinePenaltyFactor(declineRate);
+                double score = baseScore * penaltyFactor;
 
                 DriverMatch match = new DriverMatch(driver, score, distanceKm, idleDuration, etaMinutes, capacityFactor);
-                log.debug("Driver {} scored {} for assignment (distance={}km idle={}min eta={}min capacity={})",
+                log.debug("Driver {} scored {} for assignment (distance={}km idle={}min eta={}min capacity={} declineRate={} penalty={})",
                         driver.getId(), String.format("%.3f", score),
                         String.format("%.2f", distanceKm), idleDuration.toMinutes(),
-                        String.format("%.1f", etaMinutes), String.format("%.2f", capacityFactor));
+                        String.format("%.1f", etaMinutes), String.format("%.2f", capacityFactor),
+                        String.format("%.0f%%", declineRate * 100), String.format("%.2f", penaltyFactor));
 
                 if (bestMatchInRadius == null || match.score() > bestMatchInRadius.score()) {
                     bestMatchInRadius = match;
@@ -230,6 +238,42 @@ public class DriverAssignmentService {
         }
 
         return Optional.ofNullable(bestMatch);
+    }
+
+    private boolean isDeclineBlocked(Driver driver) {
+        if (driver == null) {
+            return false;
+        }
+        LocalDateTime blockedUntil = driver.getDeclineBlockedUntil();
+        return blockedUntil != null && blockedUntil.isAfter(LocalDateTime.now());
+    }
+
+    private double computeDeclineRate(Driver driver) {
+        if (driver == null) {
+            return 0.0;
+        }
+        int offers = positiveOrZero(driver.getTotalOrderOffers());
+        int declines = positiveOrZero(driver.getTotalDeclines());
+        if (offers <= 0 || declines <= 0) {
+            return 0.0;
+        }
+        return Math.min(1.0, (double) declines / offers);
+    }
+
+    private double computeDeclinePenaltyFactor(double declineRate) {
+        if (declineRate <= 0) {
+            return 1.0;
+        }
+        double penalty = declineRate * properties.declinePenaltyWeight();
+        double factor = 1.0 - Math.min(1.0, penalty);
+        return Math.max(0.0, factor);
+    }
+
+    private int positiveOrZero(Integer value) {
+        if (value == null || value < 0) {
+            return 0;
+        }
+        return value;
     }
 
     private Map<Long, Delivery> loadRecentDeliveries(Collection<Long> driverIds) {
@@ -314,6 +358,7 @@ public class DriverAssignmentService {
         private int noActiveShift;
         private int activeDeliveries;
         private int depositRestricted;
+        private int declineBlocked;
 
         private RadiusStats(double radiusKm) {
             this.radiusKm = radiusKm;
@@ -355,10 +400,14 @@ public class DriverAssignmentService {
             this.depositRestricted++;
         }
 
+        void incrementDeclineBlocked() {
+            this.declineBlocked++;
+        }
+
         void logSummary() {
-            log.info("Radius {}km produced no matches (candidates={}, invalidIds={}, deprioritized={}, duplicates={}, missing={}, unavailable={}, noShift={}, activeDeliveries={}, depositRestricted={})",
+            log.info("Radius {}km produced no matches (candidates={}, invalidIds={}, deprioritized={}, duplicates={}, missing={}, unavailable={}, noShift={}, activeDeliveries={}, declineBlocked={}, depositRestricted={})",
                     radiusKm, candidateCount, invalidIdentifiers, deprioritizedDrivers, duplicateCandidates,
-                    missingDrivers, unavailableDrivers, noActiveShift, activeDeliveries, depositRestricted);
+                    missingDrivers, unavailableDrivers, noActiveShift, activeDeliveries, declineBlocked, depositRestricted);
         }
     }
 
