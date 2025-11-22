@@ -1,5 +1,6 @@
 package com.foodify.server.modules.restaurants.mapper;
 
+import com.foodify.server.modules.admin.restaurant.dto.AddRestaurantDto;
 import com.foodify.server.modules.restaurants.dto.RestaurantBasicInfoDto;
 import com.foodify.server.modules.restaurants.dto.RestaurantDisplayDto;
 import com.foodify.server.modules.restaurants.dto.RestaurantDto;
@@ -17,6 +18,8 @@ import java.util.Set;
 @Mapper(componentModel = "spring")
 public interface RestaurantMapper {
     Restaurant toEntity(RestaurantDto dto);
+    
+    Restaurant toEntity(AddRestaurantDto dto);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)

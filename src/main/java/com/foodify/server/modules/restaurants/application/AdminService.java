@@ -1,7 +1,5 @@
 package com.foodify.server.modules.restaurants.application;
 
-import com.foodify.server.modules.identity.domain.AuthProvider;
-import com.foodify.server.modules.identity.domain.Driver;
 import com.foodify.server.modules.identity.domain.RestaurantAdmin;
 import com.foodify.server.modules.identity.domain.Role;
 import com.foodify.server.modules.identity.repository.RestaurantAdminRepository;
@@ -15,9 +13,9 @@ import com.foodify.server.modules.storage.application.CloudflareImagesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -36,51 +34,6 @@ public class AdminService {
     private final RestaurantAdminRepository restaurantAdminRepository;
     private final PasswordEncoder passwordEncoder;
     private final CloudflareImagesService cloudflareImagesService;
-
-    public Driver addDriver(Driver driver) {
-        return null;
-    }
-
-    public Restaurant addRestaurant(RestaurantDto dto, MultipartFile image, MultipartFile icon) throws IOException {
-        if (dto == null) {
-            throw new ResponseStatusException(BAD_REQUEST, "Restaurant payload is required");
-        }
-
-        Restaurant restaurant = this.restaurantMapper.toEntity(dto);
-        if (dto.getCategories() != null) {
-            restaurant.setCategories(new HashSet<>(dto.getCategories()));
-        }
-        restaurant.setCommissionRate(resolveCommissionRate(dto.getCommissionRate(), null));
-
-        if (image == null || image.isEmpty()) {
-            throw new ResponseStatusException(BAD_REQUEST, "Restaurant image is required");
-        }
-
-        restaurant.setImageUrl(storeFile(image));
-
-        if (icon != null && !icon.isEmpty()) {
-            restaurant.setIconUrl(storeFile(icon));
-        }
-
-        NewUserDto adminPayload = dto.getAdmin();
-        if (adminPayload == null
-                || !StringUtils.hasText(adminPayload.getEmail())
-                || !StringUtils.hasText(adminPayload.getPassword())
-                || !StringUtils.hasText(adminPayload.getName())) {
-            throw new ResponseStatusException(BAD_REQUEST, "Administrator credentials (name, email, password) are required");
-        }
-
-        RestaurantAdmin restaurantAdmin = new RestaurantAdmin();
-        restaurantAdmin.setName(adminPayload.getName());
-        restaurantAdmin.setEmail(adminPayload.getEmail());
-        restaurantAdmin.setPassword(this.passwordEncoder.encode(adminPayload.getPassword()));
-        restaurantAdmin.setRole(Role.RESTAURANT_ADMIN);
-        restaurantAdmin.setEnabled(true);
-        restaurantAdmin.setAuthProvider(AuthProvider.LOCAL);
-        restaurant.setAdmin(restaurantAdminRepository.save(restaurantAdmin));
-
-        return this.restaurantRepository.save(restaurant);
-    }
 
     public Restaurant updateRestaurant(Long restaurantId, RestaurantDto dto, MultipartFile image, MultipartFile icon) throws IOException {
         if (dto == null) {

@@ -3,6 +3,7 @@ package com.foodify.server.modules.identity.domain;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.foodify.server.modules.delivery.domain.Delivery;
+import com.foodify.server.modules.delivery.domain.DriverDeposit;
 import com.foodify.server.modules.delivery.domain.DriverShift;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -72,6 +73,9 @@ public class Driver extends User {
     @Column(name = "deposit_warning_sent_at")
     private LocalDateTime depositWarningSentAt;
 
+    @OneToMany(mappedBy = "driver")
+    @JsonIgnore
+    private List<DriverDeposit> deposits;
     @Enumerated(EnumType.STRING)
     @Column(name = "verification_status", nullable = false)
     private DriverVerificationStatus verificationStatus = DriverVerificationStatus.PENDING_DOCUMENTS;
